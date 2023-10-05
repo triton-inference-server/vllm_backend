@@ -60,6 +60,7 @@ class TritonPythonModel:
         with open(engine_args_filepath) as file:
             vllm_engine_config = json.load(file)
 
+        # Create an AsyncLLMEngine from the config from JSON
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**vllm_engine_config)
         )
@@ -67,8 +68,10 @@ class TritonPythonModel:
         output_config = pb_utils.get_output_config_by_name(self.model_config, "text")
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
+        # Counter to keep track of ongoing request counts
         self.ongoing_request_count = 0
 
+        # Starting asyncio event loop to process the received requests asynchronously.
         self._loop = asyncio.get_event_loop()
         self._loop_thread = threading.Thread(
             target=self.engine_loop, args=(self._loop,)
@@ -98,9 +101,11 @@ class TritonPythonModel:
         Primary coroutine running on the engine event loop. This coroutine is responsible for
         keeping the engine alive until a shutdown is requested.
         """
+        # first await the shutdown signal
         while self._shutdown_event.is_set() is False:
             await asyncio.sleep(5)
 
+        # Wait for the ongoing_requests
         while self.ongoing_request_count > 0:
             self.logger.log_info(
                 "Awaiting remaining {} requests".format(self.ongoing_request_count)
@@ -114,13 +119,13 @@ class TritonPythonModel:
         This functions parses the dictionary values into their
         expected format.
         """
-        sampling_params = {}
         params_dict = json.loads(params_json)
 
+        # Special parsing for the supported sampling parameters
         bool_keys = ["ignore_eos", "skip_special_tokens", "use_beam_search"]
         for k in bool_keys:
             if k in params_dict:
-                sampling_params[k] = bool(params_dict[k])
+                params_dict[k] = bool(params_dict[k])
 
         float_keys = [
             "frequency_penalty",
@@ -131,14 +136,14 @@ class TritonPythonModel:
         ]
         for k in float_keys:
             if k in params_dict:
-                sampling_params[k] = float(params_dict[k])
+                params_dict[k] = float(params_dict[k])
 
         int_keys = ["best_of", "max_tokens", "n", "top_k"]
         for k in int_keys:
             if k in params_dict:
-                sampling_params[k] = int(params_dict[k])
+                params_dict[k] = int(params_dict[k])
 
-        return sampling_params
+        return params_dict
 
     def create_response(self, vllm_output):
         """
@@ -163,7 +168,10 @@ class TritonPythonModel:
         try:
             request_id = random_uuid()
             prompt = pb_utils.get_input_tensor_by_name(request, "prompt").as_numpy()[0]
+            if isinstance(prompt, bytes):
+                prompt = prompt.decode("utf-8")
 
+            # Stream is an optional input tensor, default false if not provided
             stream = False
             stream_input_tensor = pb_utils.get_input_tensor_by_name(request, "stream")
             if stream_input_tensor:
@@ -182,7 +190,7 @@ class TritonPythonModel:
 
             last_output = None
             async for output in self.llm_engine.generate(
-                str(prompt), sampling_params, request_id
+                prompt, sampling_params, request_id
             ):
                 if stream:
                     response_sender.send(self.create_response(output))
