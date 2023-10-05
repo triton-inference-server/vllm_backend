@@ -122,7 +122,13 @@ class TritonPythonModel:
             if k in params_dict:
                 sampling_params[k] = bool(params_dict[k])
 
-        float_keys = ["frequency_penalty", "length_penalty", "presence_penalty", "temperature", "top_p"]
+        float_keys = [
+            "frequency_penalty",
+            "length_penalty",
+            "presence_penalty",
+            "temperature",
+            "top_p",
+        ]
         for k in float_keys:
             if k in params_dict:
                 sampling_params[k] = float(params_dict[k])
@@ -157,13 +163,15 @@ class TritonPythonModel:
         try:
             request_id = random_uuid()
             prompt = pb_utils.get_input_tensor_by_name(request, "prompt").as_numpy()[0]
-            
+
             stream = False
             stream_input_tensor = pb_utils.get_input_tensor_by_name(request, "stream")
             if stream_input_tensor:
                 stream = stream_input_tensor.as_numpy()[0]
 
-            parameters_input_tensor = pb_utils.get_input_tensor_by_name(request, "sampling_parameters")
+            parameters_input_tensor = pb_utils.get_input_tensor_by_name(
+                request, "sampling_parameters"
+            )
             if parameters_input_tensor:
                 parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
             else:
