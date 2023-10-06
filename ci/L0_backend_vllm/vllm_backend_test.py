@@ -58,7 +58,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.python_model_name = "add_sub"
 
     def test_vllm_triton_backend(self):
-        # Load both models
+        # Load both vllm and add_sub models
         self.triton_client.load_model(self.vllm_model_name)
         self.assertTrue(self.triton_client.is_model_ready(self.vllm_model_name))
         self.triton_client.load_model(self.python_model_name)

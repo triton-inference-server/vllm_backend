@@ -77,6 +77,28 @@ set -e
 
 kill $SERVER_PID
 wait $SERVER_PID
+
+# Test Python backend cmdline parameters are propagated to vllm backend
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --backend-config=python,default-max-batch-size=8"
+SERVER_LOG="./vllm_test_cmdline_server.log"
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+kill $SERVER_PID
+wait $SERVER_PID
+
+
+COUNT=$(grep -c "default-max-batch-size\":\"8" "$SERVER_LOG")
+if [[ "$COUNT" -ne 2 ]]; then
+  echo "Cmdline parameters verification Failed"
+fi
+
+
 rm -rf "./models"
 
 if [ $RET -eq 1 ]; then
