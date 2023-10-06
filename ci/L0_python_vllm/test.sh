@@ -30,20 +30,18 @@ source ../common/util.sh
 TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
-SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --log-verbose=1"
-SERVER_LOG="./vllm_backend_server.log"
-CLIENT_LOG="./vllm_backend_client.log"
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
+SERVER_LOG="./vllm_server.log"
+CLIENT_LOG="./vllm_client.log"
 TEST_RESULT_FILE='test_results.txt'
-CLIENT_PY="./vllm_backend_test.py"
-EXPECTED_NUM_TESTS=1
+CLIENT_PY="./vllm_test.py"
+EXPECTED_NUM_TESTS=2
 
-mkdir -p models/vllm_opt/1/
-cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
 
-mkdir -p models/add_sub/1/
-cp ../qa_models/add_sub/model.py models/add_sub/1/
-cp ../qa_models/add_sub/config.pbtxt models/add_sub
+mkdir -p models/vllm/1/
+cp ../qa_models/vllm/model.py models/vllm/1/
+cp ../qa_models/vllm/config.pbtxt models/vllm
+cp ../qa_models/vllm/vllm_engine_args.json models/vllm
 
 pip3 install vllm==0.2.0
 pip3 install tritonclient
@@ -75,9 +73,9 @@ else
 fi
 set -e
 
+#rm -rf "./models"
 kill $SERVER_PID
 wait $SERVER_PID
-rm -rf "./models"
 
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
