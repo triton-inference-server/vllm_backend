@@ -45,7 +45,6 @@ mkdir -p models/add_sub/1/
 cp ../qa_models/add_sub/model.py models/add_sub/1/
 cp ../qa_models/add_sub/config.pbtxt models/add_sub
 
-pip3 install vllm==0.2.0
 pip3 install tritonclient
 pip3 install grpcio
 

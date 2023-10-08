@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 name: "vllm_opt"
-backend: "vllm_triton_backend"
+backend: "vllm"
 max_batch_size: 0
 
 model_transaction_policy {
