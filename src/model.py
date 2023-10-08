@@ -60,7 +60,7 @@ class TritonPythonModel:
         )
         assert os.path.isfile(
             engine_args_filepath
-        ), f"'{_VLLM_ENGINE_ARGS_FILENAME}' containing vllm engine args must be provided in '{args['model_repository']}'"
+        ), f"'{_VLLM_ENGINE_ARGS_FILENAME}' containing vllm engine args must be provided in '{pb_utils.get_model_dir()}'"
         with open(engine_args_filepath) as file:
             vllm_engine_config = json.load(file)
 
