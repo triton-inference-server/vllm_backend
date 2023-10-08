@@ -152,6 +152,15 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Test result files
+Miniconda*
+miniconda
+vllm_env.tar.gz
+triton_python_backend_stub
+python_backend
+*results.txt
+*.log
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
