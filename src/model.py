@@ -179,7 +179,11 @@ class TritonPythonModel:
             ).as_numpy()[0]
             if isinstance(prompt, bytes):
                 prompt = prompt.decode("utf-8")
-            stream = pb_utils.get_input_tensor_by_name(request, "stream").as_numpy()[0]
+            stream = pb_utils.get_input_tensor_by_name(request, "stream")
+            if stream:
+               stream = stream.as_numpy()[0]
+            else:
+               stream = False
 
             # Request parameters are not yet supported via
             # BLS. Provide an optional mechanism to receive serialized
