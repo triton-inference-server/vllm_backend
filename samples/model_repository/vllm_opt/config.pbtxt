@@ -51,7 +51,7 @@ input [
     dims: [ 1 ]
   },
   {
-    name: "SAMPLING_PARAMETERS"
+    name: "sampling_parameters"
     data_type: TYPE_STRING
     dims: [ 1 ]
     optional: true
