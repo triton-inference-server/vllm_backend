@@ -41,7 +41,7 @@ model_transaction_policy {
 
 input [
   {
-    name: "PROMPT"
+    name: "text_input"
     data_type: TYPE_STRING
     dims: [ 1 ]
   },
