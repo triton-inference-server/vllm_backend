@@ -27,7 +27,6 @@
 import argparse
 import asyncio
 import json
-import queue
 import sys
 from os import system
 
