@@ -60,7 +60,7 @@ input [
 
 output [
   {
-    name: "TEXT"
+    name: "text_output"
     data_type: TYPE_STRING
     dims: [ -1 ]
   }
