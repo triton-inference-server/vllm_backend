@@ -107,7 +107,7 @@ class VLLMTritonBackendTest(TestResultCollector):
             result = user_data._completed_requests.get()
             self.assertIsNot(type(result), InferenceServerException)
 
-            output = result.as_numpy("TEXT")
+            output = result.as_numpy("text_output")
             self.assertIsNotNone(output)
 
         self.triton_client.stop_stream()
@@ -150,21 +150,21 @@ class VLLMTritonBackendTest(TestResultCollector):
         inputs = []
 
         prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
-        inputs.append(grpcclient.InferInput("PROMPT", [1], "BYTES"))
+        inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
         inputs[-1].set_data_from_numpy(prompt_data)
 
         stream_data = np.array([stream], dtype=bool)
-        inputs.append(grpcclient.InferInput("STREAM", [1], "BOOL"))
+        inputs.append(grpcclient.InferInput("stream", [1], "BOOL"))
         inputs[-1].set_data_from_numpy(stream_data)
 
         if send_parameters_as_tensor:
             sampling_parameters_data = np.array(
                 [json.dumps(sampling_parameters).encode("utf-8")], dtype=np.object_
             )
-            inputs.append(grpcclient.InferInput("SAMPLING_PARAMETERS", [1], "BYTES"))
+            inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
             inputs[-1].set_data_from_numpy(sampling_parameters_data)
 
-        outputs = [grpcclient.InferRequestedOutput("TEXT")]
+        outputs = [grpcclient.InferRequestedOutput("text_output")]
 
         return inputs, outputs
 
