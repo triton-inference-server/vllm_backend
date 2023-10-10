@@ -46,7 +46,7 @@ input [
     dims: [ 1 ]
   },
   {
-    name: "STREAM"
+    name: "stream"
     data_type: TYPE_BOOL
     dims: [ 1 ]
   },
