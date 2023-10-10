@@ -76,7 +76,6 @@ This client is meant to function similarly to the Triton
 [vLLM example](https://github.com/triton-inference-server/tutorials/tree/main/Quick_Deploy/vLLM).
 By default, this will test `prompts.txt`, which we have included in the samples folder.
 
-
 ## Running the Latest vLLM Version
 
 By default, the vLLM backend uses the version of vLLM that is available via Pip.
