@@ -65,7 +65,6 @@ The backend repository should look like this:
     |-- triton_python_backend_utils.py
 ```
 
-
 ## Using the vLLM Backend
 
 You can see an example model_repository in the `samples` folder.
@@ -77,6 +76,16 @@ This client is meant to function similarly to the Triton
 [vLLM example](https://github.com/triton-inference-server/tutorials/tree/main/Quick_Deploy/vLLM).
 By default, this will test `prompts.txt`, which we have included in the samples folder.
 
+
+## Running the Latest vLLM Version
+
+By default, the vLLM backend uses the version of vLLM that is available via Pip.
+These are compatible with the newer versions of CUDA running in Triton.
+If you would like to use a specific vLLM commit or the latest version of vLLM, you
+will need to use a
+[custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
+Please see the
+[conda](samples/conda) subdirectory of the `samples` folder for information on how to do so.
 
 ## Important Notes
 
