@@ -48,7 +48,7 @@ main Triton [issues page](https://github.com/triton-inference-server/server/issu
 ## Build the vLLM Backend
 
 As a Python-based backend, your Triton server just needs to have the (Python backend)[https://github.com/triton-inference-server/python_backend]
-built under `/opt/tritonserver/backends/python`. After that, you can save this in the backends folder as `/opt/tritonserver/backends/vllm`. The `model.py` file in the `src` directory should be in the vllm folder and will function as your Python-based backend. 
+built under `/opt/tritonserver/backends/python`. After that, you can save this in the backends folder as `/opt/tritonserver/backends/vllm`. The `model.py` file in the `src` directory should be in the vllm folder and will function as your Python-based backend.
 
 In other words, there are no build steps. You only need to copy this to your Triton backends repository. If you use the official Triton vLLM container, this is already set up for you.
 
