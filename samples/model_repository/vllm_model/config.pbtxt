@@ -43,7 +43,8 @@ max_batch_size: 0
 model_transaction_policy {
   decoupled: True
 }
-
+# Note: The vLLM backend uses the following input and output names.  
+# Any change here needs to also be made in model.py
 input [
   {
     name: "text_input"
