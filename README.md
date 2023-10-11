@@ -37,7 +37,7 @@ questions or report problems on the [issues
 page](https://github.com/triton-inference-server/server/issues).
 This backend is designed to run [vLLM](https://github.com/vllm-project/vllm)
 with
-[one of the HuggingFace models](https://vllm.readthedocs.io/en/latest/models/supported_models.html)
+[vllm supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html)
 it supports.
 
 Where can I ask general questions about Triton and Triton backends?
