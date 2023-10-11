@@ -88,7 +88,9 @@ Please see the
 
 ## Running Multiple Instances of Triton Server
 
-Python-based backends use shared memory to transfer requests to the stub process. When running multiple instances of Triton Server on the same machine that use Python-based backend models, there would be shared memory region name conflicts that can result in segmentation faults or hangs. In order to avoid this issue, you need to specify different shm-region-prefix-name using the --backend-config flag.
+Python-based backends use shared memory to transfer requests to the stub process. When running multiple instances of Triton Server on the same machine you need to specify different shm-region-prefix-name using the --backend-config flag.
+
+> **Note** There are known runtime issues If you do not launch with different region-prefix-names which can lead to segmentation faults and hangs. 
 ```
 # Triton instance 1
 tritonserver --model-repository=/models --backend-config=python,shm-region-prefix-name=prefix1
