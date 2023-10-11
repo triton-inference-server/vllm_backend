@@ -90,14 +90,35 @@ fi
 
 kill $SERVER_PID
 wait $SERVER_PID
-
+rm -rf "./models"
 
 COUNT=$(grep -c "default-max-batch-size\":\"8" "$SERVER_LOG")
 if [[ "$COUNT" -ne 2 ]]; then
   echo "Cmdline parameters verification Failed"
 fi
 
+# Test loading multiple vllm models at the same time
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR}"
+SERVER_LOG="./vllm_test_multi_model.log"
 
+# Create two models, one is just a copy of the other, and make sure gpu
+# utilization is low enough for multiple models to avoid OOM
+MODEL1="vllm_one"
+MODEL2="vllm_two"
+mkdir -p models/${MODEL1}/1/
+cp ../qa_models/vllm_opt/config.pbtxt models/${MODEL1}/
+echo '{"model":"facebook/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/${MODEL1}/1/model.json
+cp -r models/${MODEL1} models/${MODEL2}
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+kill $SERVER_PID
+wait $SERVER_PID
 rm -rf "./models"
 
 if [ $RET -eq 1 ]; then
