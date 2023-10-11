@@ -61,7 +61,10 @@ model_repository/
     `-- vllm_env
 ```
 
-You also want to add this section to the config.pbtxt of your model:
+You also want to add this section to the config.pbtxt of your model.
+This will direct Triton to look for a custom execution environment in
+the vllm_env subdirectory of your model's directory.
+
 ```
 parameters: {
   key: "EXECUTION_ENV_PATH",
