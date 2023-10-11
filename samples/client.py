@@ -29,9 +29,7 @@
 import argparse
 import asyncio
 import json
-import queue
 import sys
-from os import system
 
 import numpy as np
 import tritonclient.grpc.aio as grpcclient
@@ -93,7 +91,6 @@ class LLMClient:
 
     async def run(self):
         sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
-        stream = self._flags.streaming_mode
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
