@@ -86,11 +86,7 @@ will need to use a
 Please see the
 [conda](samples/conda) subdirectory of the `samples` folder for information on how to do so.
 
-## Important Notes
-
-* At present, Triton only supports one Python-based backend per server. If you try to start multiple vLLM models, you will get an error.
-
-### Running Multiple Instances of Triton Server
+## Running Multiple Instances of Triton Server
 
 Python-based backends use shared memory to transfer requests to the stub process. When running multiple instances of Triton Server on the same machine that use Python-based backend models, there would be shared memory region name conflicts that can result in segmentation faults or hangs. In order to avoid this issue, you need to specify different shm-region-prefix-name using the --backend-config flag.
 ```

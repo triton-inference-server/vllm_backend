@@ -29,7 +29,6 @@
 # instructions in the samples/conda README on how to add a parameter
 # to use a custom execution environment.
 
-name: "vllm_model"
 backend: "vllm"
 
 # Disabling batching in Triton, let vLLM handle the batching on its own.
