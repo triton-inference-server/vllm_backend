@@ -24,7 +24,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-name: "vllm_opt"
+# Note: You do not need to change any fields in this configuration.
+# If you are using a custom execution environment, there are
+# instructions in the samples/conda README on how to add a parameter
+# to use a custom execution environment.
+
+name: "vllm_model"
 backend: "vllm"
 
 # Disabling batching in Triton, let vLLM handle the batching on its own.
