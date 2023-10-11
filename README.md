@@ -98,4 +98,3 @@ tritonserver --model-repository=/models --backend-config=python,shm-region-prefi
 # Triton instance 2
 tritonserver --model-repository=/models --backend-config=python,shm-region-prefix-name=prefix2
 ```
-Note that the hangs would only occur if the /dev/shm is shared between the two instances of the server. If you run the servers in different containers that do not share this location, you do not need to specify shm-region-prefix-name.
