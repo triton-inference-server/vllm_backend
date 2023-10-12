@@ -65,7 +65,7 @@ script.
 A sample command to build a Triton Server container with all options enabled is shown below.
 
 ```
-./build.py -v --image=base,${BASE_CONTAINER_IMAGE_NAME}
+./build.py -v --image=base,${BASE_CONTAINER_IMAGE_NAME}-min
                 --enable-logging --enable-stats --enable-tracing
                 --enable-metrics --enable-gpu-metrics --enable-cpu-metrics
                 --enable-gpu
@@ -116,6 +116,23 @@ will need to use a
 [custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
 Please see the
 [conda](samples/conda) subdirectory of the `samples` folder for information on how to do so.
+
+
+## Sending Your First Inference
+
+After you
+[start Triton](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/getting_started/quickstart.html)
+with the
+[sample model_repository](samples/model_repository),
+you can quickly run your first inference request with the
+[generate endpoint](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_generate.md).
+
+Try out the command below.
+You can replace _client input_ with your input text.
+
+```
+$ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "client input", "parameters": {"stream": false, "temperature": 0}}'
+```
 
 ## Running Multiple Instances of Triton Server
 
