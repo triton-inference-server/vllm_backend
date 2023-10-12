@@ -47,23 +47,40 @@ available in the main [server](https://github.com/triton-inference-server/server
 repo. If you don't find your answer there you can ask questions on the
 main Triton [issues page](https://github.com/triton-inference-server/server/issues).
 
-## Build the vLLM Backend
+## Building the vLLM Backend
 
-As a Python-based backend, your Triton server just needs to have the [Python backend](https://github.com/triton-inference-server/python_backend)
-located in the backends directory: `/opt/tritonserver/backends/python`. After that, you can save the vLLM backend in the backends folder as `/opt/tritonserver/backends/vllm`. The `model.py` file in the `src` directory should be in the vllm folder and will function as your Python-based backend.
+There are several ways to use the vLLM backend.
 
-In other words, there are no build steps. You only need to copy this to your Triton backends repository. If you use the official Triton vLLM container, this is already set up for you.
+### Option 1. Run the Docker Container.
 
-The backend repository should look like this:
+Starting in release 23.10, Triton includes a container with just the vLLM backend. This container has everything you need to run your vLLM model.
+
+### Option 2. Build via the Build.py Script.
+You can follow steps described in the
+[Building With Docker] (https://github.com/triton-inference-server/server/blob/main/docs/customization_guide/build.md#building-with-docker)
+guide and use the
+(build.py)[https://github.com/triton-inference-server/server/blob/main/build.py]
+script.
+
+A sample command to build a Triton Server container with all available options enabled is below.
+
 ```
-/opt/tritonserver/backends/
-`-- vllm
-    |-- model.py
- -- python
-    |-- libtriton_python.so
-    |-- triton_python_backend_stub
-    |-- triton_python_backend_utils.py
+./build.py -v --image=base,${BASE_CONTAINER_IMAGE_NAME}
+                --enable-logging --enable-stats --enable-tracing
+                --enable-metrics --enable-gpu-metrics --enable-cpu-metrics
+                --enable-gpu
+                --filesystem=gcs --filesystem=s3 --filesystem=azure_storage
+                --endpoint=http --endpoint=grpc --endpoint=sagemaker --endpoint=vertex-ai
+                --backend=python:r23.10
+                --backend=vllm:r23.10
 ```
+
+### Option 3. Add the vLLM Backend to the Triton Container
+
+You can install the vLLM backend directly into our NGC Triton container. In this case, please install vLLM first. You can do this by running `pip install vllm==<vLLM_version>`, then set up the vLLM backend in the container as follows:
+
+mkdir -p /opt/tritonserver/backends/vllm
+wget -P /opt/tritonserver/backends/vllm https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
 
 ## Using the vLLM Backend
 
@@ -71,14 +88,16 @@ You can see an example model_repository in the `samples` folder.
 You can use this as is and change the model by changing the `model` value in `model.json`.
 You can change the GPU utilization and logging parameters in that file as well.
 
-In the `samples` folder, you can also find a sample client, `client.py`.
-This client is meant to function similarly to the Triton
-[vLLM example](https://github.com/triton-inference-server/tutorials/tree/main/Quick_Deploy/vLLM).
-By default, this will test `prompts.txt`, which we have included in the samples folder.
+In the `[samples](samples)` folder, you can also find a sample client,
+`[client.py](samples/client.py)`.
 
 ## Running the Latest vLLM Version
 
-By default, the vLLM backend uses the version of vLLM that is available via Pip.
+To see the version of vLLM in the container, see the
+[version_map](https://github.com/triton-inference-server/server/blob/85487a1e15438ccb9592b58e308a3f78724fa483/build.py#L83)
+in [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
+for the Triton version you are using.
+
 These are compatible with the newer versions of CUDA running in Triton.
 If you would like to use a specific vLLM commit or the latest version of vLLM, you
 will need to use a
@@ -102,3 +121,10 @@ tritonserver --model-repository=/models --backend-config=python,shm-region-prefi
 # Triton instance 2
 tritonserver --model-repository=/models --backend-config=python,shm-region-prefix-name=prefix2
 ```
+
+## Referencing the Tutorial
+
+You can read further in the
+[vLLM Quick Deploy guide](https://github.com/triton-inference-server/tutorials/tree/main/Quick_Deploy/vLLM)
+in the
+[tutorials](https://github.com/triton-inference-server/tutorials/) repository.
