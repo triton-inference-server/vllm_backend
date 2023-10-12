@@ -65,7 +65,7 @@ script.
 A sample command to build a Triton Server container with all options enabled is shown below.
 
 ```
-./build.py -v --image=base,${BASE_CONTAINER_IMAGE_NAME}-min
+./build.py -v --image=min,${BASE_CONTAINER_IMAGE_NAME}-min
                 --enable-logging --enable-stats --enable-tracing
                 --enable-metrics --enable-gpu-metrics --enable-cpu-metrics
                 --enable-gpu
