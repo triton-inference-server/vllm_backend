@@ -85,7 +85,7 @@ class LLMClient:
             if error:
                 print(f"Encountered error while processing: {error}")
             else:
-                output = result.as_numpy("TEXT")
+                output = result.as_numpy("text_output")
                 for i in output:
                     self._results_dict[result.get_response().id].append(i)
 
@@ -126,13 +126,13 @@ class LLMClient:
         inputs = []
         prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
         try:
-            inputs.append(grpcclient.InferInput("PROMPT", [1], "BYTES"))
+            inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
             inputs[-1].set_data_from_numpy(prompt_data)
         except Exception as error:
             print(f"Encountered an error during request creation: {error}")
 
         stream_data = np.array([stream], dtype=bool)
-        inputs.append(grpcclient.InferInput("STREAM", [1], "BOOL"))
+        inputs.append(grpcclient.InferInput("stream", [1], "BOOL"))
         inputs[-1].set_data_from_numpy(stream_data)
 
         # Request parameters are not yet supported via BLS. Provide an
@@ -143,12 +143,12 @@ class LLMClient:
             sampling_parameters_data = np.array(
                 [json.dumps(sampling_parameters).encode("utf-8")], dtype=np.object_
             )
-            inputs.append(grpcclient.InferInput("SAMPLING_PARAMETERS", [1], "BYTES"))
+            inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
             inputs[-1].set_data_from_numpy(sampling_parameters_data)
 
         # Add requested outputs
         outputs = []
-        outputs.append(grpcclient.InferRequestedOutput("TEXT"))
+        outputs.append(grpcclient.InferRequestedOutput("text_output"))
 
         # Issue the asynchronous sequence inference.
         return {
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         "--model",
         type=str,
         required=False,
-        default="vllm",
+        default="vllm_model",
         help="Model name",
     )
     parser.add_argument(

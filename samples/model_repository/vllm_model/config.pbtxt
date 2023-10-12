@@ -26,6 +26,7 @@
 
 # Note: You do not need to change any fields in this configuration.
 
+name: "vllm_model"
 backend: "vllm"
 
 # Disabling batching in Triton, let vLLM handle the batching on its own.
