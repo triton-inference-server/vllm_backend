@@ -49,11 +49,11 @@ main Triton [issues page](https://github.com/triton-inference-server/server/issu
 
 ## Building the vLLM Backend
 
-There are several ways to use the vLLM backend.
+There are several ways to access the vLLM backend.
 
 ### Option 1. Run the Docker Container.
 
-Starting in release 23.10, Triton includes a container with just the vLLM backend. This container has everything you need to run your vLLM model.
+Starting in release 23.10, Triton includes a container with the vLLM backend. This container has everything you need to run your vLLM model.
 
 ### Option 2. Build via the Build.py Script.
 You can follow steps described in the
@@ -62,7 +62,7 @@ guide and use the
 [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
 script.
 
-A sample command to build a Triton Server container with all available options enabled is below.
+A sample command to build a Triton Server container with all options enabled is shown below.
 
 ```
 ./build.py -v --image=base,${BASE_CONTAINER_IMAGE_NAME}
@@ -77,22 +77,29 @@ A sample command to build a Triton Server container with all available options e
 
 ### Option 3. Add the vLLM Backend to the Triton Container
 
-You can install the vLLM backend directly into our NGC Triton container. In this case, please install vLLM first. You can do this by running `pip install vllm==<vLLM_version>`, then set up the vLLM backend in the container as follows:
+You can install the vLLM backend directly into the NGC Triton container.
+In this case, please install vLLM first. You can do so by running
+`pip install vllm==<vLLM_version>`. Then, set up the vLLM backend in the
+container with the following commands:
 
+```
 mkdir -p /opt/tritonserver/backends/vllm
 wget -P /opt/tritonserver/backends/vllm https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
+```
 
 ## Using the vLLM Backend
 
-You can see an example model_repository in the `samples` folder.
+You can see an example
+[model_repository](samples/model_repository)
+in the [samples](samples) folder.
 You can use this as is and change the model by changing the `model` value in `model.json`.
 `model.json` represents a key-value dictionary that is fed to vLLM's AsyncLLMEngine when initializing the model.
 You can see supported arguments in vLLM's
-(arg_utils.py)[https://github.com/vllm-project/vllm/blob/main/vllm/engine/arg_utils.py].
+[arg_utils.py](https://github.com/vllm-project/vllm/blob/main/vllm/engine/arg_utils.py).
 Specifically,
-(here)[https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L11]
+[here](https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L11)
 and
-(here)[https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201].
+[here](https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201).
 
 In the [samples](samples) folder, you can also find a sample client,
 [client.py](samples/client.py).
@@ -102,9 +109,8 @@ In the [samples](samples) folder, you can also find a sample client,
 To see the version of vLLM in the container, see the
 [version_map](https://github.com/triton-inference-server/server/blob/85487a1e15438ccb9592b58e308a3f78724fa483/build.py#L83)
 in [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
-for the Triton version you are using.
+for the Triton version you are using. These are compatible with the newer versions of CUDA running in Triton.
 
-These are compatible with the newer versions of CUDA running in Triton.
 If you would like to use a specific vLLM commit or the latest version of vLLM, you
 will need to use a
 [custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
