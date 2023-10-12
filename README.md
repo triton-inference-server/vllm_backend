@@ -36,9 +36,9 @@ repo](https://github.com/triton-inference-server/backend). Ask
 questions or report problems on the [issues
 page](https://github.com/triton-inference-server/server/issues).
 This backend is designed to run
-(supported models)[https://vllm.readthedocs.io/en/latest/models/supported_models.html]
+[supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html)
 on a
-(vLLM engine)[https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py].
+[vLLM engine](https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py).
 
 Where can I ask general questions about Triton and Triton backends?
 Be sure to read all the information below as well as the [general
@@ -57,9 +57,9 @@ Starting in release 23.10, Triton includes a container with just the vLLM backen
 
 ### Option 2. Build via the Build.py Script.
 You can follow steps described in the
-[Building With Docker] (https://github.com/triton-inference-server/server/blob/main/docs/customization_guide/build.md#building-with-docker)
+[Building With Docker](https://github.com/triton-inference-server/server/blob/main/docs/customization_guide/build.md#building-with-docker)
 guide and use the
-(build.py)[https://github.com/triton-inference-server/server/blob/main/build.py]
+[build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
 script.
 
 A sample command to build a Triton Server container with all available options enabled is below.
@@ -94,8 +94,8 @@ Specifically,
 and
 (here)[https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201].
 
-In the `[samples](samples)` folder, you can also find a sample client,
-`[client.py](samples/client.py)`.
+In the [samples](samples) folder, you can also find a sample client,
+[client.py](samples/client.py).
 
 ## Running the Latest vLLM Version
 
