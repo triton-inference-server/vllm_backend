@@ -25,9 +25,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Note: You do not need to change any fields in this configuration.
-# If you are using a custom execution environment, there are
-# instructions in the samples/conda README on how to add a parameter
-# to use a custom execution environment.
 
 backend: "vllm"
 
