@@ -45,6 +45,16 @@ mkdir -p models/add_sub/1/
 cp ../qa_models/add_sub/model.py models/add_sub/1/
 cp ../qa_models/add_sub/config.pbtxt models/add_sub
 
+# Invalid model attribute
+mkdir -p models/vllm_invalid_1/1/
+cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_1/1/
+echo '{"model":"facebook/opt-125m", "invlaid_attribute": "test", "gpu_memory_utilization":0.3}' > models/vllm_invalid_1/1/model.json
+
+# Invalid model name
+mkdir -p models/vllm_invalid_2/1/
+cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_2/1/
+echo '{"model":"invalid_model/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/vllm_invalid_2/1/model.json
+
 pip3 install tritonclient
 pip3 install grpcio
 
