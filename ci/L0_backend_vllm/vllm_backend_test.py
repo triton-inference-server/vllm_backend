@@ -81,17 +81,13 @@ class VLLMTritonBackendTest(TestResultCollector):
 
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
-        self.assertRaises(
-            InferenceServerException,
-            self.triton_client.load_model(model_name),
-        )
+        with self.assertRaises(InferenceServerException):
+            self.triton_client.load_model(model_name)
 
     def test_vllm_invalid_model_name(self):
         model_name = "vllm_invalid_2"
-        self.assertRaises(
-            InferenceServerException,
-            self.triton_client.load_model(model_name),
-        )
+        with self.assertRaises(InferenceServerException):
+            self.triton_client.load_model(model_name)
 
     def _test_vllm_model(self, send_parameters_as_tensor):
         user_data = UserData()

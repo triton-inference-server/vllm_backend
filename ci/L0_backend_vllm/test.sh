@@ -35,7 +35,7 @@ SERVER_LOG="./vllm_backend_server.log"
 CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_backend_test.py"
-EXPECTED_NUM_TESTS=1
+EXPECTED_NUM_TESTS=3
 
 mkdir -p models/vllm_opt/1/
 cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
@@ -47,12 +47,12 @@ cp ../qa_models/add_sub/config.pbtxt models/add_sub
 
 # Invalid model attribute
 mkdir -p models/vllm_invalid_1/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_1/1/
+cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_1/
 echo '{"model":"facebook/opt-125m", "invlaid_attribute": "test", "gpu_memory_utilization":0.3}' > models/vllm_invalid_1/1/model.json
 
 # Invalid model name
 mkdir -p models/vllm_invalid_2/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_2/1/
+cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_2/
 echo '{"model":"invalid_model/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/vllm_invalid_2/1/model.json
 
 pip3 install tritonclient
@@ -90,6 +90,8 @@ wait $SERVER_PID
 # Test Python backend cmdline parameters are propagated to vllm backend
 SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --backend-config=python,default-max-batch-size=8"
 SERVER_LOG="./vllm_test_cmdline_server.log"
+
+rm -rf ./models/vllm_invalid_1 ./models/vllm_invalid_2
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
