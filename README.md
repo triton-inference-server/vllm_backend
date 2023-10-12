@@ -35,10 +35,10 @@ You can learn more about Triton backends in the [backend
 repo](https://github.com/triton-inference-server/backend). Ask
 questions or report problems on the [issues
 page](https://github.com/triton-inference-server/server/issues).
-This backend is designed to run [vLLM](https://github.com/vllm-project/vllm)
-with
-[vLLM supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html)
-it supports.
+This backend is designed to run
+(supported models)[https://vllm.readthedocs.io/en/latest/models/supported_models.html]
+on a
+(vLLM engine)[https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py].
 
 Where can I ask general questions about Triton and Triton backends?
 Be sure to read all the information below as well as the [general
