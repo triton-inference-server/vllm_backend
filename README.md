@@ -86,7 +86,13 @@ wget -P /opt/tritonserver/backends/vllm https://raw.githubusercontent.com/triton
 
 You can see an example model_repository in the `samples` folder.
 You can use this as is and change the model by changing the `model` value in `model.json`.
-You can change the GPU utilization and logging parameters in that file as well.
+`model.json` represents a key-value dictionary that is fed to vLLM's AsyncLLMEngine when initializing the model.
+You can see supported arguments in vLLM's
+(arg_utils.py)[https://github.com/vllm-project/vllm/blob/main/vllm/engine/arg_utils.py].
+Specifically,
+(here)[https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L11]
+and
+(here)[https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201].
 
 In the `[samples](samples)` folder, you can also find a sample client,
 `[client.py](samples/client.py)`.
