@@ -118,6 +118,10 @@ class TritonPythonModel:
             )
             await asyncio.sleep(5)
 
+        for task in asyncio.all_tasks(loop=self._loop):
+            if task is not asyncio.current_task():
+                task.cancel()
+
         self.logger.log_info("Shutdown complete")
 
     def get_sampling_params_dict(self, params_json):
