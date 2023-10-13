@@ -28,8 +28,9 @@
 
 import json
 import unittest
-import tritonclient.grpc as grpcclient
+
 import numpy as np
+import tritonclient.grpc as grpcclient
 
 
 class TestResultCollector(unittest.TestCase):

@@ -36,7 +36,7 @@ import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
 sys.path.append("../common")
-from test_util import TestResultCollector
+from test_util import TestResultCollector, create_vllm_request
 
 
 class UserData:
@@ -107,7 +107,7 @@ class VLLMTritonBackendTest(TestResultCollector):
                 i,
                 stream,
                 sampling_parameters,
-                self.vllm_model_namem,
+                self.vllm_model_name,
                 send_parameters_as_tensor,
             )
             self.triton_client.async_stream_infer(
