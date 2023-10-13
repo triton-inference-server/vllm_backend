@@ -49,7 +49,7 @@ main Triton [issues page](https://github.com/triton-inference-server/server/issu
 
 ## Building the vLLM Backend
 
-There are several ways to access the vLLM backend.
+There are several ways to take advantage of the vLLM backend.
 
 ### Option 1. Run the Docker Container.
 
