@@ -53,20 +53,19 @@ There are several ways to access the vLLM backend.
 
 ### Option 1. Run the Docker Container.
 
-Starting in release 23.10, Triton includes a container with the vLLM backend. This container has everything you need to run your vLLM model.
+Pull the container with vLLM backend from [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) registry. This container has everything you need to run your vLLM model.
 
-### Option 2. Build via the Build.py Script.
+### Option 2. Build a custom container from source
 You can follow steps described in the
 [Building With Docker](https://github.com/triton-inference-server/server/blob/main/docs/customization_guide/build.md#building-with-docker)
 guide and use the
 [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
 script.
 
-A sample command to build a Triton Server container with all options enabled is shown below.
+A sample command to build a Triton Server container with all options enabled is shown below. Feel free to customize flags according to your needs.
 
 ```
-./build.py -v --image=min,${BASE_CONTAINER_IMAGE_NAME}-min
-                --enable-logging --enable-stats --enable-tracing
+./build.py -v  --enable-logging --enable-stats --enable-tracing
                 --enable-metrics --enable-gpu-metrics --enable-cpu-metrics
                 --enable-gpu
                 --filesystem=gcs --filesystem=s3 --filesystem=azure_storage
@@ -114,8 +113,6 @@ for the Triton version you are using. These are compatible with the newer versio
 If you would like to use a specific vLLM commit or the latest version of vLLM, you
 will need to use a
 [custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
-Please see the
-[conda](samples/conda) subdirectory of the `samples` folder for information on how to do so.
 
 
 ## Sending Your First Inference
