@@ -102,14 +102,19 @@ class VLLMTritonBackendTest(TestResultCollector):
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
-            inputs, outputs = self._create_vllm_request_data(
-                prompts[i], stream, sampling_parameters, send_parameters_as_tensor
+            request_data = create_vllm_request(
+                prompts[i],
+                i,
+                stream,
+                sampling_parameters,
+                self.vllm_model_namem,
+                send_parameters_as_tensor,
             )
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
-                request_id=str(i),
-                inputs=inputs,
-                outputs=outputs,
+                request_id=request_data["request_id"],
+                inputs=request_data["inputs"],
+                outputs=request_data["outputs"],
                 parameters=sampling_parameters,
             )
 
@@ -153,30 +158,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.assertTrue(
             np.allclose(input0_data - input1_data, response.as_numpy("OUTPUT1"))
         )
-
-    def _create_vllm_request_data(
-        self, prompt, stream, sampling_parameters, send_parameters_as_tensor
-    ):
-        inputs = []
-
-        prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
-        inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
-        inputs[-1].set_data_from_numpy(prompt_data)
-
-        stream_data = np.array([stream], dtype=bool)
-        inputs.append(grpcclient.InferInput("stream", [1], "BOOL"))
-        inputs[-1].set_data_from_numpy(stream_data)
-
-        if send_parameters_as_tensor:
-            sampling_parameters_data = np.array(
-                [json.dumps(sampling_parameters).encode("utf-8")], dtype=np.object_
-            )
-            inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
-            inputs[-1].set_data_from_numpy(sampling_parameters_data)
-
-        outputs = [grpcclient.InferRequestedOutput("text_output")]
-
-        return inputs, outputs
 
     def tearDown(self):
         self.triton_client.close()

@@ -28,6 +28,8 @@
 
 import json
 import unittest
+import tritonclient.grpc as grpcclient
+import numpy as np
 
 
 class TestResultCollector(unittest.TestCase):
@@ -55,3 +57,64 @@ class TestResultCollector(unittest.TestCase):
         errors = len(test_result.errors)
         failures = len(test_result.failures)
         self.setResult(total, errors, failures)
+
+
+class AsyncTestResultCollector(unittest.IsolatedAsyncioTestCase):
+    # TestResultCollector stores test result and prints it to stdout. In order
+    # to use this class, unit tests must inherit this class. Use
+    # `check_test_results` bash function from `common/util.sh` to verify the
+    # expected number of tests produced by this class
+
+    @classmethod
+    def setResult(cls, total, errors, failures):
+        cls.total, cls.errors, cls.failures = total, errors, failures
+
+    @classmethod
+    def tearDownClass(cls):
+        # this method is called when all the unit tests in a class are
+        # finished.
+        json_res = {"total": cls.total, "errors": cls.errors, "failures": cls.failures}
+        with open("test_results.txt", "w+") as f:
+            f.write(json.dumps(json_res))
+
+    def run(self, result=None):
+        # result argument stores the accumulative test results
+        test_result = super().run(result)
+        total = test_result.testsRun
+        errors = len(test_result.errors)
+        failures = len(test_result.failures)
+        self.setResult(total, errors, failures)
+
+
+def create_vllm_request(
+    prompt,
+    request_id,
+    stream,
+    sampling_parameters,
+    model_name,
+    send_parameters_as_tensor=True,
+):
+    inputs = []
+
+    inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
+    inputs[-1].set_data_from_numpy(np.array([prompt.encode("utf-8")], dtype=np.object_))
+
+    inputs.append(grpcclient.InferInput("stream", [1], "BOOL"))
+    inputs[-1].set_data_from_numpy(np.array([stream], dtype=bool))
+
+    if send_parameters_as_tensor:
+        sampling_parameters_data = np.array(
+            [json.dumps(sampling_parameters).encode("utf-8")], dtype=np.object_
+        )
+        inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
+        inputs[-1].set_data_from_numpy(sampling_parameters_data)
+
+    outputs = [grpcclient.InferRequestedOutput("text_output")]
+
+    return {
+        "model_name": model_name,
+        "inputs": inputs,
+        "outputs": outputs,
+        "request_id": str(request_id),
+        "parameters": sampling_parameters,
+    }
