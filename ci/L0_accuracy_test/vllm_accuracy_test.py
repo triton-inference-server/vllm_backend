@@ -30,9 +30,14 @@ import sys
 import unittest
 from functools import partial
 
-import numpy as np
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
+
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.utils import random_uuid
+from vllm import SamplingParams
+import asyncio
 
 sys.path.append("../common")
 from test_util import TestResultCollector, create_vllm_request
@@ -50,45 +55,39 @@ def callback(user_data, result, error):
         user_data._completed_requests.put(result)
 
 
-class VLLMTritonBackendTest(TestResultCollector):
+async def generate_python_vllm_output(prompt, llm_engine):
+    request_id = random_uuid()
+    sampling_parameters = {"temperature": 0.1, "top_p": 0.95}
+    sampling_params = SamplingParams(**sampling_parameters)
+
+    python_vllm_output = None
+    last_output = None
+
+    async for vllm_output in llm_engine.generate(prompt, sampling_params, request_id):
+        last_output = vllm_output
+
+    if last_output:
+        python_vllm_output = [
+            (prompt + output.text).encode("utf-8") for output in last_output.outputs
+        ]
+
+    return python_vllm_output
+
+
+class VLLMTritonAccuracyTest(TestResultCollector):
     def setUp(self):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
+        vllm_engine_config = {
+            "model": "facebook/opt-125m",
+            "gpu_memory_utilization": 0.25,
+        }
+
+        self.llm_engine = AsyncLLMEngine.from_engine_args(
+            AsyncEngineArgs(**vllm_engine_config)
+        )
         self.vllm_model_name = "vllm_opt"
-        self.python_model_name = "add_sub"
 
-    def test_vllm_triton_backend(self):
-        # Load both vllm and add_sub models
-        self.triton_client.load_model(self.vllm_model_name)
-        self.assertTrue(self.triton_client.is_model_ready(self.vllm_model_name))
-        self.triton_client.load_model(self.python_model_name)
-        self.assertTrue(self.triton_client.is_model_ready(self.python_model_name))
-
-        # Unload vllm model and test add_sub model
-        self.triton_client.unload_model(self.vllm_model_name)
-        self.assertFalse(self.triton_client.is_model_ready(self.vllm_model_name))
-        self._test_python_model()
-
-        # Load vllm model and unload add_sub model
-        self.triton_client.load_model(self.vllm_model_name)
-        self.triton_client.unload_model(self.python_model_name)
-        self.assertFalse(self.triton_client.is_model_ready(self.python_model_name))
-
-        # Test vllm model and unload vllm model
-        self._test_vllm_model(send_parameters_as_tensor=True)
-        self._test_vllm_model(send_parameters_as_tensor=False)
-        self.triton_client.unload_model(self.vllm_model_name)
-
-    def test_model_with_invalid_attributes(self):
-        model_name = "vllm_invalid_1"
-        with self.assertRaises(InferenceServerException):
-            self.triton_client.load_model(model_name)
-
-    def test_vllm_invalid_model_name(self):
-        model_name = "vllm_invalid_2"
-        with self.assertRaises(InferenceServerException):
-            self.triton_client.load_model(model_name)
-
-    def _test_vllm_model(self, send_parameters_as_tensor):
+    def test_vllm_model(self):
         user_data = UserData()
         stream = False
         prompts = [
@@ -98,16 +97,13 @@ class VLLMTritonBackendTest(TestResultCollector):
         ]
         number_of_vllm_reqs = len(prompts)
         sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        python_vllm_output = []
+        triton_vllm_output = []
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
             request_data = create_vllm_request(
-                prompts[i],
-                i,
-                stream,
-                sampling_parameters,
-                self.vllm_model_name,
-                send_parameters_as_tensor,
+                prompts[i], i, stream, sampling_parameters, self.vllm_model_name
             )
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
@@ -117,6 +113,10 @@ class VLLMTritonBackendTest(TestResultCollector):
                 parameters=sampling_parameters,
             )
 
+            python_vllm_output.extend(
+                asyncio.run(generate_python_vllm_output(prompts[i], self.llm_engine))
+            )
+
         for i in range(number_of_vllm_reqs):
             result = user_data._completed_requests.get()
             self.assertIsNot(type(result), InferenceServerException)
@@ -124,39 +124,12 @@ class VLLMTritonBackendTest(TestResultCollector):
             output = result.as_numpy("text_output")
             self.assertIsNotNone(output)
 
+            triton_vllm_output.extend(output)
+
+        print(triton_vllm_output)
+        print(python_vllm_output)
+
         self.triton_client.stop_stream()
-
-    def _test_python_model(self):
-        shape = [4]
-        input0_data = np.random.rand(*shape).astype(np.float32)
-        input1_data = np.random.rand(*shape).astype(np.float32)
-
-        inputs = [
-            grpcclient.InferInput(
-                "INPUT0", input0_data.shape, np_to_triton_dtype(input0_data.dtype)
-            ),
-            grpcclient.InferInput(
-                "INPUT1", input1_data.shape, np_to_triton_dtype(input1_data.dtype)
-            ),
-        ]
-
-        inputs[0].set_data_from_numpy(input0_data)
-        inputs[1].set_data_from_numpy(input1_data)
-
-        outputs = [
-            grpcclient.InferRequestedOutput("OUTPUT0"),
-            grpcclient.InferRequestedOutput("OUTPUT1"),
-        ]
-
-        response = self.triton_client.infer(
-            self.python_model_name, inputs, request_id="10", outputs=outputs
-        )
-        self.assertTrue(
-            np.allclose(input0_data + input1_data, response.as_numpy("OUTPUT0"))
-        )
-        self.assertTrue(
-            np.allclose(input0_data - input1_data, response.as_numpy("OUTPUT1"))
-        )
 
     def tearDown(self):
         self.triton_client.close()
