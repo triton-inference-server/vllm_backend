@@ -147,7 +147,7 @@ $ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "
 ## Running Multiple Instances of Triton Server
 
 If you are running multiple instances of Triton server with a Python-based backend,
-you need to specify a different shm-region-prefix-name for each server. See
+you need to specify a different `shm-region-prefix-name` for each server. See
 [here](https://github.com/triton-inference-server/python_backend#running-multiple-instances-of-triton-server)
 for more information.
 
