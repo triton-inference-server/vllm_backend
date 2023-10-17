@@ -30,15 +30,14 @@
 
 # vLLM Backend
 
-The Triton backend for [vLLM](https://github.com/vllm-project/vllm).
-You can learn more about Triton backends in the [backend
-repo](https://github.com/triton-inference-server/backend). Ask
-questions or report problems on the [issues
-page](https://github.com/triton-inference-server/server/issues).
-This backend is designed to run
+The Triton backend for [vLLM](https://github.com/vllm-project/vllm)
+is designed to run
 [supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html)
 on a
 [vLLM engine](https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py).
+You can learn more about Triton backends in the [backend
+repo](https://github.com/triton-inference-server/backend). 
+
 
 This is a Python-based backend. When using this backend, all requests are placed on the
 vLLM AsyncEngine as soon as they are received. Inflight batching and paged attention is handled
