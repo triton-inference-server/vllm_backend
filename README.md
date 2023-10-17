@@ -36,7 +36,7 @@ is designed to run
 on a
 [vLLM engine](https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py).
 You can learn more about Triton backends in the [backend
-repo](https://github.com/triton-inference-server/backend). 
+repo](https://github.com/triton-inference-server/backend).
 
 
 This is a Python-based backend. When using this backend, all requests are placed on the
@@ -68,11 +68,20 @@ script.
 A sample command to build a Triton Server container with all options enabled is shown below. Feel free to customize flags according to your needs.
 
 ```
-./build.py -v  --enable-logging --enable-stats --enable-tracing
-                --enable-metrics --enable-gpu-metrics --enable-cpu-metrics
+./build.py -v  --enable-logging
+                --enable-stats
+                --enable-tracing
+                --enable-metrics
+                --enable-gpu-metrics
+                --enable-cpu-metrics
                 --enable-gpu
-                --filesystem=gcs --filesystem=s3 --filesystem=azure_storage
-                --endpoint=http --endpoint=grpc --endpoint=sagemaker --endpoint=vertex-ai
+                --filesystem=gcs
+                --filesystem=s3
+                --filesystem=azure_storage
+                --endpoint=http
+                --endpoint=grpc
+                --endpoint=sagemaker
+                --endpoint=vertex-ai
                 --upstream-container-version=23.10
                 --backend=python:r23.10
                 --backend=vllm:r23.10
@@ -137,10 +146,9 @@ you can quickly run your first inference request with the
 [generate endpoint](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_generate.md).
 
 Try out the command below.
-You can replace "client input" with your input text.
 
 ```
-$ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "client input", "parameters": {"stream": false, "temperature": 0}}'
+$ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "What is Triton Inference Server?", "parameters": {"stream": false, "temperature": 0}}'
 ```
 
 ## Running Multiple Instances of Triton Server
