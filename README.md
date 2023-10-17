@@ -40,6 +40,10 @@ This backend is designed to run
 on a
 [vLLM engine](https://github.com/vllm-project/vllm/blob/main/vllm/engine/async_llm_engine.py).
 
+This is a Python-based backend. When using this backend, all requests are placed on the
+vLLM AsyncEngine as soon as they are received. Inflight batching and paged attention is handled
+by vLLM engine.
+
 Where can I ask general questions about Triton and Triton backends?
 Be sure to read all the information below as well as the [general
 Triton documentation](https://github.com/triton-inference-server/server#triton-inference-server)
@@ -100,6 +104,14 @@ Specifically,
 and
 [here](https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201).
 
+For multi-GPU support, EngineArgs like tensor_parallel_size can be specified in
+[model.json](samples/model_repository/1/model.json).
+
+Note: vLLM greedily consume up to 90% of the GPU's memory under default settings.
+The sample model updates this behavior by setting gpu_memory_utilization to 50%.
+You can tweak this behavior using fields like gpu_memory_utilization and other settings in
+[model.json](samples/model_repository/1/model.json).
+
 In the [samples](samples) folder, you can also find a sample client,
 [client.py](samples/client.py).
 
@@ -133,20 +145,10 @@ $ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "
 
 ## Running Multiple Instances of Triton Server
 
-Python-based backends use shared memory to transfer requests to the stub process.
-When running multiple instances of Triton Server on the same machine,
-you need to specify different shm-region-prefix-name using the --backend-config flag.
-
-> **Note** There are known runtime issues if you do not launch with different region-prefix-names.
-This can lead to to segmentation faults and hangs.
-
-```
-# Triton instance 1
-tritonserver --model-repository=/models --backend-config=python,shm-region-prefix-name=prefix1
-
-# Triton instance 2
-tritonserver --model-repository=/models --backend-config=python,shm-region-prefix-name=prefix2
-```
+If you are running multiple instances of Triton server with a Python-based backend,
+you need to specify different shm-region-prefix-name for each server. See
+[here](https://github.com/triton-inference-server/python_backend#running-multiple-instances-of-triton-server)
+for more information.
 
 ## Referencing the Tutorial
 
