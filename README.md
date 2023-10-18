@@ -129,7 +129,7 @@ In the [samples](samples) folder, you can also find a sample client,
 To see the version of vLLM in the container, see the
 [version_map](https://github.com/triton-inference-server/server/blob/85487a1e15438ccb9592b58e308a3f78724fa483/build.py#L83)
 in [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
-for the Triton version you are using. These are compatible with the newer versions of CUDA running in Triton.
+for the Triton version you are using.
 
 If you would like to use a specific vLLM commit or the latest version of vLLM, you
 will need to use a
