@@ -41,7 +41,7 @@ repo](https://github.com/triton-inference-server/backend).
 
 This is a Python-based backend. When using this backend, all requests are placed on the
 vLLM AsyncEngine as soon as they are received. Inflight batching and paged attention is handled
-by vLLM engine.
+by the vLLM engine.
 
 Where can I ask general questions about Triton and Triton backends?
 Be sure to read all the information below as well as the [general
