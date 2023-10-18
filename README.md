@@ -54,7 +54,7 @@ main Triton [issues page](https://github.com/triton-inference-server/server/issu
 
 There are several ways to take advantage of the vLLM backend.
 
-### Option 1. Run the Docker Container.
+### Option 1. Pre-built Docker Container.
 
 Pull the container with vLLM backend from [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) registry. This container has everything you need to run your vLLM model.
 
