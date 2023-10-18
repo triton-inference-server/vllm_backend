@@ -87,7 +87,7 @@ A sample command to build a Triton Server container with all options enabled is 
                 --backend=vllm:r23.10
 ```
 
-### Option 3. Add the vLLM Backend to the Triton Container
+### Option 3. Add the vLLM Backend to the default Triton Container
 
 You can install the vLLM backend directly into the NGC Triton container.
 In this case, please install vLLM first. You can do so by running
