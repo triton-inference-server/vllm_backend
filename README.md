@@ -54,11 +54,11 @@ main Triton [issues page](https://github.com/triton-inference-server/server/issu
 
 There are several ways to install and deploy the vLLM backend.
 
-### Option 1. Pre-built Docker Container.
+### Option 1. Use the Pre-Built Docker Container.
 
 Pull the container with vLLM backend from [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) registry. This container has everything you need to run your vLLM model.
 
-### Option 2. Build a custom container from source
+### Option 2. Build a Custom Container From Source
 You can follow steps described in the
 [Building With Docker](https://github.com/triton-inference-server/server/blob/main/docs/customization_guide/build.md#building-with-docker)
 guide and use the
@@ -87,7 +87,7 @@ A sample command to build a Triton Server container with all options enabled is 
                 --backend=vllm:r23.10
 ```
 
-### Option 3. Add the vLLM Backend to the default Triton Container
+### Option 3. Add the vLLM Backend to the Default Triton Container
 
 You can install the vLLM backend directly into the NGC Triton container.
 In this case, please install vLLM first. You can do so by running
