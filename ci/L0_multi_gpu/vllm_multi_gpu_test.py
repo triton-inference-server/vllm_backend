@@ -59,7 +59,7 @@ class VLLMMultiGPUTest(TestResultCollector):
         gpu_ids = self.get_available_gpu_ids()
         self.assertGreaterEqual(len(gpu_ids), 2, "Error: Detected single GPU")
 
-        print("=============== Before Loading vLLM Model ===============")
+        print("\n\n=============== Before Loading vLLM Model ===============")
         mem_util_before_loading_model = {}
         for gpu_id in gpu_ids:
             memory_utilization = self.get_gpu_memory_utilization(gpu_id)
