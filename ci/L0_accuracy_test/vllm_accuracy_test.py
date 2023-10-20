@@ -24,21 +24,20 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import asyncio
 import sys
 import unittest
 from functools import partial
 
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
-
+from vllm import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.utils import random_uuid
-from vllm import SamplingParams
-import asyncio
 
 sys.path.append("../common")
-from test_util import TestResultCollector, create_vllm_request, UserData, callback
+from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 
 async def generate_python_vllm_output(prompt, llm_engine):

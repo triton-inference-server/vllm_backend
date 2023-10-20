@@ -25,14 +25,15 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+import unittest
+from functools import partial
+
 import nvidia_smi
 import tritonclient.grpc as grpcclient
-from functools import partial
-import unittest
 from tritonclient.utils import *
 
 sys.path.append("../common")
-from test_util import TestResultCollector, create_vllm_request, UserData, callback
+from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 
 class VLLMMultiGPUTest(TestResultCollector):

@@ -27,8 +27,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-import unittest
 import queue
+import unittest
+
 import numpy as np
 import tritonclient.grpc as grpcclient
 

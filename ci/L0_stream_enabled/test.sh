@@ -79,9 +79,9 @@ rm -rf models/
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
     cat $SERVER_LOG
-    echo -e "\n***\n*** Strem Enabled test FAILED. \n***"
+    echo -e "\n***\n*** Straem Enabled test FAILED. \n***"
 else
-    echo -e "\n***\n*** Strem Enabled test PASSED. \n***"
+    echo -e "\n***\n*** Straem Enabled test PASSED. \n***"
 fi
 
 exit $RET

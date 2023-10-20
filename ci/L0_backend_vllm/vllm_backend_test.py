@@ -33,7 +33,7 @@ import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
 sys.path.append("../common")
-from test_util import TestResultCollector, create_vllm_request, UserData, callback
+from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 
 class VLLMTritonBackendTest(TestResultCollector):
