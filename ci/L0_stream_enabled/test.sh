@@ -37,6 +37,8 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_stream_enabled_test.py"
 EXPECTED_NUM_TESTS=1
 
+rm -rf models/
+
 mkdir -p models/vllm_opt/1/
 cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
 cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt

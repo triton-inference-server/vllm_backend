@@ -113,6 +113,7 @@ class VLLMTritonAccuracyTest(TestResultCollector):
             triton_vllm_output.extend(output)
 
         self.triton_client.stop_stream()
+        self.assertEqual(python_vllm_output, triton_vllm_output)
 
     def tearDown(self):
         self.triton_client.close()

@@ -37,6 +37,8 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_multi_gpu_test.py"
 EXPECTED_NUM_TESTS=1
 
+rm -rf models/
+
 mkdir -p models/vllm_opt/1/
 echo '{"model":"facebook/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.25, "tensor_parallel_size":2}' > models/vllm_opt/1/model.json
 cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
