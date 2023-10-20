@@ -28,7 +28,7 @@
 
 import json
 import unittest
-
+import queue
 import numpy as np
 import tritonclient.grpc as grpcclient
 
@@ -119,3 +119,15 @@ def create_vllm_request(
         "request_id": str(request_id),
         "parameters": sampling_parameters,
     }
+
+
+class UserData:
+    def __init__(self):
+        self._completed_requests = queue.Queue()
+
+
+def callback(user_data, result, error):
+    if error:
+        user_data._completed_requests.put(error)
+    else:
+        user_data._completed_requests.put(result)

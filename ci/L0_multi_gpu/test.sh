@@ -31,18 +31,19 @@ TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
 SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
-SERVER_LOG="./vllm_stream_enabled_server.log"
-CLIENT_LOG="./vllm_stream_enabled_client.log"
+SERVER_LOG="./vllm_multi_gpu_test_server.log"
+CLIENT_LOG="./vllm_multi_gpu_test_client.log"
 TEST_RESULT_FILE='test_results.txt'
-CLIENT_PY="./vllm_stream_enabled_test.py"
+CLIENT_PY="./vllm_multi_gpu_test.py"
 EXPECTED_NUM_TESTS=1
 
 mkdir -p models/vllm_opt/1/
-cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
+echo '{"model":"facebook/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.5, "tensor_parallel_size":2}' > models/vllm_opt/1/model.json
 cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
 
 pip3 install tritonclient
 pip3 install grpcio
+pip3 install nvidia-ml-py3
 
 RET=0
 
@@ -77,9 +78,9 @@ rm -rf models/
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
     cat $SERVER_LOG
-    echo -e "\n***\n*** Strem Enabled test FAILED. \n***"
+    echo -e "\n***\n*** Multi GPU Utilization test FAILED. \n***"
 else
-    echo -e "\n***\n*** Strem Enabled test PASSED. \n***"
+    echo -e "\n***\n*** Multi GPU Utilization test PASSED. \n***"
 fi
 
 exit $RET

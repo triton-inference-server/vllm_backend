@@ -24,7 +24,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import queue
 import sys
 import unittest
 from functools import partial
@@ -34,19 +33,7 @@ import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
 sys.path.append("../common")
-from test_util import TestResultCollector, create_vllm_request
-
-
-class UserData:
-    def __init__(self):
-        self._completed_requests = queue.Queue()
-
-
-def callback(user_data, result, error):
-    if error:
-        user_data._completed_requests.put(error)
-    else:
-        user_data._completed_requests.put(result)
+from test_util import TestResultCollector, create_vllm_request, UserData, callback
 
 
 class VLLMTritonBackendTest(TestResultCollector):

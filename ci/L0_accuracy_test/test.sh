@@ -77,9 +77,9 @@ rm -rf models/
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
     cat $SERVER_LOG
-    echo -e "\n***\n*** vLLM test FAILED. \n***"
+    echo -e "\n***\n*** Accuracy test FAILED. \n***"
 else
-    echo -e "\n***\n*** vLLM test PASSED. \n***"
+    echo -e "\n***\n*** Accuracy test PASSED. \n***"
 fi
 
 exit $RET
