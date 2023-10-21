@@ -42,7 +42,7 @@ from test_util import TestResultCollector, UserData, callback, create_vllm_reque
 
 async def generate_python_vllm_output(prompt, llm_engine):
     request_id = random_uuid()
-    sampling_parameters = {"temperature": 0.1, "top_p": 0.95}
+    sampling_parameters = {"temperature": 0, "top_p": 1}
     sampling_params = SamplingParams(**sampling_parameters)
 
     python_vllm_output = None
@@ -81,7 +81,7 @@ class VLLMTritonAccuracyTest(TestResultCollector):
             "The future of AI is",
         ]
         number_of_vllm_reqs = len(prompts)
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
         python_vllm_output = []
         triton_vllm_output = []
 

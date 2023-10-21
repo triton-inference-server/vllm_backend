@@ -46,7 +46,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
                 "The most dangerous animal is",
                 "The future of AI is",
             ]
-            sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+            sampling_parameters = {"temperature": "0", "top_p": "1"}
 
             async def request_iterator():
                 for i, prompt in enumerate(prompts):

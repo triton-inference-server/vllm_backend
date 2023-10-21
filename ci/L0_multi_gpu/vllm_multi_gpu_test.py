@@ -89,7 +89,7 @@ class VLLMMultiGPUTest(TestResultCollector):
             "The future of AI is",
         ]
         number_of_vllm_reqs = len(prompts)
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):

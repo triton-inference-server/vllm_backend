@@ -83,7 +83,7 @@ class VLLMTritonBackendTest(TestResultCollector):
             "The future of AI is",
         ]
         number_of_vllm_reqs = len(prompts)
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
@@ -105,6 +105,8 @@ class VLLMTritonBackendTest(TestResultCollector):
 
         for i in range(number_of_vllm_reqs):
             result = user_data._completed_requests.get()
+            if type(result) is InferenceServerException:
+                print(result.message())
             self.assertIsNot(type(result), InferenceServerException)
 
             output = result.as_numpy("text_output")
