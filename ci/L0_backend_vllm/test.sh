@@ -35,27 +35,23 @@ SERVER_LOG="./vllm_backend_server.log"
 CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_backend_test.py"
+SAMPLE_MODELS_REPO="../../samples/model_repository"
 EXPECTED_NUM_TESTS=3
 
-rm -rf ./models/
-
-mkdir -p models/vllm_opt/1/
-cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 
 mkdir -p models/add_sub/1/
 cp ../qa_models/add_sub/model.py models/add_sub/1/
 cp ../qa_models/add_sub/config.pbtxt models/add_sub
 
 # Invalid model attribute
-mkdir -p models/vllm_invalid_1/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_1/
-echo '{"model":"facebook/opt-125m", "invlaid_attribute": "test", "gpu_memory_utilization":0.3}' > models/vllm_invalid_1/1/model.json
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_1/
+sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/model.json
 
 # Invalid model name
-mkdir -p models/vllm_invalid_2/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_invalid_2/
-echo '{"model":"invalid_model/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/vllm_invalid_2/1/model.json
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
+sed -i 's/"facebook\/opt-125m"/"invalid_model"/' models/vllm_invalid_2/1/model.json
 
 pip3 install tritonclient
 pip3 install grpcio
@@ -119,9 +115,9 @@ SERVER_LOG="./vllm_test_multi_model.log"
 # utilization is low enough for multiple models to avoid OOM
 MODEL1="vllm_one"
 MODEL2="vllm_two"
-mkdir -p models/${MODEL1}/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/${MODEL1}/
-echo '{"model":"facebook/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/${MODEL1}/1/model.json
+mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/${MODEL1}/
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/${MODEL1}/1/model.json
 cp -r models/${MODEL1} models/${MODEL2}
 
 run_server

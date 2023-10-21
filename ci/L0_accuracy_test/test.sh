@@ -35,13 +35,12 @@ SERVER_LOG="./vllm_accuracy_test_server.log"
 CLIENT_LOG="./vllm_accuracy_test_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_accuracy_test.py"
+SAMPLE_MODELS_REPO="../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
-rm -rf models/
-
-mkdir -p models/vllm_opt/1/
-echo '{"model":"facebook/opt-125m", "disable_log_requests": "true", "gpu_memory_utilization":0.3}' > models/vllm_opt/1/model.json
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/vllm_opt/1/model.json
 
 pip3 install tritonclient
 pip3 install grpcio

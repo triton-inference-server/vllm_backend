@@ -35,13 +35,11 @@ SERVER_LOG="./vllm_stream_enabled_server.log"
 CLIENT_LOG="./vllm_stream_enabled_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_stream_enabled_test.py"
+SAMPLE_MODELS_REPO="../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
-rm -rf models/
-
-mkdir -p models/vllm_opt/1/
-cp ../qa_models/vllm_opt/model.json models/vllm_opt/1/
-cp ../qa_models/vllm_opt/config.pbtxt models/vllm_opt
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 
 pip3 install tritonclient
 pip3 install grpcio
