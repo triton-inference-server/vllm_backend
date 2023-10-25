@@ -36,7 +36,7 @@ from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.utils import random_uuid
 
-sys.path.append("../common")
+sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 

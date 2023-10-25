@@ -25,24 +25,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-source ../common/util.sh
+source ../../common/util.sh
 
 TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
 SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
-SERVER_LOG="./vllm_stream_enabled_server.log"
-CLIENT_LOG="./vllm_stream_enabled_client.log"
+SERVER_LOG="./stream_enabled_server.log"
+CLIENT_LOG="./stream_enabled_client.log"
 TEST_RESULT_FILE='test_results.txt'
-CLIENT_PY="./vllm_stream_enabled_test.py"
-SAMPLE_MODELS_REPO="../../samples/model_repository"
+CLIENT_PY="./stream_enabled_test.py"
+SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-
-pip3 install tritonclient
-pip3 install grpcio
 
 RET=0
 
@@ -54,7 +51,7 @@ if [ "$SERVER_PID" == "0" ]; then
 fi
 
 set +e
-python3 -m unittest -v $CLIENT_PY > $CLIENT_LOG 2>&1
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
@@ -81,5 +78,7 @@ if [ $RET -eq 1 ]; then
 else
     echo -e "\n***\n*** Straem Enabled test PASSED. \n***"
 fi
+
+collect_artifacts_from_subdir
 
 exit $RET

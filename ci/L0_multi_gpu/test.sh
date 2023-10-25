@@ -42,9 +42,7 @@ rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 sed -i '3s/^/    "tensor_parallel_size": 2,\n/' models/vllm_opt/1/model.json
 
-pip3 install tritonclient
-pip3 install grpcio
-pip3 install nvidia-ml-py3
+pip3 install tritonclient grpcio nvidia-ml-py3
 
 RET=0
 
@@ -56,7 +54,7 @@ if [ "$SERVER_PID" == "0" ]; then
 fi
 
 set +e
-python3 -m unittest -v $CLIENT_PY > $CLIENT_LOG 2>&1
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG

@@ -130,3 +130,7 @@ function check_test_results () {
 
     return 0
 }
+
+function collect_artifacts_from_subdir () {
+    cp *.*log* core* ../ || true
+}
