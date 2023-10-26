@@ -57,7 +57,10 @@ There are several ways to install and deploy the vLLM backend.
 
 ### Option 1. Use the Pre-Built Docker Container.
 
-Pull the container with vLLM backend from [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) registry. This container has everything you need to run your vLLM model.
+Pull a tritonserver_vllm container with vLLM backend from the
+[NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver)
+registry. These are available starting in 23.10.
+The tritonserver_vllm container has everything you need to run your vLLM model.
 
 ### Option 2. Build a Custom Container From Source
 You can follow steps described in the
