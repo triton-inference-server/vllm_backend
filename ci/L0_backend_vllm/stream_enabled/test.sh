@@ -74,9 +74,9 @@ rm -rf models/
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
     cat $SERVER_LOG
-    echo -e "\n***\n*** Straem Enabled test FAILED. \n***"
+    echo -e "\n***\n*** Stream Enabled test FAILED. \n***"
 else
-    echo -e "\n***\n*** Straem Enabled test PASSED. \n***"
+    echo -e "\n***\n*** Stream Enabled test PASSED. \n***"
 fi
 
 collect_artifacts_from_subdir
