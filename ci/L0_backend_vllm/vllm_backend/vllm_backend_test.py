@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,8 +24,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import json
-import queue
 import sys
 import unittest
 from functools import partial
@@ -35,20 +32,8 @@ import numpy as np
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
-sys.path.append("../common")
-from test_util import TestResultCollector
-
-
-class UserData:
-    def __init__(self):
-        self._completed_requests = queue.Queue()
-
-
-def callback(user_data, result, error):
-    if error:
-        user_data._completed_requests.put(error)
-    else:
-        user_data._completed_requests.put(result)
+sys.path.append("../../common")
+from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 
 class VLLMTritonBackendTest(TestResultCollector):
@@ -79,6 +64,16 @@ class VLLMTritonBackendTest(TestResultCollector):
         self._test_vllm_model(send_parameters_as_tensor=False)
         self.triton_client.unload_model(self.vllm_model_name)
 
+    def test_model_with_invalid_attributes(self):
+        model_name = "vllm_invalid_1"
+        with self.assertRaises(InferenceServerException):
+            self.triton_client.load_model(model_name)
+
+    def test_vllm_invalid_model_name(self):
+        model_name = "vllm_invalid_2"
+        with self.assertRaises(InferenceServerException):
+            self.triton_client.load_model(model_name)
+
     def _test_vllm_model(self, send_parameters_as_tensor):
         user_data = UserData()
         stream = False
@@ -88,23 +83,30 @@ class VLLMTritonBackendTest(TestResultCollector):
             "The future of AI is",
         ]
         number_of_vllm_reqs = len(prompts)
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
-            inputs, outputs = self._create_vllm_request_data(
-                prompts[i], stream, sampling_parameters, send_parameters_as_tensor
+            request_data = create_vllm_request(
+                prompts[i],
+                i,
+                stream,
+                sampling_parameters,
+                self.vllm_model_name,
+                send_parameters_as_tensor,
             )
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
-                request_id=str(i),
-                inputs=inputs,
-                outputs=outputs,
+                request_id=request_data["request_id"],
+                inputs=request_data["inputs"],
+                outputs=request_data["outputs"],
                 parameters=sampling_parameters,
             )
 
         for i in range(number_of_vllm_reqs):
             result = user_data._completed_requests.get()
+            if type(result) is InferenceServerException:
+                print(result.message())
             self.assertIsNot(type(result), InferenceServerException)
 
             output = result.as_numpy("text_output")
@@ -143,30 +145,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.assertTrue(
             np.allclose(input0_data - input1_data, response.as_numpy("OUTPUT1"))
         )
-
-    def _create_vllm_request_data(
-        self, prompt, stream, sampling_parameters, send_parameters_as_tensor
-    ):
-        inputs = []
-
-        prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
-        inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
-        inputs[-1].set_data_from_numpy(prompt_data)
-
-        stream_data = np.array([stream], dtype=bool)
-        inputs.append(grpcclient.InferInput("stream", [1], "BOOL"))
-        inputs[-1].set_data_from_numpy(stream_data)
-
-        if send_parameters_as_tensor:
-            sampling_parameters_data = np.array(
-                [json.dumps(sampling_parameters).encode("utf-8")], dtype=np.object_
-            )
-            inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
-            inputs[-1].set_data_from_numpy(sampling_parameters_data)
-
-        outputs = [grpcclient.InferRequestedOutput("text_output")]
-
-        return inputs, outputs
 
     def tearDown(self):
         self.triton_client.close()

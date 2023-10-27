@@ -24,44 +24,48 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-backend: "vllm"
-max_batch_size: 0
 
-model_transaction_policy {
-  decoupled: True
-}
+import sys
+import unittest
 
-input [
-  {
-    name: "text_input"
-    data_type: TYPE_STRING
-    dims: [ 1 ]
-  },
-  {
-    name: "stream"
-    data_type: TYPE_BOOL
-    dims: [ 1 ]
-    optional: true
-  },
-  {
-    name: "sampling_parameters"
-    data_type: TYPE_STRING
-    dims: [ 1 ]
-    optional: true
-  }
-]
+import tritonclient.grpc.aio as grpcclient
+from tritonclient.utils import *
 
-output [
-  {
-    name: "text_output"
-    data_type: TYPE_STRING
-    dims: [ -1 ]
-  }
-]
+sys.path.append("../../common")
+from test_util import AsyncTestResultCollector, create_vllm_request
 
-instance_group [
-  {
-    count: 1
-    kind: KIND_MODEL
-  }
-]
+
+class VLLMTritonStreamTest(AsyncTestResultCollector):
+    async def test_vllm_model_stream_enabled(self):
+        async with grpcclient.InferenceServerClient(
+            url="localhost:8001"
+        ) as triton_client:
+            model_name = "vllm_opt"
+            stream = True
+            prompts = [
+                "The most dangerous animal is",
+                "The future of AI is",
+            ]
+            sampling_parameters = {"temperature": "0", "top_p": "1"}
+
+            async def request_iterator():
+                for i, prompt in enumerate(prompts):
+                    yield create_vllm_request(
+                        prompt, i, stream, sampling_parameters, model_name
+                    )
+
+            response_iterator = triton_client.stream_infer(
+                inputs_iterator=request_iterator()
+            )
+
+            async for response in response_iterator:
+                result, error = response
+                self.assertIsNone(error)
+                self.assertIsNotNone(result)
+
+                output = result.as_numpy("text_output")
+                self.assertIsNotNone(output)
+
+
+if __name__ == "__main__":
+    unittest.main()

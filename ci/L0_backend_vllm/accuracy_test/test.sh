@@ -25,24 +25,61 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+source ../../common/util.sh
+
+TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
+SERVER=${TRITON_DIR}/bin/tritonserver
+BACKEND_DIR=${TRITON_DIR}/backends
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
+SERVER_LOG="./accuracy_test_server.log"
+CLIENT_LOG="./accuracy_test_client.log"
+TEST_RESULT_FILE='test_results.txt'
+CLIENT_PY="./accuracy_test.py"
+SAMPLE_MODELS_REPO="../../../samples/model_repository"
+EXPECTED_NUM_TESTS=1
+
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/vllm_opt/1/model.json
+
 RET=0
-SUBTESTS="accuracy_test stream_enabled vllm_backend"
 
-pip3 install tritonclient grpcio
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
 
-for TEST in ${SUBTESTS}; do
-    (cd ${TEST} && bash -ex test.sh && cd ..)
+set +e
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
 
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
     if [ $? -ne 0 ]; then
-        echo "Subtest ${TEST} FAILED"
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
         RET=1
     fi
-done
-
-if [ $RET -eq 0 ]; then
-    echo -e "\n***\n*** vLLM Backend Test Passed\n***"
-else
-    echo -e "\n***\n*** vLLM Backend Test FAILED\n***"
 fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+rm -rf models/
+
+if [ $RET -eq 1 ]; then
+    cat $CLIENT_LOG
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Accuracy test FAILED. \n***"
+else
+    echo -e "\n***\n*** Accuracy test PASSED. \n***"
+fi
+
+collect_artifacts_from_subdir
 
 exit $RET
