@@ -42,11 +42,11 @@ class VLLMRequestCancelTest(TestResultCollector):
             model_name = "vllm_opt"
             stream = False
             sampling_parameters = {"temperature": "0", "top_p": "1"}
-            prompt = "Write an original and creative poem."
 
             triton_client.start_stream(callback=partial(callback, user_data))
 
             for i in range(50):
+                prompt = f"Write an original and creative poem of at least {100 + i} words."
                 request_data = create_vllm_request(
                     prompt,
                     i,
@@ -63,9 +63,7 @@ class VLLMRequestCancelTest(TestResultCollector):
                     parameters=sampling_parameters,
                 )
 
-            time.sleep(1)
             triton_client.stop_stream(cancel_requests=True)
-            time.sleep(1)
             self.assertFalse(user_data._completed_requests.empty())
 
             result = user_data._completed_requests.get()
