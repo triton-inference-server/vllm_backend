@@ -40,7 +40,7 @@ EXPECTED_NUM_TESTS=1
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-sed -i 's/"model":"facebook\/opt-125m"/"model": "facebook\/opt-1.3b"/' models/vllm_opt/1/model.json
+sed -i 's/"model":"facebook\/opt-125m"/"model": "facebook\/opt-350m"/' models/vllm_opt/1/model.json
 
 RET=0
 
