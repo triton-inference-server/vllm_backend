@@ -66,9 +66,7 @@ class VLLMRequestCancelTest(TestResultCollector):
                     parameters=sampling_parameters,
                 )
 
-            time.sleep(0.2)
             triton_client.stop_stream(cancel_requests=True)
-            time.sleep(2)
             self.assertFalse(user_data._completed_requests.empty())
 
             result = user_data._completed_requests.get()
