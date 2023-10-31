@@ -24,54 +24,47 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
 import sys
 import unittest
-from functools import partial
 
-import tritonclient.grpc as grpcclient
+import tritonclient.grpc.aio as grpcclient
 from tritonclient.utils import *
 
 sys.path.append("../../common")
-from test_util import TestResultCollector, UserData, callback, create_vllm_request
+from test_util import AsyncTestResultCollector, create_vllm_request
 
 
-class VLLMRequestCancelTest(TestResultCollector):
-    def test_request_cancel(self, send_parameters_as_tensor=True):
-        with grpcclient.InferenceServerClient(url="localhost:8001") as triton_client:
-            user_data = UserData()
+class VLLMTritonStreamTest(AsyncTestResultCollector):
+    async def test_vllm_model_enabled_stream(self):
+        async with grpcclient.InferenceServerClient(
+            url="localhost:8001"
+        ) as triton_client:
             model_name = "vllm_opt"
-            stream = False
-            sampling_parameters = {"temperature": "0.75", "top_p": "0.9"}
+            stream = True
+            prompts = [
+                "The most dangerous animal is",
+                "The future of AI is",
+            ]
+            sampling_parameters = {"temperature": "0", "top_p": "1"}
 
-            triton_client.start_stream(callback=partial(callback, user_data))
+            async def request_iterator():
+                for i, prompt in enumerate(prompts):
+                    yield create_vllm_request(
+                        prompt, i, stream, sampling_parameters, model_name
+                    )
 
-            for i in range(100):
-                prompt = (
-                    f"Write an original and creative poem of at least {100 + i} words."
-                )
-                request_data = create_vllm_request(
-                    prompt,
-                    i,
-                    stream,
-                    sampling_parameters,
-                    model_name,
-                    send_parameters_as_tensor,
-                )
-                triton_client.async_stream_infer(
-                    model_name=model_name,
-                    request_id=request_data["request_id"],
-                    inputs=request_data["inputs"],
-                    outputs=request_data["outputs"],
-                    parameters=sampling_parameters,
-                )
+            response_iterator = triton_client.stream_infer(
+                inputs_iterator=request_iterator()
+            )
 
-            triton_client.stop_stream(cancel_requests=True)
-            self.assertFalse(user_data._completed_requests.empty())
+            async for response in response_iterator:
+                result, error = response
+                self.assertIsNone(error)
+                self.assertIsNotNone(result)
 
-            result = user_data._completed_requests.get()
-            self.assertIsInstance(result, InferenceServerException)
-            self.assertEqual(result.status(), "StatusCode.CANCELLED")
-            self.assertTrue(user_data._completed_requests.empty())
+                output = result.as_numpy("text_output")
+                self.assertIsNotNone(output)
 
 
 if __name__ == "__main__":

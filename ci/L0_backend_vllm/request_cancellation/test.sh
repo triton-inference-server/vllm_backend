@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,48 +25,60 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+source ../../common/util.sh
 
-import sys
-import unittest
+TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
+SERVER=${TRITON_DIR}/bin/tritonserver
+BACKEND_DIR=${TRITON_DIR}/backends
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
+SERVER_LOG="./request_cancellation_server.log"
+CLIENT_LOG="./request_cancellation_client.log"
+TEST_RESULT_FILE='test_results.txt'
+CLIENT_PY="./request_cancellation_test.py"
+SAMPLE_MODELS_REPO="../../../samples/model_repository"
+EXPECTED_NUM_TESTS=1
 
-import tritonclient.grpc.aio as grpcclient
-from tritonclient.utils import *
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 
-sys.path.append("../../common")
-from test_util import AsyncTestResultCollector, create_vllm_request
+RET=0
 
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
 
-class VLLMTritonStreamTest(AsyncTestResultCollector):
-    async def test_vllm_model_stream_enabled(self):
-        async with grpcclient.InferenceServerClient(
-            url="localhost:8001"
-        ) as triton_client:
-            model_name = "vllm_opt"
-            stream = True
-            prompts = [
-                "The most dangerous animal is",
-                "The future of AI is",
-            ]
-            sampling_parameters = {"temperature": "0", "top_p": "1"}
+set +e
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
 
-            async def request_iterator():
-                for i, prompt in enumerate(prompts):
-                    yield create_vllm_request(
-                        prompt, i, stream, sampling_parameters, model_name
-                    )
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
 
-            response_iterator = triton_client.stream_infer(
-                inputs_iterator=request_iterator()
-            )
+kill $SERVER_PID
+wait $SERVER_PID
+rm -rf models/
 
-            async for response in response_iterator:
-                result, error = response
-                self.assertIsNone(error)
-                self.assertIsNotNone(result)
+if [ $RET -eq 1 ]; then
+    cat $CLIENT_LOG
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Request Cancellation test FAILED. \n***"
+else
+    echo -e "\n***\n*** Request Cancellation test PASSED. \n***"
+fi
 
-                output = result.as_numpy("text_output")
-                self.assertIsNotNone(output)
+collect_artifacts_from_subdir
 
-
-if __name__ == "__main__":
-    unittest.main()
+exit $RET

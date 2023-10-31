@@ -26,9 +26,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 RET=0
-SUBTESTS="accuracy_test request_cancel stream_enabled vllm_backend"
+SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend"
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[all]
+python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)
