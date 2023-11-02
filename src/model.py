@@ -48,7 +48,7 @@ class TritonPythonModel:
             {"name": "stream", "data_type": "TYPE_BOOL", "dims": [1]},
             {
                 "name": "sampling_parameters",
-                "TYPE_STRING": "TYPE_FP32",
+                "data_type": "TYPE_STRING",
                 "dims": [1],
                 "optional": True,
             },
