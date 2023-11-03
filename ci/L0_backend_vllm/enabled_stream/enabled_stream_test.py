@@ -60,8 +60,8 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
 
             async for response in response_iterator:
                 result, error = response
-                self.assertIsNone(error)
-                self.assertIsNotNone(result)
+                self.assertIsNone(error, str(error))
+                self.assertIsNotNone(result, str(result))
 
                 output = result.as_numpy("text_output")
                 self.assertIsNotNone(output)
