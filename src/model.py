@@ -72,6 +72,13 @@ class TritonPythonModel:
             if output["name"] not in output_names:
                 auto_complete_model_config.add_output(output)
 
+        # We need to use decoupled transaction policy for saturating
+        # vLLM engine for max throughtput.
+        # TODO [DLIS:5233]: Allow asynchronous execution to lift this
+        # restriction for cases there is exactly a single response to
+        # a single request.
+        auto_complete_model_config.set_model_transaction_policy(dict(decoupled=True))
+
         # Disabling batching in Triton, let vLLM handle the batching on its own.
         auto_complete_model_config.set_max_batch_size(0)
 
