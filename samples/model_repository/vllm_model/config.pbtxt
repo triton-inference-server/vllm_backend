@@ -28,6 +28,46 @@
 
 backend: "vllm"
 
+# Disabling batching in Triton, let vLLM handle the batching on its own.
+max_batch_size: 0
+
+# We need to use decoupled transaction policy for saturating
+# vLLM engine for max throughtput.
+# TODO [DLIS:5233]: Allow asynchronous execution to lift this
+# restriction for cases there is exactly a single response to
+# a single request.
+model_transaction_policy {
+  decoupled: True
+}
+# Note: The vLLM backend uses the following input and output names.
+# Any change here needs to also be made in model.py
+input [
+  {
+    name: "text_input"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "stream"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+  },
+  {
+    name: "sampling_parameters"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+    optional: true
+  }
+]
+
+output [
+  {
+    name: "text_output"
+    data_type: TYPE_STRING
+    dims: [ -1 ]
+  }
+]
+
 # The usage of device is deferred to the vLLM engine
 instance_group [
   {
