@@ -114,7 +114,9 @@ class TritonPythonModel:
         # Wait for the ongoing_requests
         while self.ongoing_request_count > 0:
             self.logger.log_info(
-                "Awaiting remaining {} requests".format(self.ongoing_request_count)
+                "[vllm] Awaiting remaining {} requests".format(
+                    self.ongoing_request_count
+                )
             )
             await asyncio.sleep(5)
 
@@ -122,7 +124,7 @@ class TritonPythonModel:
             if task is not asyncio.current_task():
                 task.cancel()
 
-        self.logger.log_info("Shutdown complete")
+        self.logger.log_info("[vllm] Shutdown complete")
 
     def get_sampling_params_dict(self, params_json):
         """
@@ -209,7 +211,11 @@ class TritonPythonModel:
                 prompt, sampling_params, request_id
             ):
                 if response_sender.is_cancelled():
+                    self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
+                    self.logger.log_info(
+                        "[vllm] Successfully cancelled the request"
+                    )
                     break
                 if stream:
                     response_sender.send(self.create_response(output))
@@ -220,7 +226,7 @@ class TritonPythonModel:
                 response_sender.send(self.create_response(last_output))
 
         except Exception as e:
-            self.logger.log_info(f"Error generating stream: {e}")
+            self.logger.log_info(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             triton_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
@@ -252,7 +258,7 @@ class TritonPythonModel:
         """
         Triton virtual method; called when the model is unloaded.
         """
-        self.logger.log_info("Issuing finalize to vllm backend")
+        self.logger.log_info("[vllm] Issuing finalize to vllm backend")
         self._shutdown_event.set()
         if self._loop_thread is not None:
             self._loop_thread.join()

@@ -25,6 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+import time
 import unittest
 from functools import partial
 
@@ -38,40 +39,49 @@ from test_util import TestResultCollector, UserData, callback, create_vllm_reque
 class VLLMRequestCancelTest(TestResultCollector):
     def test_request_cancellation(self, send_parameters_as_tensor=True):
         with grpcclient.InferenceServerClient(url="localhost:8001") as triton_client:
+            log_file_path = "./request_cancellation_server.log"
             user_data = UserData()
             model_name = "vllm_opt"
             stream = False
-            sampling_parameters = {"temperature": "0.75", "top_p": "0.9"}
+            sampling_parameters = {
+                "temperature": "0",
+                "top_p": "1",
+                "max_tokens": "1500",
+            }
+            prompt = f"Write an original and creative poem of at least 200 words."
 
             triton_client.start_stream(callback=partial(callback, user_data))
 
-            for i in range(100):
-                prompt = (
-                    f"Write an original and creative poem of at least {100 + i} words."
-                )
-                request_data = create_vllm_request(
-                    prompt,
-                    i,
-                    stream,
-                    sampling_parameters,
-                    model_name,
-                    send_parameters_as_tensor,
-                )
-                triton_client.async_stream_infer(
-                    model_name=model_name,
-                    request_id=request_data["request_id"],
-                    inputs=request_data["inputs"],
-                    outputs=request_data["outputs"],
-                    parameters=sampling_parameters,
-                )
+            request_data = create_vllm_request(
+                prompt,
+                "1",
+                stream,
+                sampling_parameters,
+                model_name,
+                send_parameters_as_tensor,
+            )
+            triton_client.async_stream_infer(
+                model_name=model_name,
+                request_id=request_data["request_id"],
+                inputs=request_data["inputs"],
+                outputs=request_data["outputs"],
+                parameters=sampling_parameters,
+            )
+            time.sleep(1)
 
             triton_client.stop_stream(cancel_requests=True)
+            time.sleep(1)
             self.assertFalse(user_data._completed_requests.empty())
 
             result = user_data._completed_requests.get()
             self.assertIsInstance(result, InferenceServerException)
             self.assertEqual(result.status(), "StatusCode.CANCELLED")
             self.assertTrue(user_data._completed_requests.empty())
+
+            with open(log_file_path, mode="r") as log_file:
+                log_text = log_file.read()
+                self.assertIn("[vllm] Cancelling the request", log_text)
+                self.assertIn("[vllm] Successfully cancelled the request", log_text)
 
 
 if __name__ == "__main__":
