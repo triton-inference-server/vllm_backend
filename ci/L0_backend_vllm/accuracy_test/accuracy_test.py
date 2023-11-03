@@ -90,7 +90,6 @@ class VLLMTritonAccuracyTest(TestResultCollector):
             request_data = create_vllm_request(
                 prompts[i], i, stream, sampling_parameters, self.vllm_model_name
             )
-            print(request_data["inputs"])
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
                 request_id=request_data["request_id"],
