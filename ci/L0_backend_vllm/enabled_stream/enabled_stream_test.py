@@ -40,7 +40,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         async with grpcclient.InferenceServerClient(
             url="localhost:8001"
         ) as triton_client:
-            model_name = "vllm_model"
+            model_name = "vllm_opt"
             stream = True
             prompts = [
                 "The most dangerous animal is",
