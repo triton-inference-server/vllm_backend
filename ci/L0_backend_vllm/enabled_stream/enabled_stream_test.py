@@ -40,7 +40,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         async with grpcclient.InferenceServerClient(
             url="localhost:8001"
         ) as triton_client:
-            model_name = "vllm_opt"
+            model_name = "vllm_model"
             stream = True
             prompts = [
                 "The most dangerous animal is",
@@ -64,7 +64,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
                 self.assertIsNotNone(result, str(result))
 
                 output = result.as_numpy("text_output")
-                self.assertIsNotNone(output)
+                self.assertIsNotNone(output, "`text_output` should not be None")
 
 
 if __name__ == "__main__":

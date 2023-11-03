@@ -90,6 +90,7 @@ class VLLMTritonAccuracyTest(TestResultCollector):
             request_data = create_vllm_request(
                 prompts[i], i, stream, sampling_parameters, self.vllm_model_name
             )
+            print(request_data["inputs"])
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
                 request_id=request_data["request_id"],
@@ -104,10 +105,10 @@ class VLLMTritonAccuracyTest(TestResultCollector):
 
         for i in range(number_of_vllm_reqs):
             result = user_data._completed_requests.get()
-            self.assertIsNot(type(result), InferenceServerException)
+            self.assertIsNot(type(result), InferenceServerException, str(result))
 
             output = result.as_numpy("text_output")
-            self.assertIsNotNone(output)
+            self.assertIsNotNone(output, "`text_output` should not be None")
 
             triton_vllm_output.extend(output)
 
