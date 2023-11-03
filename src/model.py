@@ -213,9 +213,7 @@ class TritonPythonModel:
                 if response_sender.is_cancelled():
                     self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
-                    self.logger.log_info(
-                        "[vllm] Successfully cancelled the request"
-                    )
+                    self.logger.log_info("[vllm] Successfully cancelled the request")
                     break
                 if stream:
                     response_sender.send(self.create_response(output))
