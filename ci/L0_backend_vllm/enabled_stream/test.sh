@@ -31,10 +31,10 @@ TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
 SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
-SERVER_LOG="./stream_enabled_server.log"
-CLIENT_LOG="./stream_enabled_client.log"
+SERVER_LOG="./enabled_stream_server.log"
+CLIENT_LOG="./enabled_stream_client.log"
 TEST_RESULT_FILE='test_results.txt'
-CLIENT_PY="./stream_enabled_test.py"
+CLIENT_PY="./enabled_stream_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
@@ -74,9 +74,9 @@ rm -rf models/
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
     cat $SERVER_LOG
-    echo -e "\n***\n*** Straem Enabled test FAILED. \n***"
+    echo -e "\n***\n*** Enabled Stream test FAILED. \n***"
 else
-    echo -e "\n***\n*** Straem Enabled test PASSED. \n***"
+    echo -e "\n***\n*** Enabled Stream test PASSED. \n***"
 fi
 
 collect_artifacts_from_subdir

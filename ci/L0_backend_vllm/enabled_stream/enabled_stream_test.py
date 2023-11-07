@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,24 +24,48 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-RET=0
-SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend"
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
+import sys
+import unittest
 
-for TEST in ${SUBTESTS}; do
-    (cd ${TEST} && bash -ex test.sh && cd ..)
+import tritonclient.grpc.aio as grpcclient
+from tritonclient.utils import *
 
-    if [ $? -ne 0 ]; then
-        echo "Subtest ${TEST} FAILED"
-        RET=1
-    fi
-done
+sys.path.append("../../common")
+from test_util import AsyncTestResultCollector, create_vllm_request
 
-if [ $RET -eq 0 ]; then
-    echo -e "\n***\n*** vLLM Backend Test Passed\n***"
-else
-    echo -e "\n***\n*** vLLM Backend Test FAILED\n***"
-fi
 
-exit $RET
+class VLLMTritonStreamTest(AsyncTestResultCollector):
+    async def test_vllm_model_enabled_stream(self):
+        async with grpcclient.InferenceServerClient(
+            url="localhost:8001"
+        ) as triton_client:
+            model_name = "vllm_opt"
+            stream = True
+            prompts = [
+                "The most dangerous animal is",
+                "The future of AI is",
+            ]
+            sampling_parameters = {"temperature": "0", "top_p": "1"}
+
+            async def request_iterator():
+                for i, prompt in enumerate(prompts):
+                    yield create_vllm_request(
+                        prompt, i, stream, sampling_parameters, model_name
+                    )
+
+            response_iterator = triton_client.stream_infer(
+                inputs_iterator=request_iterator()
+            )
+
+            async for response in response_iterator:
+                result, error = response
+                self.assertIsNone(error)
+                self.assertIsNotNone(result)
+
+                output = result.as_numpy("text_output")
+                self.assertIsNotNone(output)
+
+
+if __name__ == "__main__":
+    unittest.main()
