@@ -107,10 +107,10 @@ class VLLMTritonBackendTest(TestResultCollector):
             result = user_data._completed_requests.get()
             if type(result) is InferenceServerException:
                 print(result.message())
-            self.assertIsNot(type(result), InferenceServerException)
+            self.assertIsNot(type(result), InferenceServerException, str(result))
 
             output = result.as_numpy("text_output")
-            self.assertIsNotNone(output)
+            self.assertIsNotNone(output, "`text_output` should not be None")
 
         self.triton_client.stop_stream()
 

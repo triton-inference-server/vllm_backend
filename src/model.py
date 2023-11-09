@@ -41,6 +41,54 @@ _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 
 
 class TritonPythonModel:
+    @staticmethod
+    def auto_complete_config(auto_complete_model_config):
+        inputs = [
+            {"name": "text_input", "data_type": "TYPE_STRING", "dims": [1]},
+            {
+                "name": "stream",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
+                "name": "sampling_parameters",
+                "data_type": "TYPE_STRING",
+                "dims": [1],
+                "optional": True,
+            },
+        ]
+        outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
+
+        # Store the model configuration as a dictionary.
+        config = auto_complete_model_config.as_dict()
+        input_names = []
+        output_names = []
+        for input in config["input"]:
+            input_names.append(input["name"])
+        for output in config["output"]:
+            output_names.append(output["name"])
+
+        # Add only missing inputs and output to the model configuration.
+        for input in inputs:
+            if input["name"] not in input_names:
+                auto_complete_model_config.add_input(input)
+        for output in outputs:
+            if output["name"] not in output_names:
+                auto_complete_model_config.add_output(output)
+
+        # We need to use decoupled transaction policy for saturating
+        # vLLM engine for max throughtput.
+        # TODO [DLIS:5233]: Allow asynchronous execution to lift this
+        # restriction for cases there is exactly a single response to
+        # a single request.
+        auto_complete_model_config.set_model_transaction_policy(dict(decoupled=True))
+
+        # Disabling batching in Triton, let vLLM handle the batching on its own.
+        auto_complete_model_config.set_max_batch_size(0)
+
+        return auto_complete_model_config
+
     def initialize(self, args):
         self.logger = pb_utils.Logger
         self.model_config = json.loads(args["model_config"])
