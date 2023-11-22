@@ -138,7 +138,7 @@ You can tweak this behavior using fields like gpu_memory_utilization and other s
 
 ### Launching Triton Inference Server
 
-Once you have the model repository setup, it is time to launch the triton server.
+Once you have the model repository set up, it is time to launch the Triton server.
 We will use the [pre-built Triton container with vLLM backend](#option-1-use-the-pre-built-docker-container) from
 [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) in this example.
 
