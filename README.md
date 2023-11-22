@@ -28,6 +28,12 @@
 
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
+**LATEST RELEASE: You are currently on the main branch which tracks
+under-development progress towards the next release. The current release branch
+is [r23.10](https://github.com/triton-inference-server/vllm_backend/tree/r23.10)
+and which corresponds to the 23.10 container release on
+[NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
+
 # vLLM Backend
 
 The Triton backend for [vLLM](https://github.com/vllm-project/vllm)
@@ -51,16 +57,20 @@ available in the main [server](https://github.com/triton-inference-server/server
 repo. If you don't find your answer there you can ask questions on the
 main Triton [issues page](https://github.com/triton-inference-server/server/issues).
 
-## Building the vLLM Backend
+## Installing the vLLM Backend
 
 There are several ways to install and deploy the vLLM backend.
 
 ### Option 1. Use the Pre-Built Docker Container.
 
-Pull a tritonserver_vllm container with vLLM backend from the
+Pull a `tritonserver:<xx.yy>-vllm-python-py3` container with vLLM backend from the
 [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver)
-registry. These are available starting in 23.10.
-The tritonserver_vllm container has everything you need to run your vLLM model.
+registry. \<xx.yy\> is the version of Triton that you want to use. Please note,
+that Triton's vLLM container has been introduced starting from 23.10 release.
+
+```
+docker pull nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3
+```
 
 ### Option 2. Build a Custom Container From Source
 You can follow steps described in the
@@ -125,22 +135,31 @@ The sample model updates this behavior by setting gpu_memory_utilization to 50%.
 You can tweak this behavior using fields like gpu_memory_utilization and other settings in
 [model.json](samples/model_repository/vllm_model/1/model.json).
 
-In the [samples](samples) folder, you can also find a sample client,
-[client.py](samples/client.py).
+### Launching Triton Inference Server
 
-## Running the Latest vLLM Version
+Once you have the model repository set up, it is time to launch the Triton server.
+We will use the [pre-built Triton container with vLLM backend](#option-1-use-the-pre-built-docker-container) from
+[NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) in this example.
 
-To see the version of vLLM in the container, see the
-[version_map](https://github.com/triton-inference-server/server/blob/85487a1e15438ccb9592b58e308a3f78724fa483/build.py#L83)
-in [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
-for the Triton version you are using.
+```
+docker run --gpus all -it --net=host --rm -p 8001:8001 --shm-size=1G --ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/work -w /work nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3 tritonserver --model-repository ./model_repository
+```
 
-If you would like to use a specific vLLM commit or the latest version of vLLM, you
-will need to use a
-[custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
+Replace \<xx.yy\> with the version of Triton that you want to use.
+Note that Triton's vLLM container was first published starting from
+23.10 release.
 
+After you start Triton you will see output on the console showing
+the server starting up and loading the model. When you see output
+like the following, Triton is ready to accept inference requests.
 
-## Sending Your First Inference
+```
+I1030 22:33:28.291908 1 grpc_server.cc:2513] Started GRPCInferenceService at 0.0.0.0:8001
+I1030 22:33:28.292879 1 http_server.cc:4497] Started HTTPService at 0.0.0.0:8000
+I1030 22:33:28.335154 1 http_server.cc:270] Started Metrics Service at 0.0.0.0:8002
+```
+
+### Sending Your First Inference
 
 After you
 [start Triton](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/getting_started/quickstart.html)
@@ -154,6 +173,26 @@ Try out the command below.
 ```
 $ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "What is Triton Inference Server?", "parameters": {"stream": false, "temperature": 0}}'
 ```
+
+Upon success, you should see a response from the server like this one:
+```
+{"model_name":"vllm_model","model_version":"1","text_output":"What is Triton Inference Server?\n\nTriton Inference Server is a server that is used by many"}
+```
+
+In the [samples](samples) folder, you can also find a sample client,
+[client.py](samples/client.py) which uses Triton's
+[asyncio gRPC client library](https://github.com/triton-inference-server/client#python-asyncio-support-beta-1)
+to run inference on Triton.
+
+### Running the Latest vLLM Version
+
+You can check the vLLM version included in Triton Inference Server from
+[Framework Containers Support Matrix](https://docs.nvidia.com/deeplearning/frameworks/support-matrix/index.html).
+*Note:* The vLLM Triton Inference Server container has been introduced
+starting from 23.10 release.
+
+You can use  `pip install ...` within the container to upgrade vLLM version.
+
 
 ## Running Multiple Instances of Triton Server
 
