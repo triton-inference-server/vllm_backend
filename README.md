@@ -66,8 +66,7 @@ There are several ways to install and deploy the vLLM backend.
 Pull a `tritonserver:<xx.yy>-vllm-python-py3` container with vLLM backend from the
 [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver)
 registry. \<xx.yy\> is the version of Triton that you want to use. Please note,
-that Triton's vLLM container was first published in 23.10 release, so any prior
-version will not work.
+that Triton's vLLM container has been introduced starting from 23.10 release.
 
 ```
 docker pull nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3
@@ -187,14 +186,13 @@ to run inference on Triton.
 
 ### Running the Latest vLLM Version
 
-To see the version of vLLM in the container, see the
-[version_map](https://github.com/triton-inference-server/server/blob/85487a1e15438ccb9592b58e308a3f78724fa483/build.py#L83)
-in [build.py](https://github.com/triton-inference-server/server/blob/main/build.py)
-for the Triton version you are using.
+You can check the vLLM version included in Triton Inference Server from
+[Framework Containers Support Matrix](https://docs.nvidia.com/deeplearning/frameworks/support-matrix/index.html).
+*Note:* The vLLM Triton Inference Server container has been introduced
+starting from 23.10 release.
 
-If you would like to use a specific vLLM commit or the latest version of vLLM, you
-will need to use a
-[custom execution environment](https://github.com/triton-inference-server/python_backend#creating-custom-execution-environments).
+You can use  `pip install ...` within the container to upgrade vLLM version.
+
 
 ## Running Multiple Instances of Triton Server
 
