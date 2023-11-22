@@ -30,9 +30,9 @@
 
 **LATEST RELEASE: You are currently on the main branch which tracks
 under-development progress towards the next release. The current release is
-version [2.39.0](https://github.com/triton-inference-server/server/tree/r23.10)
+version [2.39.0](https://github.com/triton-inference-server/vllm_backend/tree/r23.10)
 and corresponds to the 23.10 container release on
-NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
+[NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
 
 # vLLM Backend
 
