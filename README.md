@@ -70,7 +70,7 @@ that Triton's vLLM container was first published in 23.10 release, so any prior
 version will not work.
 
 ```
-docker pull nvcr.io/nvidia/tritonserver:23.10-vllm-python-py3
+docker pull nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3
 ```
 
 ### Option 2. Build a Custom Container From Source
