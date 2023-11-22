@@ -71,7 +71,6 @@ version will not work.
 
 ```
 docker pull nvcr.io/nvidia/tritonserver:23.10-vllm-python-py3
-
 ```
 
 ### Option 2. Build a Custom Container From Source
@@ -147,8 +146,8 @@ We will use the [pre-built Triton container with vLLM backend](#option-1-use-the
 docker run --gpus all -it --net=host --rm -p 8001:8001 --shm-size=1G --ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/work -w /work nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3 tritonserver --model-store ./model_repository
 ```
 
-Replace \<xx.yy\> with the version of Triton that you want to use. 
-Note that Triton's vLLM container was first published in 23.10 release, 
+Replace \<xx.yy\> with the version of Triton that you want to use.
+Note that Triton's vLLM container was first published in 23.10 release,
 so any prior version will not work.
 
 After you start Triton you will see output on the console showing
@@ -182,7 +181,7 @@ Upon success, you should see a response from the server like this one:
 ```
 
 In the [samples](samples) folder, you can also find a sample client,
-[client.py](samples/client.py) which uses Triton's 
+[client.py](samples/client.py) which uses Triton's
 [asyncio gRPC client library](https://github.com/triton-inference-server/client#python-asyncio-support-beta-1)
 to run inference on Triton.
 
