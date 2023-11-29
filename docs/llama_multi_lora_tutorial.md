@@ -1,0 +1,201 @@
+# Depolying multi-lora vLLM backend in Triton
+
+The idea of multi-lora was proposed recently, for more you can read the paper:
+
++ [S-LoRA: Serving Thousands of Concurrent LoRA Adapters](https://arxiv.org/abs/2311.03285)
++ [Punica: Multi-Tenant LoRA Serving](https://arxiv.org/abs/2310.18547)
+
+Now the vLLM has supported multi-lora, which integrated the `Punica` feature and related cuda kernels. See this [PR](https://github.com/vllm-project/vllm/pull/1804) for more.
+
+The following tutorial demonstrates how to deploy **a LLaMa model** with **multiple loras** on Triton Inference Server using the Triton's [Python-based](https://github.com/triton-inference-server/backend/blob/main/docs/python_based_backends.md#python-based-backends) [vLLM](https://github.com/triton-inference-server/vllm_backend/tree/main) backend.
+
+
+
+## Step 1: prepare your weights
+
+To support multi-lora on Triton, you need to manage your file path for **model backbone** and **lora weights** seperately.
+
+A typical weights repository can be as follows:
+
+```
+weights
+├── backbone
+│	└── llama-7b-hf
+└── loras
+    ├── alpaca-lora-7b
+    └── bactrian-x-llama-lora-7b
+```
+
+A workspace for vllm is strongly recommended, you can use the command:
+
+```bash
+mkdir -p vllm_workspace/weights
+cd vllm_workspace
+```
+
+
+
+## Step 2: prepare model repository
+
+
+
+__2.1 download the model repository files__
+
+To use Triton, a model repository is needed, for *model path* , *backend configuration* and other information. The vllm backend is implemented based on python backend, and params of vllm are sampled from `model.json`.
+
+To create a triton model repository, you may download the files through these commands:
+
+```bash
+# NOTICE: you must first cd to your vllm_workspace path.
+cd vllm_workspace
+
+mkdir -p model_repository/vllm_model/1
+wget -P model_repository/vllm_model/1 https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/samples/model_repository/vllm_model/1/model.json
+wget -P model_repository/vllm_model/ https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/samples/model_repository/vllm_model/config.pbtxt
+```
+
+The model repository should look like this:
+
+```
+model_repository/
+└── vllm_model
+    ├── 1
+    │   └── model.json
+    └── config.pbtxt
+```
+
+Now, you have finish the basic deployment, and the file path should look like this:
+
+```
+vllm_workspace
+├── weights
+│   ├── backbone
+│   │	└── llama-7b-hf
+│   └── loras
+│       ├── alpaca-lora-7b
+│       └── bactrian-x-llama-lora-7b
+│
+└── model_repository
+    └── vllm_model
+        ├── 1
+        │   └── model.json
+        └── config.pbtxt
+```
+
+
+
+__2.2 complete the `model.json` according to your needs__
+
+The content of `model.json` can be:
+
+```json
+{
+    "model":"/vllm_workspace/weights/backbone/llama-7b-hf",
+    "disable_log_requests": "true",
+    "gpu_memory_utilization": 0.8,
+    "tensor_parallel_size": 2,
+    "block_size": 16,
+    "enable_lora": "true",
+    "max_lora_rank": 16
+}
+```
+
++ `model`: The path to your model repository
++ `disable_log_requests`: To show logs when launch vllm or not.
++ `gpu_memory_utilization`: The gpu memory allocated for the model weights and vllm *PagedAttention* kv cache manager.
++ `tensor_parallel_size`: The vllm now support the tensor paralism, so you can decide how many gpus you want to use for serving.
++ `block_size`: vLLM kv cache block size.
++ `enable_lora`: If you want to support vllm multi-lora, this should be configured and set `true`.
++ `max_lora_rank`: The maximum of LoRA rank of your lora adapter.
+
+For more information, you may read the source code of [EngineArgs](https://github.com/Yard1/vllm/blob/multi_lora/vllm/engine/arg_utils.py#L11) here.
+
+
+
+__2.3 add `multi_lora.json` to figure out the local lora path__
+
+Now (2023.11.29) the [vLLM multi-lora PR](https://github.com/vllm-project/vllm/pull/1804) just supported the inference of **local lora weights applying**, which means that the vllm cannot pull any lora adapter from huggingface. So triton should know where the local loras weights are.
+
+Create a `multi_lora.json` file under `model_repository/vllm_model/1/` path:
+
+```bash
+cd model_repository/vllm_model/1
+touch multi_lora.json
+```
+
+A `multi_lora.json` should look like this:
+
+```json
+{
+    "alpaca": "/vllm_workspace/weights/loras/alpaca-lora-7b",
+    "bactrian": "/vllm_workspace/weights/loras/bactrian-x-llama-7b-lora"
+}
+```
+
+The **key** should be the supported lora name, and the **value** should be the specific path in your machine.
+
+
+
+## Step 3: Start a docker container for triton-vllm serving
+
+**A docker container is strongly recommended for serving**, and this tutorial will only demonstrate how to launch triton in docker env.
+
+First, create a docker container using the NCG built for vllm serving:
+
+```bash
+# NOTICE: you must first cd to your vllm_workspace path.
+cd vllm_workspace
+
+sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
+--ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/vllm_workspace \
+-w /vllm_workspace nvcr.io/nvidia/tritonserver:23.10-vllm-python-py3 \
+/bin/bash
+```
+
+And download the `model.py` script from github:
+
+```bash
+wget -P model_repository/vllm_model/1 https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
+```
+
+Copy this script to the backend path of triton:
+
+```bash
+cp ./model.py /opt/tritonserver/backends/vllm/
+```
+
+
+
+## Step 4: Launch Triton
+
+```bash
+tritonserver --model-store ./model_repository
+```
+
+After you start Triton you will see output on the console showing the server starting up and loading the model. When you see output like the following, Triton is ready to accept inference requests.
+
+```
+I1030 22:33:28.291908 1 grpc_server.cc:2513] Started GRPCInferenceService at 0.0.0.0:8001
+I1030 22:33:28.292879 1 http_server.cc:4497] Started HTTPService at 0.0.0.0:8000
+I1030 22:33:28.335154 1 http_server.cc:270] Started Metrics Service at 0.0.0.0:8002
+```
+
+
+
+## Step 5: Send a request
+
+A client request script for multi-lora was prepared, downloading the client script from source:
+
+```bash
+wget https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/samples/client_lora.py
+wget https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/samples/prompts.txt
+```
+
+Try running this script:
+
+```bash
+python3 client_lora.py
+```
+
+
+
