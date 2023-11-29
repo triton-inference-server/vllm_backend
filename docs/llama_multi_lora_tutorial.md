@@ -194,7 +194,7 @@ wget https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main
 Try running this script:
 
 ```bash
-python3 client_lora.py
+python3 client_lora.py -l alpaca
 ```
 
 
