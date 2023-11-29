@@ -55,8 +55,7 @@ class LLMClient:
                         prompt,
                         self._flags.streaming_mode,
                         prompt_id,
-                        sampling_parameters,
-                        lora_name=self._flags.lora_name
+                        sampling_parameters
                     )
         except Exception as error:
             print(f"Caught an error in the request iterator: {error}")
@@ -91,7 +90,10 @@ class LLMClient:
                     self._results_dict[result.get_response().id].append(i)
 
     async def run(self):
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0.1", 
+                               "top_p": "0.95"}
+        if self._flags.lora_name is not None:
+            sampling_parameters["lora_name"] = self._flags.lora_name
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
@@ -122,22 +124,13 @@ class LLMClient:
         stream,
         request_id,
         sampling_parameters,
-        send_parameters_as_tensor=True,
-        lora_name: str = None
+        send_parameters_as_tensor=True
     ):
         inputs = []
         prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
         try:
             inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
             inputs[-1].set_data_from_numpy(prompt_data)
-        except Exception as error:
-            print(f"Encountered an error during request creation: {error}")
-            
-        if lora_name is not None:
-            lora_data = np.array([lora_name.encode("utf-8")], dtype=np.object_)
-        try:
-            inputs.append(grpcclient.InferInput("lora_name", [1], "BYTES"))
-            inputs[-1].set_data_from_numpy(lora_data)
         except Exception as error:
             print(f"Encountered an error during request creation: {error}")
 

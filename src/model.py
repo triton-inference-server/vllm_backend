@@ -128,8 +128,8 @@ class TritonPythonModel:
         if "enable_lora" in vllm_engine_config.keys() and vllm_engine_config["enable_lora"]:
             with open(multi_lora_args_filepath) as lora_file:
                 lora_repository: Dict[str, str] = json.load(lora_file)  # lora_repository = {"lora_name": "lora_path"}
-            self.lora_repository = lora_repository.sort()
-            self.supported_loras: List[str] = self.lora_repository.keys()
+            self.lora_repository = lora_repository
+            self.supported_loras: List[str] = list(self.lora_repository.keys())
             self.supported_loras_len = len(self.supported_loras)
         
         output_config = pb_utils.get_output_config_by_name(
@@ -235,7 +235,7 @@ class TritonPythonModel:
         )
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
-    async def generate(self, request, lora_name: str = None):
+    async def generate(self, request):
         """
         Forwards single request to LLM engine and returns responses.
         """
@@ -267,6 +267,9 @@ class TritonPythonModel:
                 parameters = request.parameters()
 
             sampling_params_dict = self.get_sampling_params_dict(parameters)
+            
+            lora_name = sampling_params_dict.pop("lora_name", None)
+
             sampling_params = SamplingParams(**sampling_params_dict)
 
             last_output = None
@@ -322,18 +325,15 @@ class TritonPythonModel:
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
         for request in requests:
-                    
             # MODIFY: lora check logic
             lora_error = None
-            lora_name_tensor = pb_utils.get_input_tensor_by_name(
-                request, "lora_name")
-            if lora_name_tensor is not None:
-                lora_name = lora_name_tensor.as_numpy()[0]
-                if isinstance(lora_name, bytes):
-                    lora_name = lora_name.decode("utf-8")
-                    print(f"lora_name: {lora_name}")
-            else: 
-                lora_name = None
+            parameters_input_tensor = pb_utils.get_input_tensor_by_name(
+                request, "sampling_parameters"
+            )
+            if parameters_input_tensor:
+                parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
+                sampling_params_dict = self.get_sampling_params_dict(parameters)
+                lora_name = sampling_params_dict.pop("lora_name", None)
             
             if lora_name is not None and lora_name not in self.supported_loras:
                 lora_error = pb_utils.TritonError(
@@ -351,7 +351,7 @@ class TritonPythonModel:
                 response_sender.send(response)
                 return None
             
-            self.create_task(self.generate(request, lora_name))
+            self.create_task(self.generate(request))
         return None
 
     def finalize(self):
