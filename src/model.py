@@ -276,7 +276,7 @@ class TritonPythonModel:
             
             # MODIFY: create LoRARequest
             if lora_name is not None:
-                lora_id = str(self.supported_loras.index(lora_name))
+                lora_id = str(self.supported_loras.index(lora_name) + 1)
                 lora_int_id = int(lora_id)
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
@@ -349,9 +349,8 @@ class TritonPythonModel:
                 )
                 response_sender = request.get_response_sender()
                 response_sender.send(response)
-                return None
-            
-            self.create_task(self.generate(request))
+            else:
+                self.create_task(self.generate(request))
         return None
 
     def finalize(self):
