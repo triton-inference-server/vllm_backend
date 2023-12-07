@@ -30,8 +30,8 @@
 
 **LATEST RELEASE: You are currently on the main branch which tracks
 under-development progress towards the next release. The current release branch
-is [r23.10](https://github.com/triton-inference-server/vllm_backend/tree/r23.10)
-and which corresponds to the 23.10 container release on
+is [r23.11](https://github.com/triton-inference-server/vllm_backend/tree/r23.11)
+and which corresponds to the 23.11 container release on
 [NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
 
 # vLLM Backend
