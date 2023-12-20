@@ -28,8 +28,6 @@
 
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-NOTE: You are currently on the r23.12 branch which tracks stabilization towards the next release. This branch is not usable during stabilization.
-
 # vLLM Backend
 
 The Triton backend for [vLLM](https://github.com/vllm-project/vllm)
