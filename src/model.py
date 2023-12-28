@@ -32,7 +32,7 @@ from typing import AsyncGenerator, Dict, List
 
 import numpy as np
 import triton_python_backend_utils as pb_utils
-from vllm.sampling_params import SamplingParams     # MODIFY: bug fix, it won't bother
+from vllm.sampling_params import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.utils import random_uuid
@@ -94,7 +94,7 @@ class TritonPythonModel:
 
     def initialize(self, args):
         self.logger = pb_utils.Logger
-        self.model_config = json.loads(args["model_config"])    # config.pbtxt
+        self.model_config = json.loads(args["model_config"])
 
         # assert are in decoupled mode. Currently, Triton needs to use
         # decoupled policy for asynchronously forwarding requests to
@@ -120,7 +120,7 @@ class TritonPythonModel:
             AsyncEngineArgs(**vllm_engine_config)
         )
         
-        # MODIFY: create Triton LoRA weights repository
+        # create Triton LoRA weights repository
         multi_lora_args_filepath = os.path.join(
             pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
         )
@@ -274,7 +274,7 @@ class TritonPythonModel:
 
             last_output = None
             
-            # MODIFY: create LoRARequest
+            # create LoRARequest
             if lora_name is not None:
                 lora_id = str(self.supported_loras.index(lora_name) + 1)
                 lora_int_id = int(lora_id)
@@ -325,7 +325,7 @@ class TritonPythonModel:
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
         for request in requests:
-            # MODIFY: lora check logic
+            # lora check logic
             lora_error = None
             parameters_input_tensor = pb_utils.get_input_tensor_by_name(
                 request, "sampling_parameters"
