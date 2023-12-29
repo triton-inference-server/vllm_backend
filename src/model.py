@@ -339,6 +339,7 @@ class TritonPythonModel:
                 lora_error = pb_utils.TritonError(
                     f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
                 )
+                self.logger.log_info(f"[vllm] LoRA not found.")
                 
             if lora_error is not None:
                 output_tensor = pb_utils.Tensor(
@@ -349,6 +350,7 @@ class TritonPythonModel:
                 )
                 response_sender = request.get_response_sender()
                 response_sender.send(response)
+                response_sender.send(flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
             else:
                 self.create_task(self.generate(request))
         return None

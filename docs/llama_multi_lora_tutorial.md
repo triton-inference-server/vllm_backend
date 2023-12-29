@@ -10,6 +10,22 @@ Now the vLLM has supported multi-lora, which integrated the `Punica` feature and
 The following tutorial demonstrates how to deploy **a LLaMa model** with **multiple loras** on Triton Inference Server using the Triton's [Python-based](https://github.com/triton-inference-server/backend/blob/main/docs/python_based_backends.md#python-based-backends) [vLLM](https://github.com/triton-inference-server/vllm_backend/tree/main) backend.
 
 
+## Step 0: Prepare vLLM multi-lora version
+So far the vLLM team hasn't merge the multi-lora PR into main branch yet. If you want to try multi-lora vLLM, you should clone this repository:
+
+```bash
+git clone -b multi_lora https://github.com/Yard1/vllm.git
+```
+
+and then install vLLM from the source code.
+
+```bash
+cd vllm
+pip install -e .
+```
+
+This may take you 5-10 mins.
+
 
 ## Step 1: prepare your weights
 
@@ -20,13 +36,13 @@ A typical weights repository can be as follows:
 ```
 weights
 ├── backbone
-│	└── llama-7b-hf
+│   └── llama-7b-hf
 └── loras
     ├── alpaca-lora-7b
     └── bactrian-x-llama-lora-7b
 ```
 
-A workspace for vllm is strongly recommended, you can use the command:
+A workspace for vllm, and model weights, LoRA adapter weights is strongly recommended, you can use the command:
 
 ```bash
 mkdir -p vllm_workspace/weights
@@ -64,13 +80,15 @@ model_repository/
     └── config.pbtxt
 ```
 
-Now, you have finished the basic deployment, and the file path should look like this:
+---
+
+Now, you have finished the basic deployment, and the file structure should look like this:
 
 ```
 vllm_workspace
 ├── weights
 │   ├── backbone
-│   │	└── llama-7b-hf
+│   │   └── llama-7b-hf
 │   └── loras
 │       ├── alpaca-lora-7b
 │       └── bactrian-x-llama-lora-7b
