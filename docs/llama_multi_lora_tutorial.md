@@ -174,9 +174,20 @@ sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
 
 Triton's vLLM container has been introduced starting from 23.10 release, and `lora` support will be added in future release.
 
+Here we recommend you to use `23.12` version, like this:
+
+```bash
+sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
+--ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/vllm_workspace \
+-w /vllm_workspace nvcr.io/nvidia/tritonserver:23.12-vllm-python-py3 \
+/bin/bash
+```
+
 ---
 
-Then download the `model.py` script from github:
+For **pre-24.yy containers**, the `model.py` file doesn't support multi-lora feature, so you need to replace that provided in the container `/opt/tritonserver/backends/vllm/model.py` with the most up to date version. Just follow these steps:
+
+Download the `model.py` script from github:
 
 ```bash
 wget -P model_repository/vllm_model/1 https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
