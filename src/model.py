@@ -264,7 +264,10 @@ class TritonPythonModel:
                     self.logger.log_info("[vllm] Successfully cancelled the request")
                     break
                 if stream:
-                    response_sender.send(self.create_response(output))
+                    if output.finished:
+                        response_sender.send(self.create_response(output), flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
+                    else:
+                        response_sender.send(self.create_response(output))
                 else:
                     last_output = output
 
@@ -280,10 +283,9 @@ class TritonPythonModel:
             response = pb_utils.InferenceResponse(
                 output_tensors=[triton_output_tensor], error=error
             )
-            response_sender.send(response)
+            response_sender.send(response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
             raise e
         finally:
-            response_sender.send(flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
             self.ongoing_request_count -= 1
 
     def execute(self, requests):
