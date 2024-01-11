@@ -265,7 +265,10 @@ class TritonPythonModel:
                     break
                 if stream:
                     if output.finished:
-                        response_sender.send(self.create_response(output), flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
+                        response_sender.send(
+                            self.create_response(output),
+                            flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
+                        )
                     else:
                         response_sender.send(self.create_response(output))
                 else:
@@ -283,7 +286,9 @@ class TritonPythonModel:
             response = pb_utils.InferenceResponse(
                 output_tensors=[triton_output_tensor], error=error
             )
-            response_sender.send(response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
+            response_sender.send(
+                response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
+            )
             raise e
         finally:
             self.ongoing_request_count -= 1
