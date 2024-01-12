@@ -275,7 +275,10 @@ class TritonPythonModel:
                     last_output = output
 
             if not stream:
-                response_sender.send(self.create_response(last_output))
+                response_sender.send(
+                    self.create_response(last_output),
+                    flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
+                )
 
         except Exception as e:
             self.logger.log_info(f"[vllm] Error generating stream: {e}")
