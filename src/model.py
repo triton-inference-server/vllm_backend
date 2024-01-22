@@ -112,6 +112,14 @@ class TritonPythonModel:
         with open(engine_args_filepath) as file:
             vllm_engine_config = json.load(file)
 
+        # Resolve the model path relative to the config file
+        if vllm_engine_config.pop("resolve_model_relative_to_config_file", False):
+            vllm_engine_config["model"] = os.path.abspath(
+                os.path.join(
+                    pb_utils.get_model_dir(), vllm_engine_config["model"]
+                )
+            )
+
         # Create an AsyncLLMEngine from the config from JSON
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**vllm_engine_config)

@@ -39,11 +39,25 @@ SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=3
 
 rm -rf models && mkdir -p models
+
+# operational vllm model
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 
+# python model
 mkdir -p models/add_sub/1/
 wget -P models/add_sub/1/ https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/model.py
 wget -P models/add_sub https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/config.pbtxt
+
+# local vllm model
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_local
+sed -i 's/"facebook\/opt-125m"/"./local_model"/' models/vllm_local/1/model.json
+sed -i '/"model": /a  "resolve_model_relative_to_config_file": true,' models/vllm_local/1/model.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/config.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/merges.txt
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/pytorch_model.bin
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/special_tokens_map.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/tokenizer_config.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/vocab.json
 
 # Invalid model attribute
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_1/
@@ -52,6 +66,7 @@ sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/m
 # Invalid model name
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
 sed -i 's/"facebook\/opt-125m"/"invalid_model"/' models/vllm_invalid_2/1/model.json
+
 
 RET=0
 
