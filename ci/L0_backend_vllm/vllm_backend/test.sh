@@ -49,6 +49,8 @@ function assert_curl_success {
 }
 
 rm -rf models && mkdir -p models
+
+# operational vllm model
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 # `vllm_opt` model will be loaded on server start and stay loaded throughout
 # unittesting. To test vllm model load/unload we use a dedicated
@@ -58,9 +60,21 @@ cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/vllm_opt/1/model.json
 cp -r models/vllm_opt models/vllm_load_test
 
+# python model
 mkdir -p models/add_sub/1/
 wget -P models/add_sub/1/ https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/model.py
 wget -P models/add_sub https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/config.pbtxt
+
+# local vllm model
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_local
+sed -i 's/"facebook\/opt-125m"/"./local_model"/' models/vllm_local/1/model.json
+sed -i '/"model": /a  "resolve_model_relative_to_config_file": true,' models/vllm_local/1/model.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/config.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/merges.txt
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/pytorch_model.bin
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/special_tokens_map.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/tokenizer_config.json
+wget -P models/vllm_local/1/local_model https://huggingface.co/facebook/opt-125m/resolve/main/vocab.json
 
 # Invalid model attribute
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_1/

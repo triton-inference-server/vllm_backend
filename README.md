@@ -130,6 +130,10 @@ Specifically,
 and
 [here](https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201).
 
+When using local model files, specify the path to the model in the `model` field.
+By default relative paths are resolved relative to the working directory of the Triton server process.
+To specify a path relative to the `model.json` file, set the `resolve_model_relative_to_config_file` field to `true`.
+
 For multi-GPU support, EngineArgs like tensor_parallel_size can be specified in
 [model.json](samples/model_repository/vllm_model/1/model.json).
 
