@@ -5,26 +5,33 @@ The idea of multi-lora was proposed recently, for more you can read the paper:
 + [S-LoRA: Serving Thousands of Concurrent LoRA Adapters](https://arxiv.org/abs/2311.03285)
 + [Punica: Multi-Tenant LoRA Serving](https://arxiv.org/abs/2310.18547)
 
-Now the vLLM has supported multi-lora, which integrated the `Punica` feature and related cuda kernels. See this [PR](https://github.com/vllm-project/vllm/pull/1804) for more.
+Now the vLLM has supported multi-lora, which integrated the `Punica` feature and related cuda kernels. See this [PR](https://github.com/vllm-project/vllm/pull/1804) for more. (2024-01-24 this PR has been merged into the main branch of vLLM)
 
 The following tutorial demonstrates how to deploy **a LLaMa model** with **multiple loras** on Triton Inference Server using the Triton's [Python-based](https://github.com/triton-inference-server/backend/blob/main/docs/python_based_backends.md#python-based-backends) [vLLM](https://github.com/triton-inference-server/vllm_backend/tree/main) backend.
 
 
 ## Step 0: Prepare vLLM multi-lora version
-So far the vLLM team hasn't merge the multi-lora PR into main branch yet. If you want to try multi-lora vLLM, you should clone this repository:
+git clone vllm repository:
 
 ```bash
-git clone -b multi_lora https://github.com/Yard1/vllm.git
+git clone https://github.com/vllm-project/vllm.git
 ```
 
 and then install vLLM from the source code.
 
+**NOTICE**: To enable multi-lora feature and speed up the inference, developers have integrated punica kernels into the `csrc` directory. To compile the punica kernels, you need to turn this env variable on to allow punica kernels compilation.
+
+By default, the punica kernels will **NOT** be compiled.
+
+All you need to do is to follow the simple step:
+
 ```bash
 cd vllm
-pip install -e .
+VLLM_INSTALL_PUNICA_KERNELS=1 pip install -e .
 ```
 
 This may take you 5-10 mins.
+
 
 
 ## Step 1: prepare your weights
