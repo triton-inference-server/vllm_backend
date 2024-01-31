@@ -36,7 +36,6 @@ from vllm.sampling_params import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.utils import random_uuid
-
 from vllm.lora.request import LoRARequest
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
@@ -119,18 +118,21 @@ class TritonPythonModel:
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**vllm_engine_config)
         )
-        
-        # create Triton LoRA weights repository
-        multi_lora_args_filepath = os.path.join(
-            pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
-        )
 
         if "enable_lora" in vllm_engine_config.keys() and vllm_engine_config["enable_lora"]:
-            with open(multi_lora_args_filepath) as lora_file:
-                lora_repository: Dict[str, str] = json.load(lora_file)  # lora_repository = {"lora_name": "lora_path"}
-            self.lora_repository = lora_repository
-            self.supported_loras: List[str] = list(self.lora_repository.keys())
-            self.supported_loras_len = len(self.supported_loras)
+            # create Triton LoRA weights repository
+            multi_lora_args_filepath = os.path.join(
+                pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
+            )
+            try:
+                with open(multi_lora_args_filepath) as lora_file:
+                    lora_repository: Dict[str, str] = json.load(lora_file)
+                self.lora_repository = lora_repository
+                self.supported_loras: List[str] = list(self.lora_repository.keys())
+                self.supported_loras_len = len(self.supported_loras)
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Triton backend cannot find {multi_lora_args_filepath}.")
+            
         
         output_config = pb_utils.get_output_config_by_name(
             self.model_config, "text_output"
@@ -267,21 +269,15 @@ class TritonPythonModel:
                 parameters = request.parameters()
 
             sampling_params_dict = self.get_sampling_params_dict(parameters)
-            
             lora_name = sampling_params_dict.pop("lora_name", None)
-
             sampling_params = SamplingParams(**sampling_params_dict)
-
             last_output = None
-            
-            # create LoRARequest
+            lora_request = None
             if lora_name is not None:
                 lora_id = str(self.supported_loras.index(lora_name) + 1)
                 lora_int_id = int(lora_id)
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
-            else:
-                lora_request = None
             
             async for output in self.llm_engine.generate(
                 prompt, sampling_params, request_id, lora_request=lora_request
@@ -335,7 +331,9 @@ class TritonPythonModel:
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
         for request in requests:
-            # lora check logic
+            # We will check if the requested lora exists here, if not we will send a 
+            # response with `LoRA not found` information. In this way we may avoid
+            # further processing.
             lora_error = None
             parameters_input_tensor = pb_utils.get_input_tensor_by_name(
                 request, "sampling_parameters"
