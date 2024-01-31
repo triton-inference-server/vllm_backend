@@ -226,7 +226,13 @@ wget https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main
 wget https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/samples/prompts.txt
 ```
 
-Try running this script:
+Try running this script by the following command:
+
+```bash
+python3 client_lora.py -l <your-prepared-lora-name>
+```
+
+Here we assume you have prepared alpaca lora weight, thus we use:
 
 ```bash
 python3 client_lora.py -l alpaca

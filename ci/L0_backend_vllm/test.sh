@@ -30,6 +30,8 @@ SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend"
 
 python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
 
+cp ../../src/model.py /opt/tritonserver/backends/vllm/
+
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)
 
