@@ -48,7 +48,8 @@ RET=0
 set +e
 # Need to generate baseline first, since running 2 vLLM engines causes
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
-python -c "import accuracy_test; accuracy_test.prepare_vllm_engine_outputs()" >> $VLLM_ENGINE_LOG 2>&1
+python -c "import accuracy_test; accuracy_test.prepare_vllm_engine_outputs()" >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+wait $BASELINE_PID
 set -e
 
 run_server
