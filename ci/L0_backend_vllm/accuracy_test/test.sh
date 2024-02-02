@@ -42,7 +42,7 @@ EXPECTED_NUM_TESTS=1
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/vllm_opt/1/model.json
-rm vllm_baseline_output.pkl
+[ -f vllm_baseline_output.pkl ] && rm vllm_baseline_output.pkl
 RET=0
 
 set +e
