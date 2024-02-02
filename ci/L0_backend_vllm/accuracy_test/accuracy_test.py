@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import argparse
 import asyncio
 import pickle
 import sys
@@ -72,10 +73,10 @@ async def generate_python_vllm_output(prompt, llm_engine):
     return python_vllm_output
 
 
-def prepare_vllm_engine_outputs():
+def prepare_vllm_baseline_outputs():
     """
     Helper function that starts async vLLM engine and generates output for each
-    prompt in `PROMPTS`. Saves resulted baselines in `vllm_engine_output.pkl`
+    prompt in `PROMPTS`. Saves resulted baselines in `vllm_baseline_output.pkl`
     for further use.
     """
     llm_engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**VLLM_ENGINE_CONFIG))
@@ -85,7 +86,7 @@ def prepare_vllm_engine_outputs():
             asyncio.run(generate_python_vllm_output(PROMPTS[i], llm_engine))
         )
 
-    with open("vllm_engine_output.pkl", "wb") as f:
+    with open("vllm_baseline_output.pkl", "wb") as f:
         pickle.dump(python_vllm_output, f)
 
     return
@@ -96,7 +97,7 @@ class VLLMTritonAccuracyTest(TestResultCollector):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
         self.python_vllm_output = []
-        with open("vllm_engine_output.pkl", "rb") as f:
+        with open("vllm_baseline_output.pkl", "rb") as f:
             self.python_vllm_output = pickle.load(f)
 
         self.assertNotEqual(
@@ -150,4 +151,17 @@ class VLLMTritonAccuracyTest(TestResultCollector):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--generate-baseline",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Generates baseline output for accuracy tests",
+    )
+    FLAGS = parser.parse_args()
+    if FLAGS.generate_baseline:
+        prepare_vllm_baseline_outputs()
+        exit(0)
+
     unittest.main()

@@ -42,13 +42,13 @@ EXPECTED_NUM_TESTS=1
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/vllm_opt/1/model.json
-
+rm vllm_baseline_output.pkl
 RET=0
 
 set +e
 # Need to generate baseline first, since running 2 vLLM engines causes
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
-python -c "import accuracy_test; accuracy_test.prepare_vllm_engine_outputs()" >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 set -e
 
@@ -60,7 +60,7 @@ if [ "$SERVER_PID" == "0" ]; then
 fi
 
 set +e
-python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
+python3 $CLIENT_PY > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
