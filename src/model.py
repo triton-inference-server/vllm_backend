@@ -213,7 +213,7 @@ class TritonPythonModel:
         """
         prompt = vllm_output.prompt
         text_outputs = [
-            (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
+            output.text.encode("utf-8") for output in vllm_output.outputs
         ]
         triton_output_tensor = pb_utils.Tensor(
             "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
