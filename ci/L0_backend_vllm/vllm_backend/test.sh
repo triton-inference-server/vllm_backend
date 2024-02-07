@@ -119,7 +119,11 @@ SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR}
 SERVER_LOG="./vllm_test_multi_model.log"
 
 # Create two models, one is just a copy of the other, and make sure gpu
-# utilization is low enough for multiple models to avoid OOM
+# utilization is low enough for multiple models to avoid OOM.
+# vLLM changed behavior of their GPU profiler from total to free memory,
+# so to load two small models at the same time, we need to start
+# triton server in explicit mode, load first model with
+# `gpu_memory_utilization` 0.4 and second should be 0.9.
 MODEL1="vllm_one"
 MODEL2="vllm_two"
 mkdir -p models
