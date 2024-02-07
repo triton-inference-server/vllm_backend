@@ -38,6 +38,16 @@ CLIENT_PY="./vllm_backend_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=3
 
+# Helpers =======================================
+function assert_curl_success {
+  message="${1}"
+  if [ "$code" != "200" ]; then
+    cat ./curl.out
+    echo -e "\n***\n*** ${message} : line ${BASH_LINENO}\n***"
+    RET=1
+  fi
+}
+
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 
@@ -105,7 +115,7 @@ if [[ "$COUNT" -ne 2 ]]; then
 fi
 
 # Test loading multiple vllm models at the same time
-SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR}"
+SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --load-model=vllm_one"
 SERVER_LOG="./vllm_test_multi_model.log"
 
 # Create two models, one is just a copy of the other, and make sure gpu
@@ -114,8 +124,9 @@ MODEL1="vllm_one"
 MODEL2="vllm_two"
 mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/${MODEL1}/
-sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/${MODEL1}/1/model.json
 cp -r models/${MODEL1} models/${MODEL2}
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/${MODEL1}/1/model.json
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.9/' models/${MODEL2}/1/model.json
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
@@ -123,6 +134,13 @@ if [ "$SERVER_PID" == "0" ]; then
     echo -e "\n***\n*** Failed to start $SERVER\n***"
     exit 1
 fi
+
+# Explicitly load model
+rm -f ./curl.out
+set +e
+code=`curl -s -w %{http_code} -o ./curl.out -X POST localhost:8000/v2/repository/models/vllm_two/load`
+set -e
+assert_curl_success "Failed to load 'vllm_two' model"
 
 kill $SERVER_PID
 wait $SERVER_PID
