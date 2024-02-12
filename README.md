@@ -1,5 +1,5 @@
 <!--
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,11 +28,8 @@
 
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-**LATEST RELEASE: You are currently on the main branch which tracks
-under-development progress towards the next release. The current release branch
-is [r23.12](https://github.com/triton-inference-server/vllm_backend/tree/r23.12)
-and which corresponds to the 23.12 container release on
-[NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
+NOTE: You are currently on the r24.02 branch which tracks stabilization towards
+the next release. This branch is not usable during stabilization.
 
 # vLLM Backend
 
@@ -96,9 +93,9 @@ A sample command to build a Triton Server container with all options enabled is 
                 --endpoint=grpc
                 --endpoint=sagemaker
                 --endpoint=vertex-ai
-                --upstream-container-version=23.12
-                --backend=python:r23.12
-                --backend=vllm:r23.12
+                --upstream-container-version=24.02
+                --backend=python:r24.02
+                --backend=vllm:r24.02
 ```
 
 ### Option 3. Add the vLLM Backend to the Default Triton Container
