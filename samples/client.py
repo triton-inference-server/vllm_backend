@@ -90,7 +90,7 @@ class LLMClient:
                     self._results_dict[result.get_response().id].append(i)
 
     async def run(self):
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
+        sampling_parameters = {"temperature": "0.1", "top_p": "0.95", "max_tokens":"100"}
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
