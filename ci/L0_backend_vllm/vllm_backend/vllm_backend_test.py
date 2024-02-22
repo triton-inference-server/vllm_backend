@@ -41,6 +41,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
         self.python_model_name = "add_sub"
+        self.local_vllm_model_name = "vllm_local"
 
     def test_vllm_triton_backend(self):
         # Load both vllm and add_sub models
@@ -60,9 +61,21 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.assertFalse(self.triton_client.is_model_ready(self.python_model_name))
 
         # Test vllm model and unload vllm model
-        self._test_vllm_model(send_parameters_as_tensor=True)
-        self._test_vllm_model(send_parameters_as_tensor=False)
+        self._test_vllm_model(self.vllm_model_name, send_parameters_as_tensor=True)
+        self._test_vllm_model(self.vllm_model_name, send_parameters_as_tensor=False)
         self.triton_client.unload_model(self.vllm_model_name)
+    
+    def test_local_vllm_model(self):
+        # Load local vllm model
+        self.triton_client.load_model(self.local_vllm_model_name)
+        self.assertTrue(self.triton_client.is_model_ready(self.local_vllm_model_name))
+
+        # Test local vllm model
+        self._test_vllm_model(self.local_vllm_model_name, send_parameters_as_tensor=True)
+        self._test_vllm_model(self.local_vllm_model_name, send_parameters_as_tensor=False)
+
+        # Unload local vllm model
+        self.triton_client.unload_model(self.local_vllm_model_name)
 
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
@@ -74,7 +87,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         with self.assertRaises(InferenceServerException):
             self.triton_client.load_model(model_name)
 
-    def _test_vllm_model(self, send_parameters_as_tensor):
+    def _test_vllm_model(self, model_name, send_parameters_as_tensor):
         user_data = UserData()
         stream = False
         prompts = [
@@ -92,11 +105,11 @@ class VLLMTritonBackendTest(TestResultCollector):
                 i,
                 stream,
                 sampling_parameters,
-                self.vllm_model_name,
+                model_name,
                 send_parameters_as_tensor,
             )
             self.triton_client.async_stream_infer(
-                model_name=self.vllm_model_name,
+                model_name=model_name,
                 request_id=request_data["request_id"],
                 inputs=request_data["inputs"],
                 outputs=request_data["outputs"],
