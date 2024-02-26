@@ -57,6 +57,12 @@ class TritonPythonModel:
                 "dims": [1],
                 "optional": True,
             },
+            {
+                "name": "exclude_input_in_output",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
         ]
         outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
 
@@ -206,14 +212,33 @@ class TritonPythonModel:
 
         return params_dict
 
-    def create_response(self, vllm_output):
+    def create_response(self, vllm_output, exclude_input_in_output):
         """
         Parses the output from the vLLM engine into Triton
         response.
         """
-        prompt = vllm_output.prompt
+        prompt = ""
+        if not exclude_input_in_output:
+            prompt = vllm_output.prompt
         text_outputs = [
             (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
+        ]
+        triton_output_tensor = pb_utils.Tensor(
+            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
+        )
+        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
+
+    def create_stream_response(self, vllm_output, last_outputs):
+        """
+        Parses the output from the vLLM engine, extracts only newly generated
+        text and packs it into Triton response.
+        """
+        if last_outputs is None:
+            return self.create_response(vllm_output, exclude_input_in_output=True)
+
+        text_outputs = [
+            (output.text[len(last_output.text) :]).encode("utf-8")
+            for output, last_output in zip(vllm_output.outputs, last_outputs.outputs)
         ]
         triton_output_tensor = pb_utils.Tensor(
             "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
@@ -238,6 +263,15 @@ class TritonPythonModel:
                 stream = stream.as_numpy()[0]
             else:
                 stream = False
+            exclude_input_in_output = pb_utils.get_input_tensor_by_name(
+                request, "exclude_input_in_output"
+            )
+            if exclude_input_in_output:
+                exclude_input_in_output = exclude_input_in_output.as_numpy()[0]
+            elif exclude_input_in_output is None and stream:
+                exclude_input_in_output = True
+            else:
+                exclude_input_in_output = False
 
             # Request parameters are not yet supported via
             # BLS. Provide an optional mechanism to receive serialized
@@ -266,17 +300,19 @@ class TritonPythonModel:
                 if stream:
                     if output.finished:
                         response_sender.send(
-                            self.create_response(output),
+                            self.create_stream_response(output, last_output),
                             flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                         )
                     else:
-                        response_sender.send(self.create_response(output))
-                else:
-                    last_output = output
+                        response_sender.send(
+                            self.create_stream_response(output, last_output)
+                        )
+
+                last_output = output
 
             if not stream:
                 response_sender.send(
-                    self.create_response(last_output),
+                    self.create_response(last_output, exclude_input_in_output),
                     flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                 )
 

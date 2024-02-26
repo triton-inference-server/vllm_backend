@@ -37,15 +37,31 @@ from test_util import AsyncTestResultCollector, create_vllm_request
 
 class VLLMTritonStreamTest(AsyncTestResultCollector):
     async def test_vllm_model_enabled_stream(self):
+        expected_response = [
+            " the",
+            " one",
+            " that",
+            " is",
+            " most",
+            " likely",
+            " to",
+            " be",
+            " killed",
+            " by",
+            " a",
+            " car",
+            ".",
+            "\n",
+            "I",
+            "'m",
+        ]
+
         async with grpcclient.InferenceServerClient(
             url="localhost:8001"
         ) as triton_client:
             model_name = "vllm_opt"
             stream = True
-            prompts = [
-                "The most dangerous animal is",
-                "The future of AI is",
-            ]
+            prompts = ["The most dangerous animal is"]
             sampling_parameters = {"temperature": "0", "top_p": "1"}
 
             async def request_iterator():
@@ -57,14 +73,24 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
             response_iterator = triton_client.stream_infer(
                 inputs_iterator=request_iterator()
             )
-
+            final_response = []
             async for response in response_iterator:
                 result, error = response
-                self.assertIsNone(error, str(error))
-                self.assertIsNotNone(result, str(result))
+                self.assertIsNone(error, error)
+                self.assertIsNotNone(result, result)
 
                 output = result.as_numpy("text_output")
                 self.assertIsNotNone(output, "`text_output` should not be None")
+                final_response.append(str(output[0], encoding="utf-8"))
+
+            self.assertEqual(
+                final_response,
+                expected_response,
+                'Expected to receive the following response: "{}",\
+                 but received "{}".'.format(
+                    expected_response, final_response
+                ),
+            )
 
 
 if __name__ == "__main__":
