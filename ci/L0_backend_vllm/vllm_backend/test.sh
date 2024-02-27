@@ -36,7 +36,7 @@ CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_backend_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
-EXPECTED_NUM_TESTS=3
+EXPECTED_NUM_TESTS=6
 
 # Helpers =======================================
 function assert_curl_success {

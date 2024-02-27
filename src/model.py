@@ -61,7 +61,7 @@ class TritonPythonModel:
                 "name": "exclude_input_in_output",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
-                "optional": True,
+                "optional": False,
             },
         ]
         outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
@@ -272,6 +272,12 @@ class TritonPythonModel:
                 exclude_input_in_output = True
             else:
                 exclude_input_in_output = False
+
+            self.logger.log_info(
+                "[vllm] `exclude_input_in_output` is set to {}".format(
+                    exclude_input_in_output
+                )
+            )
 
             # Request parameters are not yet supported via
             # BLS. Provide an optional mechanism to receive serialized
