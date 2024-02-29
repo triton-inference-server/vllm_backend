@@ -273,11 +273,12 @@ class TritonPythonModel:
             else:
                 exclude_input_in_output = False
 
-            self.logger.log_info(
-                "[vllm] `exclude_input_in_output` is set to {}".format(
-                    exclude_input_in_output
+            if not exclude_input_in_output and stream:
+                exclude_input_in_output = True
+                self.logger.log_info(
+                    "[vllm] When streaming, `exclude_input_in_output` = False \
+                    is not allowed. Setting `exclude_input_in_output` to True."
                 )
-            )
 
             # Request parameters are not yet supported via
             # BLS. Provide an optional mechanism to receive serialized
