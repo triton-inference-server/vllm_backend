@@ -61,7 +61,7 @@ class TritonPythonModel:
                 "name": "exclude_input_in_output",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
-                "optional": False,
+                "optional": True,
             },
         ]
         outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
@@ -212,13 +212,13 @@ class TritonPythonModel:
 
         return params_dict
 
-    def create_response(self, vllm_output, exclude_input_in_output):
+    def create_response(self, vllm_output, prepend_input):
         """
         Parses the output from the vLLM engine into Triton
         response.
         """
         prompt = ""
-        if not exclude_input_in_output:
+        if prepend_input:
             prompt = vllm_output.prompt
         text_outputs = [
             (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
@@ -228,17 +228,19 @@ class TritonPythonModel:
         )
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
-    def create_stream_response(self, vllm_output, last_outputs):
+    def create_stream_response(self, vllm_output, previous_outputs_lengths):
         """
         Parses the output from the vLLM engine, extracts only newly generated
         text and packs it into Triton response.
         """
-        if last_outputs is None:
-            return self.create_response(vllm_output, exclude_input_in_output=True)
+        if previous_outputs_lengths is None:
+            return self.create_response(vllm_output, prepend_input=False)
 
         text_outputs = [
-            (output.text[len(last_output.text) :]).encode("utf-8")
-            for output, last_output in zip(vllm_output.outputs, last_outputs.outputs)
+            (output.text[prev_output_length:]).encode("utf-8")
+            for output, prev_output_length in zip(
+                vllm_output.outputs, previous_outputs_lengths
+            )
         ]
         triton_output_tensor = pb_utils.Tensor(
             "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
@@ -263,21 +265,22 @@ class TritonPythonModel:
                 stream = stream.as_numpy()[0]
             else:
                 stream = False
-            exclude_input_in_output = pb_utils.get_input_tensor_by_name(
+            prepend_input = pb_utils.get_input_tensor_by_name(
                 request, "exclude_input_in_output"
             )
-            if exclude_input_in_output:
-                exclude_input_in_output = exclude_input_in_output.as_numpy()[0]
-            elif exclude_input_in_output is None and stream:
-                exclude_input_in_output = True
+            if prepend_input:
+                # When `exclude_input_in_output` is False, we want to prepend
+                # input prompt to output, thus prepend_input should be True,
+                # and vice versa.
+                prepend_input = not prepend_input.as_numpy()[0]
+            elif prepend_input is None and stream:
+                prepend_input = False
             else:
-                exclude_input_in_output = False
+                prepend_input = True
 
-            if not exclude_input_in_output and stream:
-                exclude_input_in_output = True
-                self.logger.log_info(
-                    "[vllm] When streaming, `exclude_input_in_output` = False \
-                    is not allowed. Setting `exclude_input_in_output` to True."
+            if prepend_input and stream:
+                raise ValueError(
+                    "When streaming, `exclude_input_in_output` = False is not allowed."
                 )
 
             # Request parameters are not yet supported via
@@ -296,6 +299,7 @@ class TritonPythonModel:
             sampling_params = SamplingParams(**sampling_params_dict)
 
             last_output = None
+            prev_outputs = None
             async for output in self.llm_engine.generate(
                 prompt, sampling_params, request_id
             ):
@@ -305,21 +309,28 @@ class TritonPythonModel:
                     self.logger.log_info("[vllm] Successfully cancelled the request")
                     break
                 if stream:
+                    prev_outputs_lengths = None
+                    if prev_outputs is not None:
+                        prev_outputs_lengths = [
+                            len(prev_output.text)
+                            for prev_output in prev_outputs.outputs
+                        ]
                     if output.finished:
                         response_sender.send(
-                            self.create_stream_response(output, last_output),
+                            self.create_stream_response(output, prev_outputs_lengths),
                             flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                         )
                     else:
                         response_sender.send(
-                            self.create_stream_response(output, last_output)
+                            self.create_stream_response(output, prev_outputs_lengths)
                         )
+                prev_outputs = output
 
-                last_output = output
+            last_output = output
 
             if not stream:
                 response_sender.send(
-                    self.create_response(last_output, exclude_input_in_output),
+                    self.create_response(last_output, prepend_input),
                     flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                 )
 

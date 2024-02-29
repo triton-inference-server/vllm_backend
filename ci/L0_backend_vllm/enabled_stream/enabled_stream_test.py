@@ -46,6 +46,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         stream=True,
         exclude_input_in_output=None,
         expected_output=None,
+        expect_error=False,
     ):
         async with grpcclient.InferenceServerClient(
             url="localhost:8001"
@@ -69,6 +70,15 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
             final_response = []
             async for response in response_iterator:
                 result, error = response
+                if expect_error:
+                    self.assertIsInstance(error, InferenceServerException)
+                    self.assertEquals(
+                        error.message(),
+                        "Error generating stream: When streaming, `exclude_input_in_output` = False is not allowed.",
+                        error,
+                    )
+                    return
+
                 self.assertIsNone(error, error)
                 self.assertIsNotNone(result, result)
                 output = result.as_numpy("text_output")
@@ -125,26 +135,11 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         Verifying that streaming request returns only generated diffs even if
         `exclude_input_in_output` is set to False explicitly.
         """
-        expected_output = [
-            " the",
-            " one",
-            " that",
-            " is",
-            " most",
-            " likely",
-            " to",
-            " be",
-            " killed",
-            " by",
-            " a",
-            " car",
-            ".",
-            "\n",
-            "I",
-            "'m",
-        ]
+        expected_output = "Error generating stream: When streaming, `exclude_input_in_output` = False is not allowed."
         await self._test_vllm_model(
-            exclude_input_in_output=False, expected_output=expected_output
+            exclude_input_in_output=False,
+            expected_output=expected_output,
+            expect_error=True,
         )
 
 
