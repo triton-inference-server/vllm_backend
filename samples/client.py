@@ -90,7 +90,7 @@ class LLMClient:
                     self._results_dict[result.get_response().id].append(i)
 
     async def run(self):
-        # Sampling parameters for text generation, required by vLLM model,
+        # Sampling parameters for text generation
         # including `temperature`, `top_p`, top_k`, `max_tokens`, `early_stopping`.
         # Full list available at:
         # https://github.com/vllmproject/vllm/blob/5255d99dc595f9ae7647842242d6542aa4145a4f/vllm/sampling_params.py#L23
