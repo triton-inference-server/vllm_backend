@@ -99,8 +99,16 @@ class LLMClient:
         return success
 
     async def run(self):
+        # Sampling parameters for text generation
+        # including `temperature`, `top_p`, top_k`, `max_tokens`, `early_stopping`.
+        # Full list available at:
+        # https://github.com/vllmproject/vllm/blob/5255d99dc595f9ae7647842242d6542aa4145a4f/vllm/sampling_params.py#L23
+        sampling_parameters = {
+            "temperature": "0.1",
+            "top_p": "0.95",
+            "max_tokens": "100",
+        }
         exclude_input_in_output = self._flags.exclude_inputs_in_outputs
-        sampling_parameters = {"temperature": "0.1", "top_p": "0.95"}
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
