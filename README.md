@@ -76,7 +76,7 @@ script.
 A sample command to build a Triton Server container with all options enabled is shown below. Feel free to customize flags according to your needs.
 
 Please use [NGC registry](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver/tags)
-to get the latestt version of the Triton container, which corresponds to the
+to get the latest version of the Triton vLLM container, which corresponds to the
 latest YY.MM (year.month) of [Triton release](https://github.com/triton-inference-server/server/releases).
 
 
