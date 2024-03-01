@@ -45,7 +45,9 @@ class LLMClient:
         self._loop = asyncio.get_event_loop()
         self._results_dict = {}
 
-    async def async_request_iterator(self, prompts, sampling_parameters):
+    async def async_request_iterator(
+        self, prompts, sampling_parameters, exclude_input_in_output
+    ):
         try:
             for iter in range(self._flags.iterations):
                 for i, prompt in enumerate(prompts):
@@ -56,16 +58,17 @@ class LLMClient:
                         self._flags.streaming_mode,
                         prompt_id,
                         sampling_parameters,
+                        exclude_input_in_output,
                     )
         except Exception as error:
             print(f"Caught an error in the request iterator: {error}")
 
-    async def stream_infer(self, prompts, sampling_parameters):
+    async def stream_infer(self, prompts, sampling_parameters, exclude_input_in_output):
         try:
             # Start streaming
             response_iterator = self._client.stream_infer(
                 inputs_iterator=self.async_request_iterator(
-                    prompts, sampling_parameters
+                    prompts, sampling_parameters, exclude_input_in_output
                 ),
                 stream_timeout=self._flags.stream_timeout,
             )
@@ -75,19 +78,25 @@ class LLMClient:
             print(error)
             sys.exit(1)
 
-    async def process_stream(self, prompts, sampling_parameters):
+    async def process_stream(
+        self, prompts, sampling_parameters, exclude_input_in_output
+    ):
         # Clear results in between process_stream calls
         self.results_dict = []
-
+        success = True
         # Read response from the stream
-        async for response in self.stream_infer(prompts, sampling_parameters):
+        async for response in self.stream_infer(
+            prompts, sampling_parameters, exclude_input_in_output
+        ):
             result, error = response
             if error:
                 print(f"Encountered error while processing: {error}")
+                success = False
             else:
                 output = result.as_numpy("text_output")
                 for i in output:
                     self._results_dict[result.get_response().id].append(i)
+        return success
 
     async def run(self):
         # Sampling parameters for text generation
@@ -99,17 +108,21 @@ class LLMClient:
             "top_p": "0.95",
             "max_tokens": "100",
         }
+        exclude_input_in_output = self._flags.exclude_inputs_in_outputs
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
 
-        await self.process_stream(prompts, sampling_parameters)
+        success = await self.process_stream(
+            prompts, sampling_parameters, exclude_input_in_output
+        )
 
         with open(self._flags.results_file, "w") as file:
             for id in self._results_dict.keys():
                 for result in self._results_dict[id]:
                     file.write(result.decode("utf-8"))
-                    file.write("\n")
+
+                file.write("\n")
                 file.write("\n=========\n\n")
             print(f"Storing results into `{self._flags.results_file}`...")
 
@@ -117,8 +130,10 @@ class LLMClient:
             with open(self._flags.results_file, "r") as file:
                 print(f"\nContents of `{self._flags.results_file}` ===>")
                 print(file.read())
-
-        print("PASS: vLLM example")
+        if success:
+            print("PASS: vLLM example")
+        else:
+            print("FAIL: vLLM example")
 
     def run_async(self):
         self._loop.run_until_complete(self.run())
@@ -129,6 +144,7 @@ class LLMClient:
         stream,
         request_id,
         sampling_parameters,
+        exclude_input_in_output,
         send_parameters_as_tensor=True,
     ):
         inputs = []
@@ -153,6 +169,9 @@ class LLMClient:
             )
             inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
             inputs[-1].set_data_from_numpy(sampling_parameters_data)
+
+        inputs.append(grpcclient.InferInput("exclude_input_in_output", [1], "BOOL"))
+        inputs[-1].set_data_from_numpy(np.array([exclude_input_in_output], dtype=bool))
 
         # Add requested outputs
         outputs = []
@@ -237,6 +256,13 @@ if __name__ == "__main__":
         required=False,
         default=False,
         help="Enable streaming mode",
+    )
+    parser.add_argument(
+        "--exclude-inputs-in-outputs",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Exclude prompt from outputs",
     )
     FLAGS = parser.parse_args()
 

@@ -95,6 +95,7 @@ def create_vllm_request(
     sampling_parameters,
     model_name,
     send_parameters_as_tensor=True,
+    exclude_input_in_output=None,
 ):
     inputs = []
 
@@ -110,6 +111,10 @@ def create_vllm_request(
         )
         inputs.append(grpcclient.InferInput("sampling_parameters", [1], "BYTES"))
         inputs[-1].set_data_from_numpy(sampling_parameters_data)
+
+    if exclude_input_in_output is not None:
+        inputs.append(grpcclient.InferInput("exclude_input_in_output", [1], "BOOL"))
+        inputs[-1].set_data_from_numpy(np.array([exclude_input_in_output], dtype=bool))
 
     outputs = [grpcclient.InferRequestedOutput("text_output")]
 
