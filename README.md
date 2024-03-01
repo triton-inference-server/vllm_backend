@@ -82,7 +82,7 @@ latest YY.MM (year.month) of [Triton release](https://github.com/triton-inferenc
 
 ```
 # YY.MM is the version of Triton.
-TRITON_CONTAINER_VERSION=<YY.MM>
+export TRITON_CONTAINER_VERSION=<YY.MM>
 ./build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
