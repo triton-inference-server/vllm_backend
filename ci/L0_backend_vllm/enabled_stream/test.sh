@@ -36,7 +36,7 @@ CLIENT_LOG="./enabled_stream_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./enabled_stream_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
-EXPECTED_NUM_TESTS=1
+EXPECTED_NUM_TESTS=3
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
