@@ -161,12 +161,6 @@ python_backend
 *results.txt
 *.log
 
-# Test directory created
-ci/L0_backend_vllm/accuracy_test/models
-ci/L0_backend_vllm/enabled_stream/models
-ci/L0_backend_vllm/request_cancellation/models
-ci/L0_backend_vllm/vllm_backend/models
-
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

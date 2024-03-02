@@ -389,6 +389,7 @@ class TritonPythonModel:
             # response with `LoRA not found` information. In this way we may avoid
             # further processing.
             lora_error = None
+            lora_name = None
             parameters_input_tensor = pb_utils.get_input_tensor_by_name(
                 request, "sampling_parameters"
             )
