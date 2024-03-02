@@ -1,5 +1,5 @@
 <!--
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,12 +27,6 @@
 -->
 
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
-
-**LATEST RELEASE: You are currently on the main branch which tracks
-under-development progress towards the next release. The current release branch
-is [r23.12](https://github.com/triton-inference-server/vllm_backend/tree/r23.12)
-and which corresponds to the 23.12 container release on
-[NVIDIA GPU Cloud (NGC)](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver).**
 
 # vLLM Backend
 
@@ -81,7 +75,14 @@ script.
 
 A sample command to build a Triton Server container with all options enabled is shown below. Feel free to customize flags according to your needs.
 
+Please use [NGC registry](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver/tags)
+to get the latest version of the Triton vLLM container, which corresponds to the
+latest YY.MM (year.month) of [Triton release](https://github.com/triton-inference-server/server/releases).
+
+
 ```
+# YY.MM is the version of Triton.
+export TRITON_CONTAINER_VERSION=<YY.MM>
 ./build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
@@ -96,9 +97,9 @@ A sample command to build a Triton Server container with all options enabled is 
                 --endpoint=grpc
                 --endpoint=sagemaker
                 --endpoint=vertex-ai
-                --upstream-container-version=23.12
-                --backend=python:r23.12
-                --backend=vllm:r23.12
+                --upstream-container-version=${TRITON_CONTAINER_VERSION}
+                --backend=python:r${TRITON_CONTAINER_VERSION}
+                --backend=vllm:r${TRITON_CONTAINER_VERSION}
 ```
 
 ### Option 3. Add the vLLM Backend to the Default Triton Container

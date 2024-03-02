@@ -35,6 +35,13 @@ from tritonclient.utils import *
 sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
+PROMPTS = [
+    "The most dangerous animal is",
+    "The capital of France is",
+    "The future of AI is",
+]
+SAMPLING_PARAMETERS = {"temperature": "0", "top_p": "1"}
+
 
 class VLLMTritonBackendTest(TestResultCollector):
     def setUp(self):
@@ -60,8 +67,18 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.assertFalse(self.triton_client.is_model_ready(self.python_model_name))
 
         # Test vllm model and unload vllm model
-        self._test_vllm_model(send_parameters_as_tensor=True)
-        self._test_vllm_model(send_parameters_as_tensor=False)
+        self._test_vllm_model(
+            prompts=PROMPTS,
+            sampling_parameters=SAMPLING_PARAMETERS,
+            stream=False,
+            send_parameters_as_tensor=True,
+        )
+        self._test_vllm_model(
+            prompts=PROMPTS,
+            sampling_parameters=SAMPLING_PARAMETERS,
+            stream=False,
+            send_parameters_as_tensor=False,
+        )
         self.triton_client.unload_model(self.vllm_model_name)
 
     def test_model_with_invalid_attributes(self):
@@ -74,16 +91,90 @@ class VLLMTritonBackendTest(TestResultCollector):
         with self.assertRaises(InferenceServerException):
             self.triton_client.load_model(model_name)
 
-    def _test_vllm_model(self, send_parameters_as_tensor):
-        user_data = UserData()
-        stream = False
+    def test_exclude_input_in_output_default(self):
+        """
+        Verifying default behavior for `exclude_input_in_output`
+        in non-streaming mode.
+        Expected result: prompt is returned with diffs.
+        """
+        self.triton_client.load_model(self.vllm_model_name)
         prompts = [
-            "The most dangerous animal is",
             "The capital of France is",
-            "The future of AI is",
         ]
-        number_of_vllm_reqs = len(prompts)
+        expected_output = [
+            b"The capital of France is the capital of the French Republic.\n\nThe capital of France is the capital"
+        ]
         sampling_parameters = {"temperature": "0", "top_p": "1"}
+        self._test_vllm_model(
+            prompts,
+            sampling_parameters,
+            stream=False,
+            send_parameters_as_tensor=True,
+            expected_output=expected_output,
+        )
+        self.triton_client.unload_model(self.vllm_model_name)
+
+    def test_exclude_input_in_output_false(self):
+        """
+        Verifying behavior for `exclude_input_in_output` = False
+        in non-streaming mode.
+        Expected result: prompt is returned with diffs.
+        """
+        self.triton_client.load_model(self.vllm_model_name)
+        # Test vllm model and unload vllm model
+        prompts = [
+            "The capital of France is",
+        ]
+        expected_output = [
+            b"The capital of France is the capital of the French Republic.\n\nThe capital of France is the capital"
+        ]
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
+        self._test_vllm_model(
+            prompts,
+            sampling_parameters,
+            stream=False,
+            send_parameters_as_tensor=True,
+            exclude_input_in_output=False,
+            expected_output=expected_output,
+        )
+        self.triton_client.unload_model(self.vllm_model_name)
+
+    def test_exclude_input_in_output_true(self):
+        """
+        Verifying behavior for `exclude_input_in_output` = True
+        in non-streaming mode.
+        Expected result: only diffs are returned.
+        """
+        self.triton_client.load_model(self.vllm_model_name)
+        # Test vllm model and unload vllm model
+        prompts = [
+            "The capital of France is",
+        ]
+        expected_output = [
+            b" the capital of the French Republic.\n\nThe capital of France is the capital"
+        ]
+        sampling_parameters = {"temperature": "0", "top_p": "1"}
+        self._test_vllm_model(
+            prompts,
+            sampling_parameters,
+            stream=False,
+            send_parameters_as_tensor=True,
+            exclude_input_in_output=True,
+            expected_output=expected_output,
+        )
+        self.triton_client.unload_model(self.vllm_model_name)
+
+    def _test_vllm_model(
+        self,
+        prompts,
+        sampling_parameters,
+        stream,
+        send_parameters_as_tensor,
+        exclude_input_in_output=None,
+        expected_output=None,
+    ):
+        user_data = UserData()
+        number_of_vllm_reqs = len(prompts)
 
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
@@ -94,6 +185,7 @@ class VLLMTritonBackendTest(TestResultCollector):
                 sampling_parameters,
                 self.vllm_model_name,
                 send_parameters_as_tensor,
+                exclude_input_in_output=exclude_input_in_output,
             )
             self.triton_client.async_stream_infer(
                 model_name=self.vllm_model_name,
@@ -111,6 +203,15 @@ class VLLMTritonBackendTest(TestResultCollector):
 
             output = result.as_numpy("text_output")
             self.assertIsNotNone(output, "`text_output` should not be None")
+            if expected_output is not None:
+                self.assertEqual(
+                    output,
+                    expected_output[i],
+                    'Actual and expected outputs do not match.\n \
+                                  Expected "{}" \n Actual:"{}"'.format(
+                        output, expected_output[i]
+                    ),
+                )
 
         self.triton_client.stop_stream()
 
