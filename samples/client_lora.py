@@ -83,7 +83,7 @@ class LLMClient:
     ):
         # Clear results in between process_stream calls
         self.results_dict = []
-
+        success = True
         # Read response from the stream
         async for response in self.stream_infer(
             prompts, sampling_parameters, exclude_input_in_output
@@ -91,10 +91,12 @@ class LLMClient:
             result, error = response
             if error:
                 print(f"Encountered error while processing: {error}")
+                success = False
             else:
                 output = result.as_numpy("text_output")
                 for i in output:
                     self._results_dict[result.get_response().id].append(i)
+        return success
 
     async def run(self):
         # Sampling parameters for text generation
