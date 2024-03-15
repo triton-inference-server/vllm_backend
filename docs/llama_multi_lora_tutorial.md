@@ -165,6 +165,7 @@ For this tutorial we will use the following set of parameters, specified in the 
     "gpu_memory_utilization": 0.8,
     "tensor_parallel_size": 2,
     "block_size": 16,
+    "enforce_eager": "true",
     "enable_lora": "true",
     "max_lora_rank": 16
 }

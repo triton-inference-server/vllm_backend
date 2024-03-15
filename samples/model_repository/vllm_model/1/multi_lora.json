@@ -1,4 +1,0 @@
-{
-    "alpaca": "/vllm_workspace/weights/loras/alpaca-lora-7b",
-    "bactrian": "/vllm_workspace/weights/loras/bactrian-x-llama-7b-lora"
-}
