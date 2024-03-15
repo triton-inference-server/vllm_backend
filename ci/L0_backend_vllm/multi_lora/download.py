@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,24 +24,24 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-RET=0
-SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend multi_lora"
+from huggingface_hub import snapshot_download
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
-
-for TEST in ${SUBTESTS}; do
-    (cd ${TEST} && bash -ex test.sh && cd ..)
-
-    if [ $? -ne 0 ]; then
-        echo "Subtest ${TEST} FAILED"
-        RET=1
-    fi
-done
-
-if [ $RET -eq 0 ]; then
-    echo -e "\n***\n*** vLLM Backend Test Passed\n***"
-else
-    echo -e "\n***\n*** vLLM Backend Test FAILED\n***"
-fi
-
-exit $RET
+if __name__ == '__main__':
+    # download lora weight alpaca
+    snapshot_download(
+        repo_id="tloen/alpaca-lora-7b",
+        local_dir="./weights/loras/alpaca",
+        max_workers=8
+    )
+    # download lora weight WizardLM
+    snapshot_download(
+        repo_id="winddude/wizardLM-LlaMA-LoRA-7B",
+        local_dir="./weights/loras/WizardLM",
+        max_workers=8
+    )
+    # download llama-7b-hf
+    snapshot_download(
+        repo_id="luodian/llama-7b-hf",
+        local_dir="./weights/backbone/llama-7b-hf",
+        max_workers=8
+    )
