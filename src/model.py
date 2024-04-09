@@ -412,8 +412,7 @@ class TritonPythonModel:
                     output_tensors=[output_tensor], error=lora_error
                 )
                 response_sender = request.get_response_sender()
-                response_sender.send(response)
-                response_sender.send(flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
+                response_sender.send(response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
             else:
                 self.create_task(self.generate(request))
         return None
