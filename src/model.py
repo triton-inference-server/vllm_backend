@@ -124,8 +124,9 @@ class TritonPythonModel:
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**vllm_engine_config)
         )
+        self.enable_lora = False
 
-        if "enable_lora" in vllm_engine_config.keys() and vllm_engine_config["enable_lora"]:
+        if "enable_lora" in vllm_engine_config.keys() and vllm_engine_config["enable_lora"].lower() == "true":
             # create Triton LoRA weights repository
             multi_lora_args_filepath = os.path.join(
                 pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
@@ -136,6 +137,7 @@ class TritonPythonModel:
                 self.lora_repository = lora_repository
                 self.supported_loras: List[str] = list(self.lora_repository.keys())
                 self.supported_loras_len = len(self.supported_loras)
+                self.enable_lora = True
             except FileNotFoundError:
                 raise FileNotFoundError(f"Triton backend cannot find {multi_lora_args_filepath}.")
             
@@ -373,17 +375,9 @@ class TritonPythonModel:
             raise e
         finally:
             self.ongoing_request_count -= 1
-
-    def execute(self, requests):
-        """
-        Triton core issues requests to the backend via this method.
-
-        When this method returns, new requests can be issued to the backend. Blocking
-        this function would prevent the backend from pulling additional requests from
-        Triton into the vLLM engine. This can be done if the kv cache within vLLM engine
-        is too loaded.
-        We are pushing all the requests on vllm and let it handle the full traffic.
-        """
+            
+    def verify_loras(self, requests):
+        verified_requests = []
         for request in requests:
             # We will check if the requested lora exists here, if not we will send a 
             # response with `LoRA not found` information. In this way we may avoid
@@ -398,11 +392,15 @@ class TritonPythonModel:
                 sampling_params_dict = self.get_sampling_params_dict(parameters)
                 lora_name = sampling_params_dict.pop("lora_name", None)
             
-            if lora_name is not None and lora_name not in self.supported_loras:
-                lora_error = pb_utils.TritonError(
-                    f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
-                )
-                self.logger.log_info(f"[vllm] LoRA not found.")
+            if lora_name is not None:
+                if not self.enable_lora:
+                    lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
+                    self.logger.log_info("[vllm] LoRA is not enabled, please restart the backend with LoRA enabled.")
+                elif lora_name not in self.supported_loras:
+                    lora_error = pb_utils.TritonError(
+                        f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
+                    )
+                    self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
                 
             if lora_error is not None:
                 output_tensor = pb_utils.Tensor(
@@ -414,7 +412,22 @@ class TritonPythonModel:
                 response_sender = request.get_response_sender()
                 response_sender.send(response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
             else:
-                self.create_task(self.generate(request))
+                verified_requests.append(request)
+        return verified_requests
+
+    def execute(self, requests):
+        """
+        Triton core issues requests to the backend via this method.
+
+        When this method returns, new requests can be issued to the backend. Blocking
+        this function would prevent the backend from pulling additional requests from
+        Triton into the vLLM engine. This can be done if the kv cache within vLLM engine
+        is too loaded.
+        We are pushing all the requests on vllm and let it handle the full traffic.
+        """
+        requests = self.verify_loras(requests)
+        for request in requests:
+            self.create_task(self.generate(request))
         return None
 
     def finalize(self):

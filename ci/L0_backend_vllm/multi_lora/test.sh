@@ -50,6 +50,8 @@ python3 $DOWNLOAD_PY -v > $CLIENT_LOG 2>&1
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_llama_multi_lora
 
+export SERVER_ENABLE_LORA=true
+
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/llama-7b-hf",
@@ -106,6 +108,51 @@ set -e
 
 kill $SERVER_PID
 wait $SERVER_PID
+
+# disable lora
+export SERVER_ENABLE_LORA=false
+model_json=$(cat <<EOF
+{
+    "model":"./weights/backbone/llama-7b-hf",
+    "disable_log_requests": "true",
+    "gpu_memory_utilization": 0.8,
+    "tensor_parallel_size": 2,
+    "block_size": 16,
+    "enforce_eager": "true",
+    "enable_lora": "false",
+    "lora_extra_vocab_size": 256
+}
+EOF
+)
+echo "$model_json" > models/vllm_llama_multi_lora/1/model.json
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY -v >> $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+
 rm -rf models/
 rm -rf weights/
 

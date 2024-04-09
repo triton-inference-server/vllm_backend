@@ -24,10 +24,11 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys
+import sys, os
 import unittest
 from functools import partial
 from typing import List
+import argparse
 
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
@@ -37,6 +38,8 @@ from test_util import AsyncTestResultCollector, create_vllm_request, UserData, c
 
 PROMPTS = ["Instruct: What do you think of Computer Science?\nOutput:"]
 SAMPLING_PARAMETERS = {"temperature": "0", "top_p": "1"}
+
+server_enable_lora = True
 
 class VLLMTritonLoraTest(AsyncTestResultCollector):
     def setUp(self):
@@ -48,6 +51,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
         prompts: List[str],
         sampling_parameters,
         lora_name: List[str],
+        server_enable_lora=True,
         stream=False,
         exclude_input_in_output=None,
         expected_output=None
@@ -82,11 +86,18 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             result = user_data._completed_requests.get()
             if type(result) is InferenceServerException:
                 print(result.message())
-                self.assertEqual(
-                    str(result.message()), 
-                    f"LoRA {lora_name[i]} is not supported, we currently support ['alpaca', 'WizardLM']", 
-                    "InferenceServerException"
-                )
+                if server_enable_lora:
+                    self.assertEqual(
+                        str(result.message()), 
+                        f"LoRA {lora_name[i]} is not supported, we currently support ['alpaca', 'WizardLM']", 
+                        "InferenceServerException"
+                    )
+                else:
+                    self.assertEqual(
+                        str(result.message()), 
+                        "LoRA feature is not enabled.", 
+                        "InferenceServerException"
+                    )
                 self.triton_client.stop_stream()
                 return
 
@@ -119,6 +130,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             prompt_1,
             sampling_parameters,
             lora_name=lora_1,
+            server_enable_lora=server_enable_lora,
             stream=False,
             exclude_input_in_output=True,
             expected_output=expected_output,
@@ -135,6 +147,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             prompt_2,
             sampling_parameters,
             lora_name=lora_2,
+            server_enable_lora=server_enable_lora,
             stream=False,
             exclude_input_in_output=True,
             expected_output=expected_output,
@@ -152,6 +165,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             prompts,
             sampling_parameters,
             lora_name=loras,
+            server_enable_lora=server_enable_lora,
             stream=False,
             exclude_input_in_output=True,
             expected_output=None,   # this request will lead to lora not supported error, so there is no expected output
@@ -163,4 +177,6 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
 
 
 if __name__ == "__main__":
+    server_enable_lora = os.environ.get('SERVER_ENABLE_LORA', 'false').lower() == 'true'
+    
     unittest.main()
