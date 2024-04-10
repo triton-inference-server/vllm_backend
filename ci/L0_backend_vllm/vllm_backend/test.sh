@@ -114,23 +114,22 @@ if [[ "$COUNT" -ne 2 ]]; then
     echo "Cmdline parameters verification Failed"
 fi
 
-# Test loading multiple vllm models at the same time
+# Test loading multiple vllm models
 SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --load-model=vllm_one"
 SERVER_LOG="./vllm_test_multi_model.log"
 
 # Create two models, one is just a copy of the other, and make sure gpu
 # utilization is low enough for multiple models to avoid OOM.
 # vLLM changed behavior of their GPU profiler from total to free memory,
-# so to load two small models at the same time, we need to start
-# triton server in explicit mode, load first model with
-# `gpu_memory_utilization` 0.4 and second should be 0.9.
+# so to load two small models, we need to start
+# triton server in explicit mode.
 MODEL1="vllm_one"
 MODEL2="vllm_two"
 mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/${MODEL1}/
 cp -r models/${MODEL1} models/${MODEL2}
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/${MODEL1}/1/model.json
-sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.9/' models/${MODEL2}/1/model.json
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/${MODEL2}/1/model.json
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
