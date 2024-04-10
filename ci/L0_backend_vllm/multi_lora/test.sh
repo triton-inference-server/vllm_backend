@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -78,7 +78,7 @@ EOF
 echo "$multi_lora_json" > models/vllm_llama_multi_lora/1/multi_lora.json
 
 RET=0
-# If it is the first time launching triton server with llama-7b and multi-lora feature, 
+# If it is the first time launching triton server with llama-7b and multi-lora feature,
 # it may take more than 2 minutes. Please wait.
 SERVER_TIMEOUT=120000
 

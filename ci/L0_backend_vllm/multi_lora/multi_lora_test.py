@@ -1,4 +1,4 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,22 +24,23 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys, os
+import os
+import sys
 import unittest
 from functools import partial
 from typing import List
-import argparse
 
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
 sys.path.append("../../common")
-from test_util import AsyncTestResultCollector, create_vllm_request, UserData, callback
+from test_util import AsyncTestResultCollector, UserData, callback, create_vllm_request
 
 PROMPTS = ["Instruct: What do you think of Computer Science?\nOutput:"]
 SAMPLING_PARAMETERS = {"temperature": "0", "top_p": "1"}
 
 server_enable_lora = True
+
 
 class VLLMTritonLoraTest(AsyncTestResultCollector):
     def setUp(self):
@@ -54,12 +55,14 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
         server_enable_lora=True,
         stream=False,
         exclude_input_in_output=None,
-        expected_output=None
+        expected_output=None,
     ):
-        assert len(prompts) == len(lora_name), "The number of prompts and lora names should be the same"
+        assert len(prompts) == len(
+            lora_name
+        ), "The number of prompts and lora names should be the same"
         user_data = UserData()
         number_of_vllm_reqs = len(prompts)
-        
+
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(number_of_vllm_reqs):
             lora = lora_name[i] if lora_name else None
@@ -81,22 +84,22 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
                 outputs=request_data["outputs"],
                 parameters=sampling_parameters,
             )
-            
+
         for i in range(number_of_vllm_reqs):
             result = user_data._completed_requests.get()
             if type(result) is InferenceServerException:
                 print(result.message())
                 if server_enable_lora:
                     self.assertEqual(
-                        str(result.message()), 
-                        f"LoRA {lora_name[i]} is not supported, we currently support ['alpaca', 'WizardLM']", 
-                        "InferenceServerException"
+                        str(result.message()),
+                        f"LoRA {lora_name[i]} is not supported, we currently support ['alpaca', 'WizardLM']",
+                        "InferenceServerException",
                     )
                 else:
                     self.assertEqual(
-                        str(result.message()), 
-                        "LoRA feature is not enabled.", 
-                        "InferenceServerException"
+                        str(result.message()),
+                        "LoRA feature is not enabled.",
+                        "InferenceServerException",
                     )
                 self.triton_client.stop_stream()
                 return
@@ -114,14 +117,12 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
                 )
 
         self.triton_client.stop_stream()
-        
+
     def test_multi_lora_requests(self):
         self.triton_client.load_model(self.vllm_model_name)
         sampling_parameters = {"temperature": "0", "top_p": "1"}
-        # make two requests seperately to avoid the different arrival of response answers
-        prompt_1 = [
-            "Instruct: What do you think of Computer Science?\nOutput:"
-        ]
+        # make two requests separately to avoid the different arrival of response answers
+        prompt_1 = ["Instruct: What do you think of Computer Science?\nOutput:"]
         lora_1 = ["alpaca"]
         expected_output = [
             b" I think Computer Science is an interesting and exciting field. It is constantly evol"
@@ -135,10 +136,8 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             exclude_input_in_output=True,
             expected_output=expected_output,
         )
-        
-        prompt_2 = [
-            "Instruct: Tell me more about soccer\nOutput:"
-        ]
+
+        prompt_2 = ["Instruct: Tell me more about soccer\nOutput:"]
         lora_2 = ["WizardLM"]
         expected_output = [
             b" Soccer is a team sport played between two teams of eleven players each. The object"
@@ -153,7 +152,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             expected_output=expected_output,
         )
         self.triton_client.unload_model(self.vllm_model_name)
-        
+
     def test_none_exist_lora(self):
         self.triton_client.load_model(self.vllm_model_name)
         prompts = [
@@ -168,15 +167,15 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             server_enable_lora=server_enable_lora,
             stream=False,
             exclude_input_in_output=True,
-            expected_output=None,   # this request will lead to lora not supported error, so there is no expected output
+            expected_output=None,  # this request will lead to lora not supported error, so there is no expected output
         )
         self.triton_client.unload_model(self.vllm_model_name)
-        
+
     def tearDown(self):
         self.triton_client.close()
 
 
 if __name__ == "__main__":
-    server_enable_lora = os.environ.get('SERVER_ENABLE_LORA', 'false').lower() == 'true'
-    
+    server_enable_lora = os.environ.get("SERVER_ENABLE_LORA", "false").lower() == "true"
+
     unittest.main()

@@ -1,4 +1,4 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,15 +28,15 @@ import asyncio
 import json
 import os
 import threading
-from typing import AsyncGenerator, Dict, List
+from typing import Dict, List
 
 import numpy as np
 import triton_python_backend_utils as pb_utils
-from vllm.sampling_params import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.utils import random_uuid
 from vllm.lora.request import LoRARequest
+from vllm.sampling_params import SamplingParams
+from vllm.utils import random_uuid
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
@@ -126,7 +126,10 @@ class TritonPythonModel:
         )
         self.enable_lora = False
 
-        if "enable_lora" in vllm_engine_config.keys() and vllm_engine_config["enable_lora"].lower() == "true":
+        if (
+            "enable_lora" in vllm_engine_config.keys()
+            and vllm_engine_config["enable_lora"].lower() == "true"
+        ):
             # create Triton LoRA weights repository
             multi_lora_args_filepath = os.path.join(
                 pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
@@ -139,9 +142,10 @@ class TritonPythonModel:
                 self.supported_loras_len = len(self.supported_loras)
                 self.enable_lora = True
             except FileNotFoundError:
-                raise FileNotFoundError(f"Triton backend cannot find {multi_lora_args_filepath}.")
-            
-        
+                raise FileNotFoundError(
+                    f"Triton backend cannot find {multi_lora_args_filepath}."
+                )
+
         output_config = pb_utils.get_output_config_by_name(
             self.model_config, "text_output"
         )
@@ -325,7 +329,7 @@ class TritonPythonModel:
                 lora_int_id = int(lora_id)
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
-            
+
             async for output in self.llm_engine.generate(
                 prompt, sampling_params, request_id, lora_request=lora_request
             ):
@@ -375,45 +379,49 @@ class TritonPythonModel:
             raise e
         finally:
             self.ongoing_request_count -= 1
-            
-    def verify_loras(self, requests):
-        verified_requests = []
-        for request in requests:
-            # We will check if the requested lora exists here, if not we will send a 
-            # response with `LoRA not found` information. In this way we may avoid
-            # further processing.
-            lora_error = None
-            lora_name = None
-            parameters_input_tensor = pb_utils.get_input_tensor_by_name(
-                request, "sampling_parameters"
+
+    def verify_loras(self, request):
+        # We will check if the requested lora exists here, if not we will send a
+        # response with `LoRA not found` information. In this way we may avoid
+        # further processing.
+        verified_request = None
+        lora_error = None
+        lora_name = None
+        parameters_input_tensor = pb_utils.get_input_tensor_by_name(
+            request, "sampling_parameters"
+        )
+        if parameters_input_tensor:
+            parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
+            sampling_params_dict = self.get_sampling_params_dict(parameters)
+            lora_name = sampling_params_dict.pop("lora_name", None)
+
+        if lora_name is not None:
+            if not self.enable_lora:
+                lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
+                self.logger.log_info(
+                    "[vllm] LoRA is not enabled, please restart the backend with LoRA enabled."
+                )
+            elif lora_name not in self.supported_loras:
+                lora_error = pb_utils.TritonError(
+                    f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
+                )
+                self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
+
+        if lora_error is not None:
+            output_tensor = pb_utils.Tensor(
+                "text_output",
+                np.asarray(["[Error] Unsupported LoRA."], dtype=self.output_dtype),
             )
-            if parameters_input_tensor:
-                parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-                sampling_params_dict = self.get_sampling_params_dict(parameters)
-                lora_name = sampling_params_dict.pop("lora_name", None)
-            
-            if lora_name is not None:
-                if not self.enable_lora:
-                    lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
-                    self.logger.log_info("[vllm] LoRA is not enabled, please restart the backend with LoRA enabled.")
-                elif lora_name not in self.supported_loras:
-                    lora_error = pb_utils.TritonError(
-                        f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
-                    )
-                    self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
-                
-            if lora_error is not None:
-                output_tensor = pb_utils.Tensor(
-                    "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
-                )
-                response = pb_utils.InferenceResponse(
-                    output_tensors=[output_tensor], error=lora_error
-                )
-                response_sender = request.get_response_sender()
-                response_sender.send(response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
-            else:
-                verified_requests.append(request)
-        return verified_requests
+            response = pb_utils.InferenceResponse(
+                output_tensors=[output_tensor], error=lora_error
+            )
+            response_sender = request.get_response_sender()
+            response_sender.send(
+                response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
+            )
+        else:
+            verified_request = request
+        return verified_request
 
     def execute(self, requests):
         """
@@ -425,9 +433,10 @@ class TritonPythonModel:
         is too loaded.
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
-        requests = self.verify_loras(requests)
         for request in requests:
-            self.create_task(self.generate(request))
+            request = self.verify_loras(request)
+            if request is not None:
+                self.create_task(self.generate(request))
         return None
 
     def finalize(self):

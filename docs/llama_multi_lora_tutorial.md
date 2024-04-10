@@ -9,7 +9,7 @@ Now the vLLM has supported multi-lora, which integrated the `Punica` feature and
 
 The following tutorial demonstrates how to deploy **a LLaMa model** with **multiple loras** on Triton Inference Server using the Triton's [Python-based](https://github.com/triton-inference-server/backend/blob/main/docs/python_based_backends.md#python-based-backends) [vLLM](https://github.com/triton-inference-server/vllm_backend/tree/main) backend.
 
-> Before you continue reading, it's important to note that all command-line instructions containing `<xx.yy>` in the document cannot be used directly by copying and pasting. 
+> Before you continue reading, it's important to note that all command-line instructions containing `<xx.yy>` in the document cannot be used directly by copying and pasting.
 >
 > `<xx.yy>` represents the Triton version, and you must specify the Triton version you want to use for the bash command to work.
 
@@ -33,7 +33,7 @@ sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
 
 Triton's vLLM container has been introduced starting from 23.10 release, and `multi-lora` experimental support was added in vLLM v0.3.0 release.
 
-> Docker image version `nvcr.io/nvidia/tritonserver:23.12-vllm-python-py3` or higher version is strongly recommended.
+> Docker image version `nvcr.io/nvidia/tritonserver:24.03-vllm-python-py3` or higher version is strongly recommended.
 
 ---
 
@@ -63,13 +63,13 @@ By default, the punica kernels will **NOT** be compiled when installing the vLLM
 
 __2.1 install with pip__
 
-For Triton version before 24.02, you need the following command:
+For Triton version before 24.05, you need the following command:
 
 ```bash
 VLLM_INSTALL_PUNICA_KERNELS=1 pip install vllm==0.3.0
 ```
 
-__2.2 build from source (Recommended)__
+__2.2 build from source__
 
 As alternative, you can build vLLM from source code:
 
@@ -79,19 +79,18 @@ git clone vllm repository:
 git clone https://github.com/vllm-project/vllm.git
 ```
 
-
 All you need to do is to follow the simple step:
 
 ```bash
 cd vllm
-VLLM_INSTALL_PUNICA_KERNELS=1 pip install -e .
+VLLM_INSTALL_PUNICA_KERNELS=1 pip install .
 ```
 
 This may take you 5-10 mins.
 
 ## Step 3: Prepare your weights
 
-To support multi-lora on Triton, you need to manage your file path for **model backbone** and **lora weights** seperately.
+To support multi-lora on Triton, you need to manage your file path for **model backbone** and **lora weights** separately.
 
 A typical weights repository can be as follows:
 
@@ -104,7 +103,7 @@ weights
     └── bactrian-x-llama-lora-7b
 ```
 
-+ A workspace for `vllm`, and `model backbone weights`, `LoRA adapter weights` is strongly recommended. 
++ A workspace for `vllm`, and `model backbone weights`, `LoRA adapter weights` is strongly recommended.
 + You should expand the storage of these weight files to ensure they are logically organized in the workspace.
 
 ## Step 4: Prepare `model repository` for Triton Server

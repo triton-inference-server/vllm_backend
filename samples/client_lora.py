@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -123,7 +123,7 @@ class LLMClient:
             for id in self._results_dict.keys():
                 for result in self._results_dict[id]:
                     file.write(result.decode("utf-8"))
-                    
+
                 file.write("\n")
                 file.write("\n=========\n\n")
             print(f"Storing results into `{self._flags.results_file}`...")
@@ -148,7 +148,7 @@ class LLMClient:
         request_id,
         sampling_parameters,
         exclude_input_in_output,
-        send_parameters_as_tensor=True
+        send_parameters_as_tensor=True,
     ):
         inputs = []
         prompt_data = np.array([prompt.encode("utf-8")], dtype=np.object_)
@@ -175,7 +175,7 @@ class LLMClient:
 
         inputs.append(grpcclient.InferInput("exclude_input_in_output", [1], "BOOL"))
         inputs[-1].set_data_from_numpy(np.array([exclude_input_in_output], dtype=bool))
-        
+
         # Add requested outputs
         outputs = []
         outputs.append(grpcclient.InferRequestedOutput("text_output"))
@@ -267,7 +267,7 @@ if __name__ == "__main__":
         default=False,
         help="Exclude prompt from outputs",
     )
-    
+
     parser.add_argument(
         "-l",
         "--lora-name",

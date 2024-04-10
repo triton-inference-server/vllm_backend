@@ -1,4 +1,4 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,22 +26,22 @@
 
 from huggingface_hub import snapshot_download
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # download lora weight alpaca
     snapshot_download(
         repo_id="tloen/alpaca-lora-7b",
         local_dir="./weights/loras/alpaca",
-        max_workers=8
+        max_workers=8,
     )
     # download lora weight WizardLM
     snapshot_download(
         repo_id="winddude/wizardLM-LlaMA-LoRA-7B",
         local_dir="./weights/loras/WizardLM",
-        max_workers=8
+        max_workers=8,
     )
     # download llama-7b-hf
     snapshot_download(
         repo_id="luodian/llama-7b-hf",
         local_dir="./weights/backbone/llama-7b-hf",
-        max_workers=8
+        max_workers=8,
     )
