@@ -228,7 +228,7 @@ class TritonPythonModel:
             if k in params_dict:
                 params_dict[k] = float(params_dict[k])
 
-        int_keys = ["best_of", "max_tokens", "n", "top_k"]
+        int_keys = ["best_of", "max_tokens", "min_tokens", "n", "top_k"]
         for k in int_keys:
             if k in params_dict:
                 params_dict[k] = int(params_dict[k])
