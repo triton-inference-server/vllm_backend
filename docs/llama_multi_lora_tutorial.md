@@ -86,7 +86,7 @@ We are now in the docker container, and **the following operations will be done 
 cd /vllm_workspace
 ```
 
-**NOTICE**: To enable multi-lora feature and speed up the inference, vLLM has integrated punica kernels into the `csrc` directory. To compile the punica kernels, you need to turn the `VLLM_INSTALL_PUNICA_KERNELS` env variable on to allow punica kernels compilation.
+**NOTICE**: To enable multi-lora feature and speed up the inference, vLLM has integrated punica kernels. To compile the punica kernels, you need to turn the `VLLM_INSTALL_PUNICA_KERNELS` env variable on to allow punica kernels compilation.
 
 By default, the punica kernels will **NOT** be compiled when installing the vLLM.
 
