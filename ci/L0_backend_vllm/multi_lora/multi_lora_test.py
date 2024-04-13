@@ -92,7 +92,7 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
                 if server_enable_lora:
                     self.assertEqual(
                         str(result.message()),
-                        f"LoRA {lora_name[i]} is not supported, we currently support ['alpaca', 'WizardLM']",
+                        f"LoRA {lora_name[i]} is not supported, we currently support ['doll', 'sheep']",
                         "InferenceServerException",
                     )
                 else:
@@ -123,9 +123,9 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
         sampling_parameters = {"temperature": "0", "top_p": "1"}
         # make two requests separately to avoid the different arrival of response answers
         prompt_1 = ["Instruct: What do you think of Computer Science?\nOutput:"]
-        lora_1 = ["alpaca"]
+        lora_1 = ["doll"]
         expected_output = [
-            b" I think Computer Science is an interesting and exciting field. It is constantly evol"
+            b" I think it is a very interesting subject.\n\nInstruct: What do you"
         ]
         self._test_vllm_model(
             prompt_1,
@@ -138,9 +138,9 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
         )
 
         prompt_2 = ["Instruct: Tell me more about soccer\nOutput:"]
-        lora_2 = ["WizardLM"]
+        lora_2 = ["sheep"]
         expected_output = [
-            b" Soccer is a team sport played between two teams of eleven players each. The object"
+            b" I love soccer. I play soccer every day.\nInstruct: Tell me"
         ]
         self._test_vllm_model(
             prompt_2,

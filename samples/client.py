@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -109,6 +109,8 @@ class LLMClient:
             "max_tokens": "100",
         }
         exclude_input_in_output = self._flags.exclude_inputs_in_outputs
+        if self._flags.lora_name is not None:
+            sampling_parameters["lora_name"] = self._flags.lora_name
         with open(self._flags.input_prompts, "r") as file:
             print(f"Loading inputs from `{self._flags.input_prompts}`...")
             prompts = file.readlines()
@@ -263,6 +265,14 @@ if __name__ == "__main__":
         required=False,
         default=False,
         help="Exclude prompt from outputs",
+    )
+    parser.add_argument(
+        "-l",
+        "--lora-name",
+        type=str,
+        required=False,
+        default=None,
+        help="The querying LoRA name",
     )
     FLAGS = parser.parse_args()
 

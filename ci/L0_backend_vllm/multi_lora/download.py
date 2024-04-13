@@ -29,19 +29,19 @@ from huggingface_hub import snapshot_download
 if __name__ == "__main__":
     # download lora weight alpaca
     snapshot_download(
-        repo_id="tloen/alpaca-lora-7b",
-        local_dir="./weights/loras/alpaca",
+        repo_id="swathijn/GemmaDoll-2b-dolly-LORA-Tune",
+        local_dir="./weights/loras/GemmaDoll",
         max_workers=8,
     )
-    # download lora weight WizardLM
+    # download lora weight GemmaSheep
     snapshot_download(
-        repo_id="winddude/wizardLM-LlaMA-LoRA-7B",
-        local_dir="./weights/loras/WizardLM",
+        repo_id="eduardo-alvarez/GemmaSheep-2B-LORA-TUNED",
+        local_dir="./weights/loras/GemmaSheep",
         max_workers=8,
     )
-    # download llama-7b-hf
+    # download backbone weight google/gemma-2b
     snapshot_download(
-        repo_id="luodian/llama-7b-hf",
-        local_dir="./weights/backbone/llama-7b-hf",
+        repo_id="unsloth/gemma-2b",
+        local_dir="./weights/backbone/gemma-2b",
         max_workers=8,
     )

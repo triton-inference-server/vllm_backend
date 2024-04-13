@@ -42,8 +42,8 @@ EXPECTED_NUM_TESTS=2
 # first we download weights
 pip install -U huggingface_hub
 
-rm -rf weights && mkdir -p weights/loras/alpaca && mkdir -p weights/loras/WizardLM
-mkdir -p weights/backbone/llama-7b-hf
+rm -rf weights && mkdir -p weights/loras/GemmaDoll && mkdir -p weights/loras/GemmaSheep
+mkdir -p weights/backbone/gemma-2b
 
 python3 $DOWNLOAD_PY -v > $CLIENT_LOG 2>&1
 
@@ -54,14 +54,14 @@ export SERVER_ENABLE_LORA=true
 
 model_json=$(cat <<EOF
 {
-    "model":"./weights/backbone/llama-7b-hf",
+    "model":"./weights/backbone/gemma-2b",
     "disable_log_requests": "true",
-    "gpu_memory_utilization": 0.8,
+    "gpu_memory_utilization": 0.7,
     "tensor_parallel_size": 2,
     "block_size": 16,
     "enforce_eager": "true",
     "enable_lora": "true",
-    "max_lora_rank": 16,
+    "max_lora_rank": 32,
     "lora_extra_vocab_size": 256
 }
 EOF
@@ -70,17 +70,17 @@ echo "$model_json" > models/vllm_llama_multi_lora/1/model.json
 
 multi_lora_json=$(cat <<EOF
 {
-    "alpaca": "./weights/loras/alpaca",
-    "WizardLM": "./weights/loras/WizardLM"
+    "doll": "./weights/loras/GemmaDoll",
+    "sheep": "./weights/loras/GemmaSheep"
 }
 EOF
 )
 echo "$multi_lora_json" > models/vllm_llama_multi_lora/1/multi_lora.json
 
 RET=0
-# If it is the first time launching triton server with llama-7b and multi-lora feature,
-# it may take more than 2 minutes. Please wait.
-SERVER_TIMEOUT=120000
+# If it is the first time launching triton server with gemma-2b and multi-lora feature,
+# it may take more than 1 minutes. Please wait.
+SERVER_TIMEOUT=60000
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
@@ -113,7 +113,7 @@ wait $SERVER_PID
 export SERVER_ENABLE_LORA=false
 model_json=$(cat <<EOF
 {
-    "model":"./weights/backbone/llama-7b-hf",
+    "model":"./weights/backbone/gemma-2b",
     "disable_log_requests": "true",
     "gpu_memory_utilization": 0.8,
     "tensor_parallel_size": 2,
