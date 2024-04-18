@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,24 +24,24 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-RET=0
-SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend multi_lora"
+from huggingface_hub import snapshot_download
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
-
-for TEST in ${SUBTESTS}; do
-    (cd ${TEST} && bash -ex test.sh && cd ..)
-
-    if [ $? -ne 0 ]; then
-        echo "Subtest ${TEST} FAILED"
-        RET=1
-    fi
-done
-
-if [ $RET -eq 0 ]; then
-    echo -e "\n***\n*** vLLM Backend Test Passed\n***"
-else
-    echo -e "\n***\n*** vLLM Backend Test FAILED\n***"
-fi
-
-exit $RET
+if __name__ == "__main__":
+    # download lora weight alpaca
+    snapshot_download(
+        repo_id="swathijn/GemmaDoll-2b-dolly-LORA-Tune",
+        local_dir="./weights/loras/GemmaDoll",
+        max_workers=8,
+    )
+    # download lora weight GemmaSheep
+    snapshot_download(
+        repo_id="eduardo-alvarez/GemmaSheep-2B-LORA-TUNED",
+        local_dir="./weights/loras/GemmaSheep",
+        max_workers=8,
+    )
+    # download backbone weight google/gemma-2b
+    snapshot_download(
+        repo_id="unsloth/gemma-2b",
+        local_dir="./weights/backbone/gemma-2b",
+        max_workers=8,
+    )
