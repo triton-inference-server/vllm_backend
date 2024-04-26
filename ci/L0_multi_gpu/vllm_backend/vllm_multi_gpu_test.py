@@ -32,7 +32,7 @@ import nvidia_smi
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
-sys.path.append("../common")
+sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,24 +25,61 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+source ../../common/util.sh
+
+TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
+SERVER=${TRITON_DIR}/bin/tritonserver
+BACKEND_DIR=${TRITON_DIR}/backends
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --log-verbose=1"
+SERVER_LOG="./vllm_multi_gpu_test_server.log"
+CLIENT_LOG="./vllm_multi_gpu_test_client.log"
+TEST_RESULT_FILE='test_results.txt'
+CLIENT_PY="./vllm_multi_gpu_test.py"
+SAMPLE_MODELS_REPO="../../../samples/model_repository"
+EXPECTED_NUM_TESTS=1
+
+rm -rf models && mkdir -p models
+cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+sed -i '3s/^/    "tensor_parallel_size": 2,\n/' models/vllm_opt/1/model.json
+
+python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc] nvidia-ml-py3
+
 RET=0
-SUBTESTS="vllm_backend multi_lora"
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
 
-for TEST in ${SUBTESTS}; do
-    (cd ${TEST} && bash -ex test.sh && cd ..)
+set +e
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
 
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
     if [ $? -ne 0 ]; then
-        echo "Subtest ${TEST} FAILED"
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
         RET=1
     fi
-done
+fi
+set -e
 
-if [ $RET -eq 0 ]; then
-    echo -e "\n***\n*** vLLM Multi-GPU Tests Passed\n***"
+kill $SERVER_PID
+wait $SERVER_PID
+rm -rf models/
+
+if [ $RET -eq 1 ]; then
+    cat $CLIENT_LOG
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Multi GPU Utilization test FAILED. \n***"
 else
-    echo -e "\n***\n*** vLLM Multi-GPU Tests FAILED\n***"
+    echo -e "\n***\n*** Multi GPU Utilization test PASSED. \n***"
 fi
 
 exit $RET
