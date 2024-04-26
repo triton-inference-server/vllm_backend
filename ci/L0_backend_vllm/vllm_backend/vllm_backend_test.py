@@ -102,7 +102,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: prompt is returned with diffs.
         """
-        # self.triton_client.load_model(self.vllm_model_name)
         prompts = [
             "The capital of France is",
         ]
@@ -117,7 +116,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             send_parameters_as_tensor=True,
             expected_output=expected_output,
         )
-        # self.triton_client.unload_model(self.vllm_model_name)
 
     def test_exclude_input_in_output_false(self):
         """
@@ -125,7 +123,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: prompt is returned with diffs.
         """
-        # self.triton_client.load_model(self.vllm_model_name)
         # Test vllm model and unload vllm model
         prompts = [
             "The capital of France is",
@@ -142,7 +139,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             exclude_input_in_output=False,
             expected_output=expected_output,
         )
-        # self.triton_client.unload_model(self.vllm_model_name)
 
     def test_exclude_input_in_output_true(self):
         """
@@ -150,7 +146,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: only diffs are returned.
         """
-        # self.triton_client.load_model(self.vllm_model_name)
         # Test vllm model and unload vllm model
         prompts = [
             "The capital of France is",
@@ -167,7 +162,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             exclude_input_in_output=True,
             expected_output=expected_output,
         )
-        # self.triton_client.unload_model(self.vllm_model_name)
 
     def _test_vllm_model(
         self,
