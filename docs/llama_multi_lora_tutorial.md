@@ -42,7 +42,7 @@ The following tutorial demonstrates how to deploy **a LLaMa model** with **multi
 
 ## Step 1: Start a docker container for triton-vllm serving
 
-**A docker container is strongly recommended for serving**, and this tutorial will only demonstrate how to launch triton in docker env.
+**A docker container is strongly recommended for serving**, and this tutorial will only demonstrate how to launch triton in the docker environment.
 
 First, start a docker container using the tritonserver image with vLLM backend from [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver/tags):
 
@@ -56,15 +56,15 @@ sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
 /bin/bash
 ```
 
-**NOTICE:** the version of triton docker image should be configurated, here we use `<xx.yy>` to symbolize.
+**NOTICE:** the version of triton docker image should be configurated, here and through this tutorial we use `<xx.yy>` to symbolize the version.
 
 Triton's vLLM container has been introduced starting from 23.10 release, and `multi-lora` experimental support was added in vLLM v0.3.0 release.
 
 > Docker image version `nvcr.io/nvidia/tritonserver:24.05-vllm-python-py3` or higher version is strongly recommended.
 
+> [!IMPORTANT]
+> 24.05 release is still under active development, and relevant NGC containers are not available at this time.
 ---
-
-<!-- TODO: check for the specific correct version, currently we set it to 24.05 -->
 
 For **pre-24.05 containers**, the docker images didn't support multi-lora feature, so you need to replace that provided in the container `/opt/tritonserver/backends/vllm/model.py` with the most up to date version. Just follow this command:
 
@@ -74,50 +74,10 @@ Download the `model.py` script from github:
 wget -P /opt/tritonserver/backends/vllm/ https://raw.githubusercontent.com/triton-inference-server/vllm_backend/r<xx.yy>/src/model.py
 ```
 
-**Notice:** `r<xx.yy>` is the triton version you need to configure to r24.04 or later release.
-
 This command will download the `model.py` script to the Triton vllm backend directory which will enable multi-lora feature.
 
-## Step 2: Install vLLM with multi-lora feature
 
-We are now in the docker container, and **the following operations will be done in container environment.**
-
-```bash
-cd /vllm_workspace
-```
-
-**NOTICE**: To enable multi-lora feature and speed up the inference, vLLM has integrated punica kernels. To compile the punica kernels, you need to turn the `VLLM_INSTALL_PUNICA_KERNELS` env variable on to allow punica kernels compilation.
-
-By default, the punica kernels will **NOT** be compiled when installing the vLLM.
-
-__2.1 install with pip__
-
-For Triton version before 24.05, you need the following command:
-
-```bash
-VLLM_INSTALL_PUNICA_KERNELS=1 pip install vllm==0.4.0.post1
-```
-
-__2.2 build from source__
-
-As alternative, you can build vLLM from source code:
-
-git clone vllm repository:
-
-```bash
-git clone https://github.com/vllm-project/vllm.git
-```
-
-All you need to do is to follow the simple step:
-
-```bash
-cd vllm
-VLLM_INSTALL_PUNICA_KERNELS=1 pip install .
-```
-
-This may take you 5-10 mins.
-
-## Step 3: Prepare your weights
+## Step 2: Prepare your weights
 
 To support multi-lora on Triton, you need to manage your file path for **model backbone** and **lora weights** separately.
 
@@ -135,9 +95,9 @@ weights
 + A workspace for `vllm`, and `model backbone weights`, `LoRA adapter weights` is strongly recommended.
 + You should expand the storage of these weight files to ensure they are logically organized in the workspace.
 
-## Step 4: Prepare `model repository` for Triton Server
+## Step 3: Prepare `model repository` for Triton Server
 
-__4.1 Download the model repository files__
+__3.1 Download the model repository files__
 
 To use Triton, a model repository is needed, for *model path* , *backend configuration* and other information. The vllm backend is implemented based on python backend, and `sampling_params` of vllm are sampled from `model.json`.
 
@@ -182,7 +142,7 @@ vllm_workspace
         └── config.pbtxt
 ```
 
-__4.2 Populate `model.json`__
+__3.2 Populate `model.json`__
 
 For this tutorial we will use the following set of parameters, specified in the `model.json`.
 
@@ -209,7 +169,7 @@ For this tutorial we will use the following set of parameters, specified in the 
 
 The full set of parameters can be found [here](https://github.com/Yard1/vllm/blob/multi_lora/vllm/engine/arg_utils.py#L11).
 
-__4.3 Specify local lora path__
+__3.3 Specify local lora path__
 
 vLLM v0.4.0.post1 supported the inference of **local lora weights applying**, which means that the vllm cannot pull any lora adapter from huggingface. So triton should know where the local lora weights are.
 
@@ -233,7 +193,7 @@ The **key** should be the supported lora name, and the **value** should be the s
 
 > **Warning**: if you set `enable_lora` to `true` in `model.json` without creating a `multi_lora.json` file, the server will throw `FileNotFoundError` when initializing.
 
-## Step 5: Launch Triton
+## Step 4: Launch Triton
 
 ```bash
 # NOTICE: you must first cd to your vllm_workspace path.
@@ -249,7 +209,7 @@ I1030 22:33:28.292879 1 http_server.cc:4497] Started HTTPService at 0.0.0.0:8000
 I1030 22:33:28.335154 1 http_server.cc:270] Started Metrics Service at 0.0.0.0:8002
 ```
 
-## Step 6: Send a request
+## Step 5: Send a request
 
 A client request script for multi-lora was prepared, downloading the client script from source:
 
