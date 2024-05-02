@@ -1,4 +1,4 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,21 +48,23 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
         self.python_model_name = "add_sub"
+        self.vllm_load_test = "vllm_load_test"
 
     def test_vllm_triton_backend(self):
         # Load both vllm and add_sub models
-        self.triton_client.load_model(self.vllm_model_name)
-        self.assertTrue(self.triton_client.is_model_ready(self.vllm_model_name))
+        self.triton_client.load_model(self.vllm_load_test)
+        self.assertTrue(self.triton_client.is_model_ready(self.vllm_load_test))
         self.triton_client.load_model(self.python_model_name)
         self.assertTrue(self.triton_client.is_model_ready(self.python_model_name))
 
         # Unload vllm model and test add_sub model
-        self.triton_client.unload_model(self.vllm_model_name)
-        self.assertFalse(self.triton_client.is_model_ready(self.vllm_model_name))
+        self.triton_client.unload_model(self.vllm_load_test)
+        self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
         self._test_python_model()
 
         # Load vllm model and unload add_sub model
-        self.triton_client.load_model(self.vllm_model_name)
+        self.triton_client.load_model(self.vllm_load_test)
+        self.assertTrue(self.triton_client.is_model_ready(self.vllm_load_test))
         self.triton_client.unload_model(self.python_model_name)
         self.assertFalse(self.triton_client.is_model_ready(self.python_model_name))
 
@@ -72,14 +74,17 @@ class VLLMTritonBackendTest(TestResultCollector):
             sampling_parameters=SAMPLING_PARAMETERS,
             stream=False,
             send_parameters_as_tensor=True,
+            model_name=self.vllm_load_test,
         )
         self._test_vllm_model(
             prompts=PROMPTS,
             sampling_parameters=SAMPLING_PARAMETERS,
             stream=False,
             send_parameters_as_tensor=False,
+            model_name=self.vllm_load_test,
         )
-        self.triton_client.unload_model(self.vllm_model_name)
+        self.triton_client.unload_model(self.vllm_load_test)
+        self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
 
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
@@ -97,7 +102,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: prompt is returned with diffs.
         """
-        self.triton_client.load_model(self.vllm_model_name)
         prompts = [
             "The capital of France is",
         ]
@@ -112,7 +116,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             send_parameters_as_tensor=True,
             expected_output=expected_output,
         )
-        self.triton_client.unload_model(self.vllm_model_name)
 
     def test_exclude_input_in_output_false(self):
         """
@@ -120,7 +123,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: prompt is returned with diffs.
         """
-        self.triton_client.load_model(self.vllm_model_name)
         # Test vllm model and unload vllm model
         prompts = [
             "The capital of France is",
@@ -137,7 +139,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             exclude_input_in_output=False,
             expected_output=expected_output,
         )
-        self.triton_client.unload_model(self.vllm_model_name)
 
     def test_exclude_input_in_output_true(self):
         """
@@ -145,7 +146,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         in non-streaming mode.
         Expected result: only diffs are returned.
         """
-        self.triton_client.load_model(self.vllm_model_name)
         # Test vllm model and unload vllm model
         prompts = [
             "The capital of France is",
@@ -162,7 +162,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             exclude_input_in_output=True,
             expected_output=expected_output,
         )
-        self.triton_client.unload_model(self.vllm_model_name)
 
     def _test_vllm_model(
         self,
@@ -172,6 +171,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         send_parameters_as_tensor,
         exclude_input_in_output=None,
         expected_output=None,
+        model_name="vllm_opt",
     ):
         user_data = UserData()
         number_of_vllm_reqs = len(prompts)
@@ -183,12 +183,12 @@ class VLLMTritonBackendTest(TestResultCollector):
                 i,
                 stream,
                 sampling_parameters,
-                self.vllm_model_name,
+                model_name,
                 send_parameters_as_tensor,
                 exclude_input_in_output=exclude_input_in_output,
             )
             self.triton_client.async_stream_infer(
-                model_name=self.vllm_model_name,
+                model_name=model_name,
                 request_id=request_data["request_id"],
                 inputs=request_data["inputs"],
                 outputs=request_data["outputs"],

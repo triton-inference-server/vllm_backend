@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,7 +30,7 @@ source ../../common/util.sh
 TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
-SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --log-verbose=1"
+SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --load-model=vllm_opt --log-verbose=1"
 SERVER_LOG="./vllm_backend_server.log"
 CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
@@ -50,6 +50,13 @@ function assert_curl_success {
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+# `vllm_opt`` model will be loaded on server start and stay loaded throughout
+# unittesting. To test vllm model load/unload we use a dedicated
+# `vllm_load_test`. To ensure that vllm's memory profiler will not error out
+# on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
+# so that at least 60% of GPU memory was available for other models.
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/vllm_opt/1/model.json
+cp -r models/vllm_opt models/vllm_load_test
 
 mkdir -p models/add_sub/1/
 wget -P models/add_sub/1/ https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/model.py
@@ -96,7 +103,7 @@ wait $SERVER_PID
 SERVER_ARGS="--model-repository=$(pwd)/models --backend-directory=${BACKEND_DIR} --backend-config=python,default-max-batch-size=8"
 SERVER_LOG="./vllm_test_cmdline_server.log"
 
-rm -rf ./models/vllm_invalid_1 ./models/vllm_invalid_2
+rm -rf ./models/vllm_invalid_1 ./models/vllm_invalid_2 ./models/vllm_load_test
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
