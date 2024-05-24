@@ -141,16 +141,18 @@ class TritonPythonModel:
             vllm_engine_config = json.load(file)
 
         # Validate device and multi-processing settings are currently set based on model/configs.
-        kind = self.args["model_instance_kind"]
-        device_id = self.args["model_instance_device_id"]
-        self.validate_device_config(kind, device_id, vllm_engine_config)
+        self.validate_device_config(vllm_engine_config)
 
         # Create an AsyncLLMEngine from the config from JSON
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**vllm_engine_config)
         )
 
-    def validate_device_config(self, triton_kind, triton_device_id, vllm_engine_config):
+    def validate_device_config(self, vllm_engine_config):
+        triton_kind = self.args["model_instance_kind"]
+        triton_device_id = self.args["model_instance_device_id"]
+        triton_instance = f"{self.args['model_name']}_{triton_device_id}"
+
         # Triton's current definition of KIND_GPU makes assumptions that
         # models only use a single GPU. For multi-GPU models, the recommendation
         # is to specify KIND_MODEL to acknowledge that the model will take control
@@ -166,7 +168,7 @@ class TritonPythonModel:
         # device (usually device 0) when KIND_GPU is used.
         if triton_kind == "GPU" and int(triton_device_id) >= 0:
             self.logger.log_info(
-                f"Detected KIND_GPU model instance, explicitly setting GPU device={device_id}"
+                f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
             )
             # NOTE: this only affects this process and it's subprocesses, not other processes.
             # vLLM doesn't currently seem to expose selecting a specific device in the APIs.
