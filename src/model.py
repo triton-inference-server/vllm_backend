@@ -123,10 +123,6 @@ class TritonPythonModel:
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
         # forwarding requests to vLLM engine, so assert it.
-
-        # assert are in decoupled mode. Currently, Triton needs to use
-        # decoupled policy for asynchronously forwarding requests to
-        # vLLM engine.
         self.using_decoupled = pb_utils.using_decoupled_model_transaction_policy(
             self.model_config
         )
