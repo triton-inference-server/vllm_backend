@@ -30,7 +30,7 @@ import time
 import unittest
 from functools import partial
 
-import nvidia_smi
+import pynvml
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
 
@@ -40,19 +40,19 @@ from test_util import TestResultCollector, UserData, callback, create_vllm_reque
 
 class VLLMMultiGPUTest(TestResultCollector):
     def setUp(self):
-        nvidia_smi.nvmlInit()
+        pynvml.nvmlInit()
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
 
     def get_gpu_memory_utilization(self, gpu_id):
-        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(gpu_id)
-        info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+        handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)
+        info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         return info.used
 
     def get_available_gpu_ids(self):
-        device_count = nvidia_smi.nvmlDeviceGetCount()
+        device_count = pynvml.nvmlDeviceGetCount()
         available_gpus = []
         for gpu_id in range(device_count):
-            handle = nvidia_smi.nvmlDeviceGetHandleByIndex(gpu_id)
+            handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)
             if handle:
                 available_gpus.append(gpu_id)
         return available_gpus
@@ -178,7 +178,7 @@ class VLLMMultiGPUTest(TestResultCollector):
         self._test_vllm_multi_gpu_utilization(model)
 
     def tearDown(self):
-        nvidia_smi.nvmlShutdown()
+        pynvml.nvmlShutdown()
         self.triton_client.close()
 
 

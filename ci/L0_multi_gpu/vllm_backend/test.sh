@@ -111,7 +111,6 @@ function run_multi_gpu_test() {
 }
 
 ### Test
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc] nvidia-ml-py3
 rm -f *.log
 RET=0
 
