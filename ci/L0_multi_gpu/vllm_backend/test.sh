@@ -31,52 +31,105 @@ TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
 SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --log-verbose=1"
-SERVER_LOG="./vllm_multi_gpu_test_server.log"
-CLIENT_LOG="./vllm_multi_gpu_test_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_multi_gpu_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
-rm -rf models && mkdir -p models
-cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-sed -i '3s/^/    "tensor_parallel_size": 2,\n/' models/vllm_opt/1/model.json
+### Helpers
+function validate_file_contains() {
+    local KEY="${1}"
+    local FILE="${2}"
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc] nvidia-ml-py3
+    if [ -z "${KEY}" ] || [ -z "${FILE}" ]; then
+        echo "Error: KEY and FILE must be provided."
+        return 1
+    fi
 
-RET=0
+    if [ ! -f "${FILE}" ]; then
+        echo "Error: File '${FILE}' does not exist."
+        return 1
+    fi
 
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
+    count=$(grep -o -w "${KEY}" "${FILE}" | wc -l)
 
-set +e
-python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
+    if [ "${count}" -ne 1 ]; then
+        echo "Error: KEY '${KEY}' found ${count} times in '${FILE}'. Expected exactly once."
+        return 1
+    fi
+}
 
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+function run_multi_gpu_test() {
+    export KIND="${1}"
+    export TENSOR_PARALLELISM="${2}"
+    export INSTANCE_COUNT="${3}"
+
+    # Setup a clean model repository
+    export TEST_MODEL="vllm_opt_${KIND}_tp${TENSOR_PARALLELISM}_count${INSTANCE_COUNT}"
+    local TEST_MODEL_TRITON_CONFIG="models/${TEST_MODEL}/config.pbtxt"
+    local TEST_MODEL_VLLM_CONFIG="models/${TEST_MODEL}/1/model.json"
+
+    rm -rf models && mkdir -p models
+    cp -r "${SAMPLE_MODELS_REPO}/vllm_model" "models/${TEST_MODEL}"
+    sed -i "s/KIND_MODEL/${KIND}/" "${TEST_MODEL_TRITON_CONFIG}"
+    sed -i "3s/^/    \"tensor_parallel_size\": ${TENSOR_PARALLELISM},\n/" "${TEST_MODEL_VLLM_CONFIG}"
+    # Assert the correct kind is set in case the template config changes in the future
+    validate_file_contains "${KIND}" "${TEST_MODEL_TRITON_CONFIG}"
+
+    # Start server
+    echo "Running multi-GPU test with kind=${KIND}, tp=${TENSOR_PARALLELISM}, instance_count=${INSTANCE_COUNT}"
+    SERVER_LOG="./vllm_multi_gpu_test--${KIND}_tp${TENSOR_PARALLELISM}_count${INSTANCE_COUNT}--server.log"
+    run_server
+    if [ "$SERVER_PID" == "0" ]; then
+        cat $SERVER_LOG
+        echo -e "\n***\n*** Failed to start $SERVER\n***"
+        exit 1
+    fi
+
+    # Run unit tests
+    set +e
+    CLIENT_LOG="./vllm_multi_gpu_test--${KIND}_tp${TENSOR_PARALLELISM}_count${INSTANCE_COUNT}--client.log"
+    python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
+
     if [ $? -ne 0 ]; then
         cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
         RET=1
+    else
+        check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+        if [ $? -ne 0 ]; then
+            cat $CLIENT_LOG
+            echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+            RET=1
+        fi
     fi
-fi
-set -e
+    set -e
 
-kill $SERVER_PID
-wait $SERVER_PID
-rm -rf models/
+    # Cleanup
+    kill $SERVER_PID
+    wait $SERVER_PID
+}
 
+### Test
+python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc] nvidia-ml-py3
+rm -f *.log
+RET=0
+
+# Test the various cases of kind, tensor parallelism, and instance count
+# for different ways to run multi-GPU models with vLLM on Triton
+KINDS="KIND_MODEL KIND_GPU"
+TPS="1 2"
+INSTANCE_COUNTS="1 2"
+for kind in ${KINDS}; do
+  for tp in ${TPS}; do
+    for count in ${INSTANCE_COUNTS}; do
+        run_multi_gpu_test "${kind}" "${tp}" "${count}"
+    done
+  done
+done
+
+### Results
 if [ $RET -eq 1 ]; then
-    cat $CLIENT_LOG
-    cat $SERVER_LOG
     echo -e "\n***\n*** Multi GPU Utilization test FAILED. \n***"
 else
     echo -e "\n***\n*** Multi GPU Utilization test PASSED. \n***"

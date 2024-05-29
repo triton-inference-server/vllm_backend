@@ -24,7 +24,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os
 import sys
+import time
 import unittest
 from functools import partial
 
@@ -40,7 +42,6 @@ class VLLMMultiGPUTest(TestResultCollector):
     def setUp(self):
         nvidia_smi.nvmlInit()
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
-        self.vllm_model_name = "vllm_opt"
 
     def get_gpu_memory_utilization(self, gpu_id):
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(gpu_id)
@@ -56,7 +57,12 @@ class VLLMMultiGPUTest(TestResultCollector):
                 available_gpus.append(gpu_id)
         return available_gpus
 
-    def test_vllm_multi_gpu_utilization(self):
+    def _test_vllm_multi_gpu_utilization(self, model_name: str):
+        """
+        Test that loading a given vLLM model will increase GPU utilization
+        across multiple GPUs, and run a sanity check inference to confirm
+        that the loaded multi-gpu/multi-instance model is working as expected.
+        """
         gpu_ids = self.get_available_gpu_ids()
         self.assertGreaterEqual(len(gpu_ids), 2, "Error: Detected single GPU")
 
@@ -67,8 +73,8 @@ class VLLMMultiGPUTest(TestResultCollector):
             print(f"GPU {gpu_id} Memory Utilization: {memory_utilization} bytes")
             mem_util_before_loading_model[gpu_id] = memory_utilization
 
-        self.triton_client.load_model(self.vllm_model_name)
-        self._test_vllm_model()
+        self.triton_client.load_model(model_name)
+        self._test_vllm_model(model_name)
 
         print("=============== After Loading vLLM Model ===============")
         vllm_model_used_gpus = 0
@@ -80,7 +86,7 @@ class VLLMMultiGPUTest(TestResultCollector):
 
         self.assertGreaterEqual(vllm_model_used_gpus, 2)
 
-    def _test_vllm_model(self, send_parameters_as_tensor=True):
+    def _test_vllm_model(self, model_name: str, send_parameters_as_tensor: bool = True):
         user_data = UserData()
         stream = False
         prompts = [
@@ -98,11 +104,11 @@ class VLLMMultiGPUTest(TestResultCollector):
                 i,
                 stream,
                 sampling_parameters,
-                self.vllm_model_name,
+                model_name,
                 send_parameters_as_tensor,
             )
             self.triton_client.async_stream_infer(
-                model_name=self.vllm_model_name,
+                model_name=model_name,
                 request_id=request_data["request_id"],
                 inputs=request_data["inputs"],
                 outputs=request_data["outputs"],
@@ -117,6 +123,59 @@ class VLLMMultiGPUTest(TestResultCollector):
             self.assertIsNotNone(output)
 
         self.triton_client.stop_stream()
+
+    def test_multi_gpu_model(self):
+        """
+        Tests that a multi-GPU vLLM model loads successfully on multiple GPUs
+        and can handle a few sanity check inference requests.
+
+        Multi-GPU models are currently defined here as either:
+          - a single model instance with tensor parallelism > 1
+          - multiple model instances each with tensor parallelism == 1
+
+        FIXME: This test currently skips over a few combinations that may
+        be enhanced in the future, such as:
+          - tensor parallel models with multiple model instances
+          - KIND_MODEL models with multiple model instances
+        """
+        model = os.environ.get("TEST_MODEL")
+        kind = os.environ.get("KIND")
+        tp = os.environ.get("TENSOR_PARALLELISM")
+        instance_count = os.environ.get("INSTANCE_COUNT")
+        for env_var in [model, kind, tp, instance_count]:
+            self.assertIsNotNone(env_var)
+
+        print(f"Test Matrix: {model=}, {kind=}, {tp=}, {instance_count=}")
+
+        # Only support tensor parallelism or multiple instances for now, but not both.
+        # Support for multi-instance tensor parallel models may require more
+        # special handling in the backend to better handle device assignment.
+        # NOTE: This eliminates the 1*1=1 and 2*2=4 test cases.
+        if int(tp) * int(instance_count) != 2:
+            msg = "TENSOR_PARALLELISM and INSTANCE_COUNT must have a product of 2 for this 2-GPU test"
+            print("Skipping Test:", msg)
+            self.skipTest(msg)
+
+        # Loading a KIND_GPU model with Tensor Parallelism > 1 should fail and
+        # recommend using KIND_MODEL instead for multi-gpu model instances.
+        if kind == "KIND_GPU" and int(tp) > 1:
+            with self.assertRaisesRegex(
+                InferenceServerException, "please specify KIND_MODEL"
+            ):
+                self._test_vllm_multi_gpu_utilization(model)
+
+            return
+
+        # Loading a KIND_MODEL model with multiple instances can cause
+        # oversubscription to specific GPUs and cause a CUDA OOM if the
+        # gpu_memory_utilization settings are high without further handling
+        # of device assignment in the backend.
+        if kind == "KIND_MODEL" and int(instance_count) > 1:
+            msg = "Testing multiple model instances of KIND_MODEL is not implemented at this time"
+            print("Skipping Test:", msg)
+            self.skipTest(msg)
+
+        self._test_vllm_multi_gpu_utilization(model)
 
     def tearDown(self):
         nvidia_smi.nvmlShutdown()
