@@ -61,9 +61,6 @@ sudo docker run --gpus all -it --net=host -p 8001:8001 --shm-size=12G \
 Triton's vLLM container has been introduced starting from 23.10 release, and `multi-lora` experimental support was added in vLLM v0.3.0 release.
 
 > Docker image version `nvcr.io/nvidia/tritonserver:24.05-vllm-python-py3` or higher version is strongly recommended.
-
-> [!IMPORTANT]
-> 24.05 release is still under active development, and relevant NGC containers are not available at this time.
 ---
 
 For **pre-24.05 containers**, the docker images didn't support multi-lora feature, so you need to replace that provided in the container `/opt/tritonserver/backends/vllm/model.py` with the most up to date version. Just follow this command:
