@@ -42,8 +42,6 @@ rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 sed -i '3s/^/    "tensor_parallel_size": 2,\n/' models/vllm_opt/1/model.json
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc] nvidia-ml-py3
-
 RET=0
 
 run_server
