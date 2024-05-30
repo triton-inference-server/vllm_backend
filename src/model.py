@@ -31,6 +31,7 @@ import threading
 from typing import Dict, List
 
 import numpy as np
+import torch
 import triton_python_backend_utils as pb_utils
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -175,7 +176,7 @@ class TritonPythonModel:
 
     def validate_device_config(self):
         triton_kind = self.args["model_instance_kind"]
-        triton_device_id = self.args["model_instance_device_id"]
+        triton_device_id = int(self.args["model_instance_device_id"])
         triton_instance = f"{self.args['model_name']}_{triton_device_id}"
 
         # Triton's current definition of KIND_GPU makes assumptions that
@@ -186,18 +187,18 @@ class TritonPythonModel:
         tp_size = int(self.vllm_engine_config.get("tensor_parallel_size", 1))
         if tp_size > 1 and triton_kind == "GPU":
             raise ValueError(
-                "KIND_GPU is for single-GPU models, please specify KIND_MODEL in the model's config.pbtxt for multi-GPU models"
+                "KIND_GPU is currently for single-GPU models, please specify KIND_MODEL "
+                "in the model's config.pbtxt for multi-GPU models"
             )
 
-        # If KIND_GPU is specified, isolate the selected GPU device to ensure that multiple model instances do not all use the same default
-        # device (usually device 0) when KIND_GPU is used.
-        if triton_kind == "GPU" and int(triton_device_id) >= 0:
+        # If KIND_GPU is specified, specify the device ID assigned by Triton to ensure that
+        # multiple model instances do not oversubscribe the same default device.
+        if triton_kind == "GPU" and triton_device_id >= 0:
             self.logger.log_info(
                 f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
             )
-            # NOTE: this only affects this process and it's subprocesses, not other processes.
-            # vLLM doesn't currently seem to expose selecting a specific device in the APIs.
-            os.environ["CUDA_VISIBLE_DEVICES"] = triton_device_id
+            # vLLM doesn't currently expose device selection in the APIs
+            torch.cuda.set_device(triton_device_id)
 
     def create_task(self, coro):
         """
