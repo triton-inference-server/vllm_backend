@@ -31,6 +31,7 @@ import threading
 from typing import Dict, List
 
 import numpy as np
+import torch
 import triton_python_backend_utils as pb_utils
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -98,12 +99,31 @@ class TritonPythonModel:
         return auto_complete_model_config
 
     def initialize(self, args):
+        self.args = args
         self.logger = pb_utils.Logger
         self.model_config = json.loads(args["model_config"])
+        output_config = pb_utils.get_output_config_by_name(
+            self.model_config, "text_output"
+        )
+        self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
-        # assert are in decoupled mode. Currently, Triton needs to use
-        # decoupled policy for asynchronously forwarding requests to
-        # vLLM engine.
+        # Prepare vLLM engine
+        self.init_engine()
+
+        # Counter to keep track of ongoing request counts
+        self.ongoing_request_count = 0
+
+        # Starting asyncio event loop to process the received requests asynchronously.
+        self._loop = asyncio.get_event_loop()
+        self._loop_thread = threading.Thread(
+            target=self.engine_loop, args=(self._loop,)
+        )
+        self._shutdown_event = asyncio.Event()
+        self._loop_thread.start()
+
+    def init_engine(self):
+        # Currently, Triton needs to use decoupled policy for asynchronously
+        # forwarding requests to vLLM engine, so assert it.
         self.using_decoupled = pb_utils.using_decoupled_model_transaction_policy(
             self.model_config
         )
@@ -118,17 +138,25 @@ class TritonPythonModel:
             engine_args_filepath
         ), f"'{_VLLM_ENGINE_ARGS_FILENAME}' containing vllm engine args must be provided in '{pb_utils.get_model_dir()}'"
         with open(engine_args_filepath) as file:
-            vllm_engine_config = json.load(file)
+            self.vllm_engine_config = json.load(file)
+
+        # Validate device and multi-processing settings are currently set based on model/configs.
+        self.validate_device_config()
+
+        # Check for LoRA config and set it up if enabled
+        self.setup_lora()
 
         # Create an AsyncLLMEngine from the config from JSON
         self.llm_engine = AsyncLLMEngine.from_engine_args(
-            AsyncEngineArgs(**vllm_engine_config)
+            AsyncEngineArgs(**self.vllm_engine_config)
         )
+
+    def setup_lora(self):
         self.enable_lora = False
 
         if (
-            "enable_lora" in vllm_engine_config.keys()
-            and vllm_engine_config["enable_lora"].lower() == "true"
+            "enable_lora" in self.vllm_engine_config.keys()
+            and self.vllm_engine_config["enable_lora"].lower() == "true"
         ):
             # create Triton LoRA weights repository
             multi_lora_args_filepath = os.path.join(
@@ -146,21 +174,31 @@ class TritonPythonModel:
                     f"Triton backend cannot find {multi_lora_args_filepath}."
                 )
 
-        output_config = pb_utils.get_output_config_by_name(
-            self.model_config, "text_output"
-        )
-        self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
+    def validate_device_config(self):
+        triton_kind = self.args["model_instance_kind"]
+        triton_device_id = int(self.args["model_instance_device_id"])
+        triton_instance = f"{self.args['model_name']}_{triton_device_id}"
 
-        # Counter to keep track of ongoing request counts
-        self.ongoing_request_count = 0
+        # Triton's current definition of KIND_GPU makes assumptions that
+        # models only use a single GPU. For multi-GPU models, the recommendation
+        # is to specify KIND_MODEL to acknowledge that the model will take control
+        # of the devices made available to it.
+        # NOTE: Consider other parameters that would indicate multi-GPU in the future.
+        tp_size = int(self.vllm_engine_config.get("tensor_parallel_size", 1))
+        if tp_size > 1 and triton_kind == "GPU":
+            raise ValueError(
+                "KIND_GPU is currently for single-GPU models, please specify KIND_MODEL "
+                "in the model's config.pbtxt for multi-GPU models"
+            )
 
-        # Starting asyncio event loop to process the received requests asynchronously.
-        self._loop = asyncio.get_event_loop()
-        self._loop_thread = threading.Thread(
-            target=self.engine_loop, args=(self._loop,)
-        )
-        self._shutdown_event = asyncio.Event()
-        self._loop_thread.start()
+        # If KIND_GPU is specified, specify the device ID assigned by Triton to ensure that
+        # multiple model instances do not oversubscribe the same default device.
+        if triton_kind == "GPU" and triton_device_id >= 0:
+            self.logger.log_info(
+                f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
+            )
+            # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
+            torch.cuda.set_device(triton_device_id)
 
     def create_task(self, coro):
         """
