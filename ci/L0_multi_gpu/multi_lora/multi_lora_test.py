@@ -119,7 +119,6 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
         self.triton_client.stop_stream()
 
     def test_multi_lora_requests(self):
-        self.triton_client.load_model(self.vllm_model_name)
         sampling_parameters = {"temperature": "0", "top_p": "1"}
         # make two requests separately to avoid the different arrival of response answers
         prompt_1 = ["Instruct: What do you think of Computer Science?\nOutput:"]
@@ -151,10 +150,8 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             exclude_input_in_output=True,
             expected_output=expected_output,
         )
-        self.triton_client.unload_model(self.vllm_model_name)
 
     def test_none_exist_lora(self):
-        self.triton_client.load_model(self.vllm_model_name)
         prompts = [
             "Instruct: What is the capital city of France?\nOutput:",
         ]
@@ -169,7 +166,6 @@ class VLLMTritonLoraTest(AsyncTestResultCollector):
             exclude_input_in_output=True,
             expected_output=None,  # this request will lead to lora not supported error, so there is no expected output
         )
-        self.triton_client.unload_model(self.vllm_model_name)
 
     def tearDown(self):
         self.triton_client.close()
