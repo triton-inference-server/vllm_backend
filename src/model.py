@@ -27,6 +27,7 @@
 import asyncio
 import json
 import os
+import queue
 import threading
 from typing import Dict, List
 
@@ -119,7 +120,33 @@ class TritonPythonModel:
             target=self.engine_loop, args=(self._loop,)
         )
         self._shutdown_event = asyncio.Event()
+        self._response_queue = queue.Queue()
+        self._thread = threading.Thread(target=self.send_responses)
+        self._thread.start()
         self._loop_thread.start()
+
+    def send_responses(self):
+        while True:
+            item = self._response_queue.get()
+            print(item)
+            # To signal shutdown a None item will be added to the queue.
+            if item is None:
+                break
+            response_sender = item[0]
+            response = item[1]
+            response_flag = item[2]
+            try:
+                response_sender.send(response, response_flag)
+            except Exception as e:
+                self.logger.log_error(
+                    f"An error occurred while sending a response: {e}"
+                )
+            finally:
+                if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
+                    self.ongoing_request_count -= 1
+                response_sender = None
+                response = None
+                response_flag = None
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -368,9 +395,12 @@ class TritonPythonModel:
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
-            async for output in self.llm_engine.generate(
-                prompt, sampling_params, request_id, lora_request=lora_request
-            ):
+            response_iterator = await self.llm_engine.add_request(
+                request_id, prompt, sampling_params
+            )
+            decrement_ongoing_request_count = True
+
+            async for output in response_iterator:
                 if response_sender.is_cancelled():
                     self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
@@ -383,15 +413,12 @@ class TritonPythonModel:
                             len(prev_output.text)
                             for prev_output in prev_outputs.outputs
                         ]
+                    response = self.create_stream_response(output, prev_outputs_lengths)
+                    flags = 0
                     if output.finished:
-                        response_sender.send(
-                            self.create_stream_response(output, prev_outputs_lengths),
-                            flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
-                        )
-                    else:
-                        response_sender.send(
-                            self.create_stream_response(output, prev_outputs_lengths)
-                        )
+                        flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
+                        decrement_ongoing_request_count = False
+                    self._response_queue.put_nowait((response_sender, response, flags))
                 prev_outputs = output
 
             last_output = output
@@ -403,7 +430,7 @@ class TritonPythonModel:
                 )
 
         except Exception as e:
-            self.logger.log_info(f"[vllm] Error generating stream: {e}")
+            self.logger.log_error(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             triton_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
@@ -416,7 +443,9 @@ class TritonPythonModel:
             )
             raise e
         finally:
-            self.ongoing_request_count -= 1
+            response_sender = None
+            if decrement_ongoing_request_count:
+                self.ongoing_request_count -= 1
 
     def verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
@@ -483,6 +512,13 @@ class TritonPythonModel:
         """
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
         self._shutdown_event.set()
+
+        # Signal shutdown to the response sender thread.
+        self._response_queue.put(None)
         if self._loop_thread is not None:
             self._loop_thread.join()
             self._loop_thread = None
+
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
