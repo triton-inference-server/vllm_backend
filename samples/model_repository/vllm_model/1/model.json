@@ -2,5 +2,6 @@
     "model":"facebook/opt-125m",
     "disable_log_requests": "true",
     "gpu_memory_utilization": 0.5,
-    "enforce_eager": "true"
+    "enforce_eager": "true",
+    "distributed_executor_backend":"ray"
 }
