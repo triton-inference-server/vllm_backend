@@ -35,6 +35,8 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_multi_gpu_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
+export VLLM_ATTENTION_BACKEND=XFORMERS
+export CUDA_VISIBLE_DEVICES="0,1"
 
 ### Helpers
 function validate_file_contains() {
