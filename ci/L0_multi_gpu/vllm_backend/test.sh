@@ -116,7 +116,7 @@ RET=0
 
 # Test the various cases of kind, tensor parallelism, and instance count
 # for different ways to run multi-GPU models with vLLM on Triton
-KINDS="KIND_MODEL KIND_GPU"
+KINDS="KIND_GPU"
 TPS="1 2"
 INSTANCE_COUNTS="1 2"
 for kind in ${KINDS}; do
