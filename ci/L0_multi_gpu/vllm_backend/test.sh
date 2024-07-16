@@ -30,7 +30,7 @@ source ../../common/util.sh
 TRITON_DIR=${TRITON_DIR:="/opt/tritonserver"}
 SERVER=${TRITON_DIR}/bin/tritonserver
 BACKEND_DIR=${TRITON_DIR}/backends
-SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --log-verbose=1"
+SERVER_ARGS="--model-repository=`pwd`/models --backend-directory=${BACKEND_DIR} --model-control-mode=explicit --log-verbose=1"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_multi_gpu_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
