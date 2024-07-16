@@ -105,13 +105,13 @@ function run_multi_gpu_test() {
     fi
     set -e
 
+    # Cleanup
+    kill $SERVER_PID
+    sleep 10
     echo -e "\n***\n*** DEBUG SERVER LOG.\n***"
     cat $SERVER_LOG
     echo -e "\n***\n*** DEBUG CLIENT LOG.\n***"
     cat $CLIENT_LOG
-
-    # Cleanup
-    kill $SERVER_PID
     wait $SERVER_PID
 }
 
