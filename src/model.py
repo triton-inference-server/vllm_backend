@@ -25,6 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import asyncio
+import gc
 import json
 import os
 import queue
@@ -114,39 +115,18 @@ class TritonPythonModel:
         # Counter to keep track of ongoing request counts
         self.ongoing_request_count = 0
 
+        # Starting the response thread
+        self._response_queue = queue.Queue()
+        self._response_thread = threading.Thread(target=self.response_loop)
+        self._response_thread.start()
+
         # Starting asyncio event loop to process the received requests asynchronously.
         self._loop = asyncio.get_event_loop()
         self._loop_thread = threading.Thread(
             target=self.engine_loop, args=(self._loop,)
         )
         self._shutdown_event = asyncio.Event()
-        self._response_queue = queue.Queue()
-        self._thread = threading.Thread(target=self.send_responses)
-        self._thread.start()
         self._loop_thread.start()
-
-    def send_responses(self):
-        while True:
-            item = self._response_queue.get()
-            print(item)
-            # To signal shutdown a None item will be added to the queue.
-            if item is None:
-                break
-            response_sender = item[0]
-            response = item[1]
-            response_flag = item[2]
-            try:
-                response_sender.send(response, response_flag)
-            except Exception as e:
-                self.logger.log_error(
-                    f"An error occurred while sending a response: {e}"
-                )
-            finally:
-                if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
-                    self.ongoing_request_count -= 1
-                response_sender = None
-                response = None
-                response_flag = None
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -299,6 +279,28 @@ class TritonPythonModel:
                 params_dict[k] = int(params_dict[k])
 
         return params_dict
+
+    def response_loop(self):
+        while True:
+            item = self._response_queue.get()
+            # To signal shutdown a None item will be added to the queue.
+            if item is None:
+                break
+            response_sender, response, response_flag = item
+            del item
+            try:
+                response_sender.send(response, response_flag)
+            except Exception as e:
+                self.logger.log_error(
+                    f"An error occurred while sending a response: {e}"
+                )
+            finally:
+                if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
+                    self.ongoing_request_count -= 1
+                    del response_sender
+                    if self._response_queue.empty():
+                        gc.collect()
+                response_sender, response, response_flag = None, None, None
 
     def create_response(self, vllm_output, prepend_input):
         """
@@ -514,11 +516,12 @@ class TritonPythonModel:
         self._shutdown_event.set()
 
         # Signal shutdown to the response sender thread.
-        self._response_queue.put(None)
         if self._loop_thread is not None:
             self._loop_thread.join()
             self._loop_thread = None
 
-        if self._thread is not None:
-            self._thread.join()
-            self._thread = None
+        # Shutdown the response thread.
+        self._response_queue.put(None)
+        if self._response_thread is not None:
+            self._response_thread.join()
+            self._response_thread = None
