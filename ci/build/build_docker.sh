@@ -25,5 +25,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-export TRITON_CONTAINER_VERSION=<YY.MM>
+# Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
+TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+
 docker pull nvcr.io/nvidia/tritonserver:${TRITON_CONTAINER_VERSION}-vllm-python-py3
