@@ -26,7 +26,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 export TRITON_CONTAINER_VERSION=<YY.MM>
-export VLLM_VERSION=0.5.3 # grab this version via curl
+
+# Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
+TAG=$(curl https://api.github.com/repos/triton-inference-server/server/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
 
 git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
 source build.py -v  --enable-logging
