@@ -1,6 +1,6 @@
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 20 * * 4' 
 jobs:
   mirror_repo:
     environment: GITLAB
