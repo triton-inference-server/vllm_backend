@@ -28,6 +28,7 @@
 # Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
 TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}" 
 
 # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
 TAG=$(curl https://api.github.com/repos/triton-inference-server/server/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
