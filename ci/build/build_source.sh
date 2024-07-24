@@ -34,8 +34,7 @@ TAG=$(curl https://api.github.com/repos/triton-inference-server/server/releases/
 export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
 
 git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
-ls -l
-source server/build.py -v  --enable-logging
+./server/build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
                 --enable-metrics
