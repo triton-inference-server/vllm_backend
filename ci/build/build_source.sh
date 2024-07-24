@@ -43,7 +43,6 @@ set -x && python3 server/build.py -v  --enable-logging
                 --enable-cpu-metrics
                 --enable-gpu
                 --container-prebuild-command="docker login -u gitlab-ci-token -p ${CI_JOB_TOKEN} ${CI_REGISTRY}"
-                --no-container-interactive
                 --filesystem=gcs
                 --filesystem=s3
                 --filesystem=azure_storage
