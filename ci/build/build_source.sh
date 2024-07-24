@@ -51,4 +51,4 @@ python3 server/build.py -v  --enable-logging
                 --upstream-container-version=${TRITON_CONTAINER_VERSION}
                 --backend=python:r${TRITON_CONTAINER_VERSION}
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}
-                --vllm-version=${VLLM_VERSION}
+                --vllm-version=${VLLM_VERSION} 2>&1
