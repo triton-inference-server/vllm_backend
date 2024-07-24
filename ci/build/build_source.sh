@@ -34,7 +34,8 @@ echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 TAG=$(curl https://api.github.com/repos/triton-inference-server/server/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
 
-git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
+# git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
+git clone https://github.com/triton-inference-server/server.git 
 set -x && python3 server/build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
@@ -52,6 +53,4 @@ set -x && python3 server/build.py -v  --enable-logging
                 --endpoint=vertex-ai
                 --upstream-container-version=${TRITON_CONTAINER_VERSION}
                 --backend=python:r${TRITON_CONTAINER_VERSION}
-                --backend=vllm:r${TRITON_CONTAINER_VERSION}
-                --vllm-version=${VLLM_VERSION} || RV=$?; 2>&1
-echo "RV=$RV"
+                --backend=vllm:r${TRITON_CONTAINER_VERSION} 2>&1
