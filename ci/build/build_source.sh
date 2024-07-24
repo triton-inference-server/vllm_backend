@@ -33,25 +33,28 @@ echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
 TAG=$(curl https://api.github.com/repos/triton-inference-server/server/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+echo "VLLM_VERSION = ${VLLM_VERSION}" 
 
 git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
-set -x && python3 server/build.py -v  --enable-logging
-                --enable-stats
-                --enable-tracing
-                --enable-metrics
-                --enable-gpu-metrics
-                --enable-cpu-metrics
-                --enable-gpu
-                --no-container-interactive
-                --container-prebuild-command="docker login -u gitlab-ci-token -p ${CI_JOB_TOKEN} ${CI_REGISTRY}"
-                --filesystem=gcs
-                --filesystem=s3
-                --filesystem=azure_storage
-                --endpoint=http
-                --endpoint=grpc
-                --endpoint=sagemaker
-                --endpoint=vertex-ai
-                --upstream-container-version=${TRITON_CONTAINER_VERSION}
-                --backend=python:r${TRITON_CONTAINER_VERSION}
-                --backend=vllm:r${TRITON_CONTAINER_VERSION} 
-                --vllm-version=${VLLM_VERSION} 2>&1
+set -x && python3 server/build.py -v  \
+                --enable-logging \
+                --enable-stats \
+                --enable-tracing \
+                --enable-metrics \
+                --enable-gpu-metrics \
+                --enable-cpu-metrics \
+                --enable-gpu \
+                --no-container-interactive \
+                --container-prebuild-command="docker login -u gitlab-ci-token -p ${CI_JOB_TOKEN} ${CI_REGISTRY}" \
+                --filesystem=gcs \
+                --filesystem=s3 \
+                --filesystem=azure_storage \
+                --endpoint=http \
+                --endpoint=grpc \
+                --endpoint=sagemaker \
+                --endpoint=vertex-ai \
+                --upstream-container-version=${TRITON_CONTAINER_VERSION} \
+                --backend=python:r${TRITON_CONTAINER_VERSION} \
+                --backend=vllm:r${TRITON_CONTAINER_VERSION}  \
+                --vllm-version=${VLLM_VERSION} 2>&1 \
+                /
