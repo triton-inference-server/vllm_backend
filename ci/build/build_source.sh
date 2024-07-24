@@ -42,6 +42,7 @@ python3 server/build.py -v  --enable-logging
                 --enable-gpu-metrics
                 --enable-cpu-metrics
                 --enable-gpu
+                --no-container-interactive
                 --filesystem=gcs
                 --filesystem=s3
                 --filesystem=azure_storage
