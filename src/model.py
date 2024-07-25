@@ -115,7 +115,8 @@ class TritonPythonModel:
         # Counter to keep track of ongoing request counts
         self.ongoing_request_count = 0
 
-        # Starting the response thread
+        # Starting the response thread. It allows vLLM to keep making progress while
+        # response sender(s) are sending responses to server frontend.
         self._response_queue = queue.Queue()
         self._response_thread = threading.Thread(target=self.response_loop)
         self._response_thread.start()
