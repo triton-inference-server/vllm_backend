@@ -122,11 +122,11 @@ class TritonPythonModel:
 
         # Starting asyncio event loop to process the received requests asynchronously.
         self._loop = asyncio.get_event_loop()
-        self._loop_thread = threading.Thread(
+        self._event_thread = threading.Thread(
             target=self.engine_loop, args=(self._loop,)
         )
         self._shutdown_event = asyncio.Event()
-        self._loop_thread.start()
+        self._event_thread.start()
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -300,7 +300,6 @@ class TritonPythonModel:
                     del response_sender
                     if self._response_queue.empty():
                         gc.collect()
-                response_sender, response, response_flag = None, None, None
 
     def create_response(self, vllm_output, prepend_input):
         """
@@ -445,7 +444,6 @@ class TritonPythonModel:
             )
             raise e
         finally:
-            response_sender = None
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
 
@@ -515,10 +513,10 @@ class TritonPythonModel:
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
         self._shutdown_event.set()
 
-        # Signal shutdown to the response sender thread.
-        if self._loop_thread is not None:
-            self._loop_thread.join()
-            self._loop_thread = None
+        # Shutdown the event thread.
+        if self._event_thread is not None:
+            self._event_thread.join()
+            self._event_thread = None
 
         # Shutdown the response thread.
         self._response_queue.put(None)
