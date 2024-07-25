@@ -343,6 +343,7 @@ class TritonPythonModel:
         """
         response_sender = request.get_response_sender()
         self.ongoing_request_count += 1
+        decrement_ongoing_request_count = True
         try:
             request_id = random_uuid()
             prompt = pb_utils.get_input_tensor_by_name(
@@ -400,7 +401,6 @@ class TritonPythonModel:
             response_iterator = await self.llm_engine.add_request(
                 request_id, prompt, sampling_params
             )
-            decrement_ongoing_request_count = True
 
             async for output in response_iterator:
                 if response_sender.is_cancelled():
