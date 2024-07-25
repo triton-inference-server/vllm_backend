@@ -300,7 +300,6 @@ class TritonPythonModel:
                     del response_sender
                     if self._response_queue.empty():
                         gc.collect()
-                response_sender, response, response_flag = None, None, None
 
     def create_response(self, vllm_output, prepend_input):
         """
@@ -445,7 +444,6 @@ class TritonPythonModel:
             )
             raise e
         finally:
-            response_sender = None
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
 
