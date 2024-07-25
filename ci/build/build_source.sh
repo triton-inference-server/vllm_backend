@@ -36,7 +36,7 @@ TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep
 export VLLM_VERSION=0.4.3 # seeing errors with latest vllm_version
 echo "VLLM_VERSION = ${VLLM_VERSION}" 
 
-git clone -b mesharma-ci https://github.com/triton-inference-server/server.git 
+git clone -b mesharma-r24.06 https://github.com/triton-inference-server/server.git 
 set -x && python3 server/build.py -v  \
                 --enable-logging \
                 --enable-stats \
