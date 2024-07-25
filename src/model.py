@@ -299,7 +299,7 @@ class TritonPythonModel:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
                     del response_sender
-                    if self._response_queue.empty():
+                    if self.ongoing_request_count == 0:
                         gc.collect()
 
     def create_response(self, vllm_output, prepend_input):
@@ -447,6 +447,9 @@ class TritonPythonModel:
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
+                del response_sender
+                if self.ongoing_request_count == 0:
+                    gc.collect()
 
     def verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
