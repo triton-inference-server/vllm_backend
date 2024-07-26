@@ -299,7 +299,7 @@ class TritonPythonModel:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
                     del response_sender
-                    if self._response_queue.empty():
+                    if self.ongoing_request_count == 0:
                         gc.collect()
 
     def create_response(self, vllm_output, prepend_input):
@@ -343,6 +343,7 @@ class TritonPythonModel:
         """
         response_sender = request.get_response_sender()
         self.ongoing_request_count += 1
+        decrement_ongoing_request_count = True
         try:
             request_id = random_uuid()
             prompt = pb_utils.get_input_tensor_by_name(
@@ -398,9 +399,8 @@ class TritonPythonModel:
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
             response_iterator = await self.llm_engine.add_request(
-                request_id, prompt, sampling_params
+                request_id, prompt, sampling_params, lora_request=lora_request
             )
-            decrement_ongoing_request_count = True
 
             async for output in response_iterator:
                 if response_sender.is_cancelled():
@@ -447,6 +447,9 @@ class TritonPythonModel:
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
+                del response_sender
+                if self.ongoing_request_count == 0:
+                    gc.collect()
 
     def verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
