@@ -399,7 +399,7 @@ class TritonPythonModel:
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
             response_iterator = await self.llm_engine.add_request(
-                request_id, prompt, sampling_params
+                request_id, prompt, sampling_params, lora_request=lora_request
             )
 
             async for output in response_iterator:
