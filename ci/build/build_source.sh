@@ -57,4 +57,4 @@ set -x && python3 server/build.py -v  \
                 --upstream-container-version=${TRITON_CONTAINER_VERSION} \
                 --backend=python:r${TRITON_CONTAINER_VERSION} \
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}  \
-                --vllm-version=${VLLM_VERSION} 2>&1 
+                --vllm-version=${VLLM_VERSION} 2>&1
