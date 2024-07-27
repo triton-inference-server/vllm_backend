@@ -20,9 +20,8 @@ jobs:
           curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD-SOURCE" "${{ secrets.PIPELINE_URL }}"
   add-ready-label:
      environment: GITLAB
-     needs: trigger-ci
      runs-on: self-hosted
-     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+     if: ${{ always() && !cancelled() && needs.*.result == 'success' }}
      steps:
         -   name: Add labels
             uses: actions/github-script@v5
