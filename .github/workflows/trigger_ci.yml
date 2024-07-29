@@ -18,7 +18,7 @@ jobs:
         run: |
           #!/bin/bash
           curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD-SOURCE" "${{ secrets.PIPELINE_URL }}"
-  add-ready-label:
+  add-verified-labels:
      environment: GITLAB
      runs-on: self-hosted
      if: ${{ always() && !cancelled() && needs.*.result == 'success' }}
