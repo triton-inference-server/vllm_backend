@@ -287,10 +287,16 @@ class TritonPythonModel:
             # To signal shutdown a None item will be added to the queue.
             if item is None:
                 break
-            response_sender, response, response_flag = item
+            response_state, response, response_flag = item
             del item
+            response_sender = response_state[0]
             try:
                 response_sender.send(response, response_flag)
+                last_response_ready = response_state[2]
+                # Stop checking for cancellation if the last response is generated.
+                if not last_response_ready:
+                    is_cancelled = response_sender.is_cancelled()
+                    response_state[1] = is_cancelled
             except Exception as e:
                 self.logger.log_error(
                     f"An error occurred while sending a response: {e}"
@@ -298,6 +304,7 @@ class TritonPythonModel:
             finally:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
+                    del response_state
                     del response_sender
                     if self.ongoing_request_count == 0:
                         gc.collect()
@@ -342,6 +349,11 @@ class TritonPythonModel:
         Forwards single request to LLM engine and returns responses.
         """
         response_sender = request.get_response_sender()
+        response_state = [
+            response_sender,
+            False,  # is cancelled
+            False,  # last response ready to be sent
+        ]
         self.ongoing_request_count += 1
         decrement_ongoing_request_count = True
         try:
@@ -403,10 +415,26 @@ class TritonPythonModel:
             )
 
             async for output in response_iterator:
-                if response_sender.is_cancelled():
+                is_cancelled = response_state[1]
+                if not stream:
+                    is_cancelled = response_sender.is_cancelled()
+                if is_cancelled:
                     self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
                     self.logger.log_info("[vllm] Successfully cancelled the request")
+                    if stream:
+                        response_state[2] = True  # last response ready to be sent
+                        response = pb_utils.InferenceResponse(
+                            error=pb_utils.TritonError(
+                                message="user cancelled",
+                                code=pb_utils.TritonError.CANCELLED,
+                            )
+                        )
+                        flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
+                        decrement_ongoing_request_count = False
+                        self._response_queue.put_nowait(
+                            (response_state, response, flags)
+                        )
                     break
                 if stream:
                     prev_outputs_lengths = None
@@ -418,9 +446,10 @@ class TritonPythonModel:
                     response = self.create_stream_response(output, prev_outputs_lengths)
                     flags = 0
                     if output.finished:
+                        response_state[2] = True  # last response ready to be sent
                         flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
                         decrement_ongoing_request_count = False
-                    self._response_queue.put_nowait((response_sender, response, flags))
+                    self._response_queue.put_nowait((response_state, response, flags))
                 prev_outputs = output
 
             last_output = output
@@ -447,6 +476,7 @@ class TritonPythonModel:
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
+                del response_state
                 del response_sender
                 if self.ongoing_request_count == 0:
                     gc.collect()
