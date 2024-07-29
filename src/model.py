@@ -39,6 +39,8 @@ from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
+from metrics import VllmStatLogger
+
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
 
@@ -150,6 +152,11 @@ class TritonPythonModel:
         self.llm_engine = AsyncLLMEngine.from_engine_args(
             AsyncEngineArgs(**self.vllm_engine_config)
         )
+
+        # Create vLLM custom Metrics
+        labels = {"model": "vllm_metrics", "version": "1"}
+        logger = VllmStatLogger(vllm_labels=labels)
+        self.llm_engine.add_logger("triton", logger)
 
     def setup_lora(self):
         self.enable_lora = False
