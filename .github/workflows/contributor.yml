@@ -1,0 +1,21 @@
+name: Welcome message
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  pr_reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add first comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '👋 Hi! \nThank you for contributing to the project.\n Just a reminder: PRs would not trigger full CI run by default. You can run CI tests by commenting `/ready` on the PR.\n🚀'
+            })
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
