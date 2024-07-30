@@ -289,14 +289,12 @@ class TritonPythonModel:
                 break
             response_state, response, response_flag = item
             del item
-            response_sender, number_response_sent = response_state[0], response_state[3]
+            response_sender = response_state[0]
             try:
                 response_sender.send(response, response_flag)
-                response_state[3] = number_response_sent + 1
-                # Check for cancellation only if the last response is not yet generated
-                # and for every 10 response.
                 last_response_ready = response_state[2]
-                if not last_response_ready and number_response_sent % 2 == 0:
+                # Stop checking for cancellation if the last response is generated.
+                if not last_response_ready:
                     is_cancelled = response_sender.is_cancelled()
                     response_state[1] = is_cancelled
             except Exception as e:
@@ -355,7 +353,6 @@ class TritonPythonModel:
             response_sender,
             False,  # is cancelled
             False,  # last response ready to be sent
-            0,  # number of response sent
         ]
         self.ongoing_request_count += 1
         decrement_ongoing_request_count = True
