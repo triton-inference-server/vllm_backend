@@ -1,0 +1,23 @@
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  run-test:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/ready')add-verified-labels:
+     environment: GITLAB
+     runs-on: self-hosted
+     if: ${{ always() && !cancelled() && needs.*.result == 'success' }}
+     steps:
+        -   name: Add labels
+            uses: actions/github-script@v5
+            with:
+                script: |
+                    github.rest.issues.addLabels({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number,
+                        labels: ['ready', 'verified_on_V100', 'verified_on_A100', 'verified_on_H100']
+                    })
+            env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
