@@ -154,8 +154,11 @@ class TritonPythonModel:
         )
 
         # Create vLLM custom Metrics
-        labels = {"model": "vllm_metrics", "version": "1"}
-        logger = VllmStatLogger(vllm_labels=labels)
+        labels = {
+            "model": self.args["model_name"],
+            "version": self.args["model_version"],
+        }
+        logger = VllmStatLogger(labels=labels)
         self.llm_engine.add_logger("triton", logger)
 
     def setup_lora(self):

@@ -234,7 +234,7 @@ class TritonMetrics:
 
 
 class VllmStatLogger(VllmStatLoggerBase):
-    """StatLoggeris used as adapter between vLLM stats collector and Triton metrics provider."""
+    """StatLogger is used as an adapter between vLLM stats collector and Triton metrics provider."""
 
     # local_interval not used here. It's for vLLM logs to stdout.
     def __init__(self, labels: Dict, local_interval: float = 0) -> None:
