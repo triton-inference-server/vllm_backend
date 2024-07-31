@@ -424,7 +424,7 @@ class TritonPythonModel:
                         response_state["last_response_generated"] = True
                         response = pb_utils.InferenceResponse(
                             error=pb_utils.TritonError(
-                                message="user cancelled",
+                                message="cancelled on the client side",
                                 code=pb_utils.TritonError.CANCELLED,
                             )
                         )
