@@ -24,7 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import triton_python_backend_utils as pb_utils
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
@@ -32,7 +32,6 @@ from vllm.engine.metrics import Stats as VllmStats
 from vllm.engine.metrics import SupportsMetricsInfo
 
 
-# begin-metrics-definitions
 class TritonMetrics:
     def __init__(self, labels):
         # System stats
@@ -80,82 +79,6 @@ class TritonMetrics:
             description="Number of generation tokens processed.",
             kind=pb_utils.MetricFamily.COUNTER,
         )
-        # self.histogram_time_to_first_token_family = pb_utils.MetricFamily(
-        #     name="vllm:time_to_first_token_seconds",
-        #     description="Histogram of time to first token in seconds.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=[
-        #         0.001, 0.005, 0.01, 0.02, 0.04, 0.06, 0.08, 0.1, 0.25, 0.5,
-        #         0.75, 1.0, 2.5, 5.0, 7.5, 10.0
-        #     ])
-        # self.histogram_time_per_output_token_family = pb_utils.MetricFamily(
-        #     name="vllm:time_per_output_token_seconds",
-        #     description="Histogram of time per output token in seconds.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=[
-        #         0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75,
-        #         1.0, 2.5
-        #     ])
-
-        # Request stats
-        #   Latency
-        # self.histogram_e2e_time_request_family = pb_utils.MetricFamily(
-        #     name="vllm:e2e_request_latency_seconds",
-        #     description="Histogram of end to end request latency in seconds.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
-        # #   Metadata
-        # self.histogram_num_prompt_tokens_request_family = pb_utils.MetricFamily(
-        #     name="vllm:request_prompt_tokens",
-        #     description="Number of prefill tokens processed.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=build_1_2_5_buckets(max_model_len),
-        # )
-        # self.histogram_num_generation_tokens_request_family = \
-        #     pb_utils.MetricFamily(
-        #         name="vllm:request_generation_tokens",
-        #         description="Number of generation tokens processed.",
-        #         kind=pb_utils.MetricFamily.HISTOGRAM,
-        #         buckets=build_1_2_5_buckets(max_model_len),
-        #     )
-        # self.histogram_best_of_request_family = pb_utils.MetricFamily(
-        #     name="vllm:request_params_best_of",
-        #     description="Histogram of the best_of request parameter.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=[1, 2, 5, 10, 20],
-        # )
-        # self.histogram_n_request_family = pb_utils.MetricFamily(
-        #     name="vllm:request_params_n",
-        #     description="Histogram of the n request parameter.",
-        #     kind=pb_utils.MetricFamily.HISTOGRAM,
-        #     buckets=[1, 2, 5, 10, 20],
-        # )
-        # self.counter_request_success_family = pb_utils.MetricFamily(
-        #     name="vllm:request_success_total",
-        #     description="Count of successfully processed requests.",
-        #     kind=pb_utils.MetricFamily.COUNTER)
-
-        # Speculatie decoding stats
-        # self.gauge_spec_decode_draft_acceptance_rate_family = pb_utils.MetricFamily(
-        #     name="vllm:spec_decode_draft_acceptance_rate",
-        #     description="Speculative token acceptance rate.",
-        #     kind=pb_utils.MetricFamily.GAUGE)
-        # self.gauge_spec_decode_efficiency_family = pb_utils.MetricFamily(
-        #     name="vllm:spec_decode_efficiency",
-        #     description="Speculative decoding system efficiency.",
-        #     kind=pb_utils.MetricFamily.GAUGE)
-        # self.counter_spec_decode_num_accepted_tokens_family = pb_utils.MetricFamily(
-        #     name="vllm:spec_decode_num_accepted_tokens_total",
-        #     description="Number of accepted tokens.",
-        #     kind=pb_utils.MetricFamily.COUNTER)
-        # self.counter_spec_decode_num_draft_tokens_family = pb_utils.MetricFamily(
-        #     name="vllm:spec_decode_num_draft_tokens_total",
-        #     description="Number of draft tokens.",
-        #     kind=pb_utils.MetricFamily.COUNTER)
-        # self.counter_spec_decode_num_emitted_tokens_family = pb_utils.MetricFamily(
-        #     name="vllm:spec_decode_num_emitted_tokens_total",
-        #     description="Number of emitted tokens.",
-        #     kind=pb_utils.MetricFamily.COUNTER)
 
         # System stats
         #   Scheduler State
@@ -186,51 +109,6 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
-        # self.histogram_time_to_first_token = self.histogram_time_to_first_token_family.Metric(
-        #     labels=labels
-        # )
-        # self.histogram_time_per_output_token = self.histogram_time_per_output_token_family.Metric(
-        #     labels=labels
-        # )
-
-        # Request stats
-        #   Latency
-        # self.histogram_e2e_time_request = self.histogram_e2e_time_request_family.Metric(
-        # labels=labels
-        # )
-        # #   Metadata
-        # self.histogram_num_prompt_tokens_request = self.histogram_num_prompt_tokens_request_family.Metric(
-        # labels=labels
-        # )
-        # self.histogram_num_generation_tokens_request = self.histogram_num_generation_tokens_request_family.Metric(
-        # labels=labels
-        # )
-        # self.histogram_best_of_request = self.histogram_best_of_request_family.Metric(
-        # labels=labels
-        # )
-        # self.histogram_n_request = self.histogram_n_request_family.Metric(
-        # labels=labels
-        # )
-        # self.counter_request_success = self.counter_request_success_family.Metric(
-        #     labels=labels
-        # )
-
-        # Speculatie decoding stats
-        # self.gauge_spec_decode_draft_acceptance_rate_ = self.gauge_spec_decode_draft_acceptance_rate_family.Metric(
-        # labels=labels
-        # )
-        # self.gauge_spec_decode_efficiency = self.gauge_spec_decode_efficiency_family.Metric(
-        # labels=labels
-        # )
-        # self.counter_spec_decode_num_accepted_tokens = self.counter_spec_decode_num_accepted_tokens_family.Metric(
-        # labels=labels
-        # )
-        # self.counter_spec_decode_num_draft_tokens = self.counter_spec_decode_num_draft_tokens_family.Metric(
-        # labels=labels
-        # )
-        # self.counter_spec_decode_num_emitted_tokens = self.counter_spec_decode_num_emitted_tokens_family.Metric(
-        #     labels=labels
-        # )
 
 
 class VllmStatLogger(VllmStatLoggerBase):
@@ -253,15 +131,12 @@ class VllmStatLogger(VllmStatLoggerBase):
         # Convenience function for logging to counter.
         counter.increment(data)
 
-    # def _log_histogram(self, histogram, data: Union[List[int],
-    #                                                 List[float]]) -> None:
-    #     # Convenience function for logging list to histogram.
-    #     for datum in data:
-    #         histogram.labels(**self.labels).observe(datum)
+    def _log_histogram(self, histogram, data: Union[List[int], List[float]]) -> None:
+        # Convenience function for logging list to histogram.
+        for datum in data:
+            histogram.observe(datum)
 
     def log(self, stats: VllmStats) -> None:
-        # self.maybe_update_spec_decode_metrics(stats)
-
         # System state data
         self._log_gauge(self.metrics.gauge_scheduler_running, stats.num_running_sys)
         self._log_gauge(self.metrics.gauge_scheduler_waiting, stats.num_waiting_sys)
@@ -279,23 +154,3 @@ class VllmStatLogger(VllmStatLoggerBase):
         self._log_counter(
             self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter
         )
-        # self._log_histogram(self.metrics.histogram_time_to_first_token, stats.time_to_first_tokens_iter)
-        # self._log_histogram(self.metrics.histogram_time_per_output_token, stats.time_per_output_tokens_iter)
-
-        # Request level data
-        # Latency
-        # self._log_histogram(self.metrics.histogram_e2e_time_request, stats.time_e2e_requests)
-        # Metadata
-        # self._log_histogram(self.metrics.histogram_num_prompt_tokens_request, stats.num_prompt_tokens_requests)
-        # self._log_histogram(self.metrics.histogram_num_generation_tokens_request, stats.num_generation_tokens_requests)
-        # self._log_histogram(self.metrics.histogram_best_of_request, stats.best_of_requests)
-        # self._log_histogram(self.metrics.histogram_n_request, stats.n_requests)
-        # self._log_histogram(self.metrics.counter_request_success, stats.finished_reason_requests)
-
-        # Speculatie decoding stats
-        # if self.spec_decode_metrics is not None:
-        #     self._log_gauge(self.metrics.gauge_spec_decode_draft_acceptance_rate, self.spec_decode_metrics.draft_acceptance_rate)
-        #     self._log_gauge(self.metrics.gauge_spec_decode_efficiency, self.spec_decode_metrics.system_efficiency)
-        #     self._log_counter(self.metrics.counter_spec_decode_num_accepted_tokens, self.spec_decode_metrics.accepted_tokens)
-        #     self._log_counter(self.metrics.counter_spec_decode_num_draft_tokens, self.spec_decode_metrics.draft_tokens)
-        #     self._log_counter(self.metrics.counter_spec_decode_num_emitted_tokens, self.spec_decode_metrics.emitted_tokens)
