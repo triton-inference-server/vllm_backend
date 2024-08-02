@@ -522,7 +522,7 @@ class TritonPythonModel:
             self._response_thread = None
 
         # When using parallel tensors, the stub process may not shutdown due to
-        # uncollected garbage, so manually run the garbage collector once.
-        self.logger.log_info("[vllm] Collecting garbage on finalize...")
+        # unreleased references, so manually run the garbage collector once.
+        self.logger.log_info("[vllm] Running Garbage Collector on finalize...")
         gc.collect()
-        self.logger.log_info("[vllm] Collecting garbage on finalize... done")
+        self.logger.log_info("[vllm] Garbage Collector on finalize... done")
