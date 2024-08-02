@@ -520,3 +520,9 @@ class TritonPythonModel:
         if self._response_thread is not None:
             self._response_thread.join()
             self._response_thread = None
+
+        # When using parallel tensors, the stub process may not shutdown due to
+        # uncollected garbage, so manually run the garbage collector once.
+        self.logger.log_info("[vllm] Collecting garbage on finalize...")
+        gc.collect()
+        self.logger.log_info("[vllm] Collecting garbage on finalize... done")
