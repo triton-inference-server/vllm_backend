@@ -32,7 +32,7 @@ echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 
 # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
 TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-# export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
 echo "VLLM_VERSION = ${VLLM_VERSION}"
 
 git clone -b mesharma-r24.06 https://github.com/triton-inference-server/server.git
