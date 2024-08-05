@@ -25,15 +25,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
-TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
-echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
-
-# Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
-TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
-echo "VLLM_VERSION = ${VLLM_VERSION}"
+while getopts t:v: flag
+do
+    case "${flag}" in
+        u) TRITON_CONTAINER_VERSION=${OPTARG};;
+        a) VLLM_VERSION=${OPTARG};;
+    esac
+done
 
 #git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
 git clone -b mesharma-r24.06 https://github.com/triton-inference-server/server.git
