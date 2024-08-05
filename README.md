@@ -91,6 +91,8 @@ echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
 echo "VLLM_VERSION = ${VLLM_VERSION}"
+
+git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
 ./build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
