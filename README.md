@@ -82,7 +82,15 @@ latest YY.MM (year.month) of [Triton release](https://github.com/triton-inferenc
 
 ```
 # YY.MM is the version of Triton.
-export TRITON_CONTAINER_VERSION=<YY.MM>
+# Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
+TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
+
+# Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
+TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+echo "VLLM_VERSION = ${VLLM_VERSION}"
 ./build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
@@ -100,6 +108,10 @@ export TRITON_CONTAINER_VERSION=<YY.MM>
                 --upstream-container-version=${TRITON_CONTAINER_VERSION}
                 --backend=python:r${TRITON_CONTAINER_VERSION}
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}
+                --vllm-version=${VLLM_VERSION}
+# Build Triton Server
+cd server/build
+bash -x ./docker_build
 ```
 
 ### Option 3. Add the vLLM Backend to the Default Triton Container
