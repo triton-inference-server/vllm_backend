@@ -33,7 +33,6 @@ echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
 TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 # export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
-export VLLM_VERSION=0.4.3 # seeing errors with latest vllm_version
 echo "VLLM_VERSION = ${VLLM_VERSION}"
 
 git clone -b mesharma-r24.06 https://github.com/triton-inference-server/server.git
@@ -58,3 +57,6 @@ set -x && python3 server/build.py -v  \
                 --backend=python:r${TRITON_CONTAINER_VERSION} \
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}  \
                 --vllm-version=${VLLM_VERSION} 2>&1
+# Build Triton Server
+cd server/build
+bash -x ./docker_build
