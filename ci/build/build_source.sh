@@ -34,7 +34,7 @@ do
 done
 
 #git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
-git clone -b mesharma-ci https://github.com/triton-inference-server/server.git
+git clone -b mesharma-r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
 set -x && python3 server/build.py -v  \
                 --enable-logging \
                 --enable-stats \
