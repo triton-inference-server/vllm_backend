@@ -33,7 +33,7 @@ do
     esac
 done
 
-echo "Triton version is $TRITON_CONTAINER_VERSION and vllm version is $VLLM_VERSION"
+echo "Triton version is ${TRITON_CONTAINER_VERSION} and vllm version is ${VLLM_VERSION}"
 #git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
 git clone -b mesharma-ci https://github.com/triton-inference-server/server.git
 set -x && python3 server/build.py -v  \
