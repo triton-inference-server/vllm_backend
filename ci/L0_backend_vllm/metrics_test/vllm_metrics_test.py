@@ -58,7 +58,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         r.raise_for_status()
 
         # Regular expression to match the pattern
-        pattern = r"^(vllm:.*){.*} (\d+)$"
+        pattern = r"^(vllm:[^ {]+)(?:{.*})? ([0-9.-]+)$"
         vllm_dict = {}
 
         # Find all matches in the text
@@ -71,7 +71,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         return vllm_dict
 
     def test_vllm_metrics(self):
-        # Supported vLLM metrics
+        # All vLLM metrics from tritonserver
         expected_metrics_dict = {
             "vllm:prompt_tokens_total": 0,
             "vllm:generation_tokens_total": 0,

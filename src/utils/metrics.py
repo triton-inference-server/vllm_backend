@@ -91,7 +91,8 @@ class VllmStatLogger(VllmStatLoggerBase):
         Returns:
             None
         """
-        counter.increment(data)
+        if data != 0:
+            counter.increment(data)
 
     def log(self, stats: VllmStats) -> None:
         """Logs tracked stats to triton metrics server every iteration.
