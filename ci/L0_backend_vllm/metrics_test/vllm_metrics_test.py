@@ -37,79 +37,68 @@ from tritonclient.utils import *
 sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
-_tritonserver_ipaddr = os.environ.get("TRITONSERVER_IPADDR", "localhost")
-
-PROMPTS = [
-    "The most dangerous animal is",
-    "The capital of France is",
-    "The future of AI is",
-]
-SAMPLING_PARAMETERS = {"temperature": "0", "top_p": "1"}
-
-
-def get_metrics():
-    """
-    Store vllm metrics in a dictionary.
-    """
-    r = requests.get(f"http://{_tritonserver_ipaddr}:8002/metrics")
-    r.raise_for_status()
-
-    # Regular expression to match the pattern
-    pattern = r"^(vllm:.*){.*} (\d+)$"
-    vllm_dict = {}
-
-    # Find all matches in the text
-    matches = re.findall(pattern, r.text, re.MULTILINE)
-
-    for match in matches:
-        key, value = match
-        vllm_dict[key] = int(value)
-
-    return vllm_dict
-
 
 class VLLMTritonMetricsTest(TestResultCollector):
     def setUp(self):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
+        self.tritonserver_ipaddr = os.environ.get("TRITONSERVER_IPADDR", "localhost")
         self.vllm_model_name = "vllm_opt"
+        self.prompts = [
+            "The most dangerous animal is",
+            "The capital of France is",
+            "The future of AI is",
+        ]
+        self.sampling_parameters = {"temperature": "0", "top_p": "1"}
+
+    def get_metrics(self):
+        """
+        Store vllm metrics in a dictionary.
+        """
+        r = requests.get(f"http://{self.tritonserver_ipaddr}:8002/metrics")
+        r.raise_for_status()
+
+        # Regular expression to match the pattern
+        pattern = r"^(vllm:.*){.*} (\d+)$"
+        vllm_dict = {}
+
+        # Find all matches in the text
+        matches = re.findall(pattern, r.text, re.MULTILINE)
+
+        for match in matches:
+            key, value = match
+            vllm_dict[key] = int(value)
+
+        return vllm_dict
 
     def test_vllm_metrics(self):
         # Supported vLLM metrics
         expected_metrics_dict = {
-            "vllm:num_requests_running": 0,
-            "vllm:num_requests_waiting": 0,
-            "vllm:num_requests_swapped": 0,
-            "vllm:gpu_cache_usage_perc": 0,
-            "vllm:cpu_cache_usage_perc": 0,
-            "vllm:num_preemptions_total": 0,
             "vllm:prompt_tokens_total": 0,
             "vllm:generation_tokens_total": 0,
         }
 
         # Test vLLM metrics
         self._test_vllm_model(
-            prompts=PROMPTS,
-            sampling_parameters=SAMPLING_PARAMETERS,
+            prompts=self.prompts,
+            sampling_parameters=self.sampling_parameters,
             stream=False,
             send_parameters_as_tensor=True,
             model_name=self.vllm_model_name,
         )
         expected_metrics_dict["vllm:prompt_tokens_total"] = 18
         expected_metrics_dict["vllm:generation_tokens_total"] = 48
-        print(get_metrics())
-        print(expected_metrics_dict)
-        self.assertEqual(get_metrics(), expected_metrics_dict)
+        self.assertEqual(self.get_metrics(), expected_metrics_dict)
 
         self._test_vllm_model(
-            prompts=PROMPTS,
-            sampling_parameters=SAMPLING_PARAMETERS,
+            prompts=self.prompts,
+            sampling_parameters=self.sampling_parameters,
             stream=False,
             send_parameters_as_tensor=False,
             model_name=self.vllm_model_name,
         )
         expected_metrics_dict["vllm:prompt_tokens_total"] = 36
         expected_metrics_dict["vllm:generation_tokens_total"] = 96
-        self.assertEqual(get_metrics(), expected_metrics_dict)
+        self.assertEqual(self.get_metrics(), expected_metrics_dict)
 
     def _test_vllm_model(
         self,

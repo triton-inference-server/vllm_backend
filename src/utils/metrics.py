@@ -34,41 +34,8 @@ from vllm.engine.metrics import SupportsMetricsInfo
 
 class TritonMetrics:
     def __init__(self, labels):
-        # System stats
-        #   Scheduler State
-        self.gauge_scheduler_running_family = pb_utils.MetricFamily(
-            name="vllm:num_requests_running",
-            description="Number of requests currently running on GPU.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        self.gauge_scheduler_waiting_family = pb_utils.MetricFamily(
-            name="vllm:num_requests_waiting",
-            description="Number of requests waiting to be processed.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        self.gauge_scheduler_swapped_family = pb_utils.MetricFamily(
-            name="vllm:num_requests_swapped",
-            description="Number of requests swapped to CPU.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        #   KV Cache Usage in %
-        self.gauge_gpu_cache_usage_family = pb_utils.MetricFamily(
-            name="vllm:gpu_cache_usage_perc",
-            description="GPU KV-cache usage. 1 means 100 percent usage.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        self.gauge_cpu_cache_usage_family = pb_utils.MetricFamily(
-            name="vllm:cpu_cache_usage_perc",
-            description="CPU KV-cache usage. 1 means 100 percent usage.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-
+        # Initialize metric families
         # Iteration stats
-        self.counter_num_preemption_family = pb_utils.MetricFamily(
-            name="vllm:num_preemptions_total",
-            description="Cumulative number of preemption from the engine.",
-            kind=pb_utils.MetricFamily.COUNTER,
-        )
         self.counter_prompt_tokens_family = pb_utils.MetricFamily(
             name="vllm:prompt_tokens_total",
             description="Number of prefill tokens processed.",
@@ -80,29 +47,8 @@ class TritonMetrics:
             kind=pb_utils.MetricFamily.COUNTER,
         )
 
-        # System stats
-        #   Scheduler State
-        self.gauge_scheduler_running = self.gauge_scheduler_running_family.Metric(
-            labels=labels
-        )
-        self.gauge_scheduler_waiting = self.gauge_scheduler_waiting_family.Metric(
-            labels=labels
-        )
-        self.gauge_scheduler_swapped = self.gauge_scheduler_swapped_family.Metric(
-            labels=labels
-        )
-        #   KV Cache Usage in %
-        self.gauge_gpu_cache_usage = self.gauge_gpu_cache_usage_family.Metric(
-            labels=labels
-        )
-        self.gauge_cpu_cache_usage = self.gauge_cpu_cache_usage_family.Metric(
-            labels=labels
-        )
-
+        # Initialize metrics
         # Iteration stats
-        self.counter_num_preemption = self.counter_num_preemption_family.Metric(
-            labels=labels
-        )
         self.counter_prompt_tokens = self.counter_prompt_tokens_family.Metric(
             labels=labels
         )
@@ -124,30 +70,38 @@ class VllmStatLogger(VllmStatLoggerBase):
         raise NotImplementedError
 
     def _log_gauge(self, gauge, data: Union[int, float]) -> None:
-        # Convenience function for logging to gauge.
+        """Convenience function for logging to gauge.
+
+        Args:
+            gauge: A gauge metric instance.
+            data: An int or float to set the gauge metric.
+
+        Returns:
+            None
+        """
         gauge.set(data)
 
     def _log_counter(self, counter, data: Union[int, float]) -> None:
-        # Convenience function for logging to counter.
+        """Convenience function for logging to counter.
+
+        Args:
+            counter: A counter metric instance.
+            data: An int or float to increment the count metric.
+
+        Returns:
+            None
+        """
         counter.increment(data)
 
-    def _log_histogram(self, histogram, data: Union[List[int], List[float]]) -> None:
-        # Convenience function for logging list to histogram.
-        for datum in data:
-            histogram.observe(datum)
-
     def log(self, stats: VllmStats) -> None:
-        # System state data
-        self._log_gauge(self.metrics.gauge_scheduler_running, stats.num_running_sys)
-        self._log_gauge(self.metrics.gauge_scheduler_waiting, stats.num_waiting_sys)
-        self._log_gauge(self.metrics.gauge_scheduler_swapped, stats.num_swapped_sys)
-        self._log_gauge(self.metrics.gauge_gpu_cache_usage, stats.gpu_cache_usage_sys)
-        self._log_gauge(self.metrics.gauge_cpu_cache_usage, stats.cpu_cache_usage_sys)
+        """Logs tracked stats to triton metrics server every iteration.
 
-        # Iteration level data
-        self._log_counter(
-            self.metrics.counter_num_preemption, stats.num_preemption_iter
-        )
+        Args:
+            stats: Created by LLMEngine for use by VllmStatLogger.
+
+        Returns:
+            None
+        """
         self._log_counter(
             self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter
         )
