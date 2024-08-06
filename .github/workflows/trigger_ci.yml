@@ -23,6 +23,7 @@ jobs:
           if [ -z "$TRITON_CONTAINER_VERSION" ]
             then
               echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.07"
+              TRITON_CONTAINER_VERSION=24.07
             else
               echo "\$TRITON_CONTAINER_VERSION is NOT NULL"
           fi
@@ -34,6 +35,7 @@ jobs:
           if [ -z "$VLLM_VERSION" ]
             then
               echo "\$VLLM_VERSION is NULL, setting it to 0.5.3.post1"
+              VLLM_VERSION=0.5.3.post1
             else
               echo "\$VLLM_VERSION is NOT NULL"
           fi
