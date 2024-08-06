@@ -20,11 +20,24 @@ jobs:
           # Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
           TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
           export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+          if [ -z "$TRITON_CONTAINER_VERSION" ]
+            then
+              echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.07"
+            else
+              echo "\$TRITON_CONTAINER_VERSION is NOT NULL"
+          fi
           echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
 
           # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
           TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
           export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+          if [ -z "$VLLM_VERSION" ]
+            then
+              echo "\$VLLM_VERSION is NULL, setting it to 0.5.3.post1"
+            else
+              echo "\$VLLM_VERSION is NOT NULL"
+          fi
           echo "VLLM_VERSION = ${VLLM_VERSION}"
+
 
           curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD_SOURCE" -F variables[TRITON_CONTAINER_VERSION]="${TRITON_CONTAINER_VERSION}" -F variables[VLLM_VERSION]="${VLLM_VERSION}" "${{ secrets.PIPELINE_URL }}"
