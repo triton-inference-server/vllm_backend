@@ -288,7 +288,6 @@ class TritonPythonModel:
             if item is None:
                 break
             response_state, response, response_flag = item
-            del item
             response_sender = response_state["response_sender"]
             try:
                 response_sender.send(response, response_flag)
@@ -302,10 +301,6 @@ class TritonPythonModel:
             finally:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
-                    del response_state
-                    del response_sender
-                    if self.ongoing_request_count == 0:
-                        gc.collect()
 
     def create_response(self, vllm_output, prepend_input):
         """
@@ -474,10 +469,6 @@ class TritonPythonModel:
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
-                del response_state
-                del response_sender
-                if self.ongoing_request_count == 0:
-                    gc.collect()
 
     def verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
@@ -555,3 +546,9 @@ class TritonPythonModel:
         if self._response_thread is not None:
             self._response_thread.join()
             self._response_thread = None
+
+        # When using parallel tensors, the stub process may not shutdown due to
+        # unreleased references, so manually run the garbage collector once.
+        self.logger.log_info("[vllm] Running Garbage Collector on finalize...")
+        gc.collect()
+        self.logger.log_info("[vllm] Garbage Collector on finalize... done")
