@@ -111,7 +111,9 @@ container with the following commands:
 
 ```
 mkdir -p /opt/tritonserver/backends/vllm
-wget -P /opt/tritonserver/backends/vllm https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
+git clone https://github.com/triton-inference-server/vllm_backend.git /opt/tritonserver/backends/vllm/vllm_backend
+cp -r /opt/tritonserver/backends/vllm/vllm_backend/src/* /opt/tritonserver/backends/vllm
+rm -rf /opt/tritonserver/backends/vllm/vllm_backend
 ```
 
 ## Using the vLLM Backend
