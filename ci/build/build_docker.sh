@@ -1,4 +1,5 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#!/bin/bash
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,15 +25,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-name: pre-commit
+# Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
+TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
 
-on:
-  pull_request:
-
-jobs:
-  pre-commit:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v3
-    - uses: pre-commit/action@v3.0.0
+docker pull nvcr.io/nvidia/tritonserver:${TRITON_CONTAINER_VERSION}-vllm-python-py3
