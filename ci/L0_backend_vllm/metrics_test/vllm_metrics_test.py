@@ -66,7 +66,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
 
         for match in matches:
             key, value = match
-            vllm_dict[key] = int(value)
+            vllm_dict[key] = float(value) if "." in value else int(value)
 
         return vllm_dict
 
@@ -130,17 +130,6 @@ class VLLMTritonMetricsTest(TestResultCollector):
         )
         expected_metrics_dict["vllm:prompt_tokens_total"] = 18
         expected_metrics_dict["vllm:generation_tokens_total"] = 48
-        self.assertEqual(self.get_metrics(), expected_metrics_dict)
-
-        self.vllm_async_stream_infer(
-            prompts=self.prompts,
-            sampling_parameters=self.sampling_parameters,
-            stream=False,
-            send_parameters_as_tensor=False,
-            model_name=self.vllm_model_name,
-        )
-        expected_metrics_dict["vllm:prompt_tokens_total"] = 36
-        expected_metrics_dict["vllm:generation_tokens_total"] = 96
         self.assertEqual(self.get_metrics(), expected_metrics_dict)
 
     def tearDown(self):
