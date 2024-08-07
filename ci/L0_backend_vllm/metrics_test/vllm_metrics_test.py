@@ -128,9 +128,21 @@ class VLLMTritonMetricsTest(TestResultCollector):
             send_parameters_as_tensor=True,
             model_name=self.vllm_model_name,
         )
-        expected_metrics_dict["vllm:prompt_tokens_total"] = 18
-        expected_metrics_dict["vllm:generation_tokens_total"] = 48
-        self.assertEqual(self.get_metrics(), expected_metrics_dict)
+        metrics_dict = self.get_metrics()
+
+        # Test counters
+        self.assertEqual(metrics_dict["vllm:prompt_tokens_total"], 18)
+        self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
+
+        # Test histograms
+        self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_count"], 3)
+        self.assertTrue(
+            0 < metrics_dict["vllm:time_to_first_token_seconds_sum"] < 0.0005
+        )
+        self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_count"], 45)
+        self.assertTrue(
+            0 <= metrics_dict["vllm:time_per_output_token_seconds_sum"] <= 0.005
+        )
 
     def tearDown(self):
         self.triton_client.close()
