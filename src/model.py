@@ -109,6 +109,20 @@ class TritonPythonModel:
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
+        # Create vLLM custom metrics
+        try:
+            labels = {
+                "model": self.args["model_name"],
+                "version": self.args["model_version"],
+            }
+            self.metrics = VllmStatLogger(labels=labels)
+        except pb_utils.TritonModelException as e:
+            if "metrics not supported" in str(e):
+                # Metrics are disabled at the server
+                self.metrics = None
+            else:
+                raise e
+
         # Prepare vLLM engine
         self.init_engine()
 
@@ -153,15 +167,9 @@ class TritonPythonModel:
             AsyncEngineArgs(**self.vllm_engine_config)
         )
 
-        # If TRITON_ENABLE_METRICS<_CPU/_GPU> build flag is enabled.
-        if self.args["metrics_mode"] in ["all", "cpu", "gpu"]:
-            # Create vLLM custom Metrics
-            labels = {
-                "model": self.args["model_name"],
-                "version": self.args["model_version"],
-            }
-            logger = VllmStatLogger(labels=labels)
-            self.llm_engine.add_logger("triton", logger)
+        # Add vLLM custom metrics
+        if not self.metrics:
+            self.llm_engine.add_logger("triton", self.metrics)
 
     def setup_lora(self):
         self.enable_lora = False
