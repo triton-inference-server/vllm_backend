@@ -70,12 +70,10 @@ class VLLMTritonMetricsTest(TestResultCollector):
 
         return vllm_dict
 
-    def vllm_async_stream_infer(
+    def vllm_infer(
         self,
         prompts,
         sampling_parameters,
-        stream,
-        send_parameters_as_tensor,
         model_name,
     ):
         """
@@ -89,15 +87,15 @@ class VLLMTritonMetricsTest(TestResultCollector):
             request_data = create_vllm_request(
                 prompts[i],
                 i,
-                stream,
+                False,
                 sampling_parameters,
                 model_name,
-                send_parameters_as_tensor,
+                True,
             )
             self.triton_client.async_stream_infer(
                 model_name=model_name,
-                request_id=request_data["request_id"],
                 inputs=request_data["inputs"],
+                request_id=request_data["request_id"],
                 outputs=request_data["outputs"],
                 parameters=sampling_parameters,
             )
@@ -121,11 +119,9 @@ class VLLMTritonMetricsTest(TestResultCollector):
         }
 
         # Test vLLM metrics
-        self.vllm_async_stream_infer(
+        self.vllm_infer(
             prompts=self.prompts,
             sampling_parameters=self.sampling_parameters,
-            stream=False,
-            send_parameters_as_tensor=True,
             model_name=self.vllm_model_name,
         )
         expected_metrics_dict["vllm:prompt_tokens_total"] = 18

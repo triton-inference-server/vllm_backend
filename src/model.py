@@ -168,7 +168,7 @@ class TritonPythonModel:
         )
 
         # Add vLLM custom metrics
-        if not self.metrics:
+        if self.metrics:
             self.llm_engine.add_logger("triton", self.metrics)
 
     def setup_lora(self):
