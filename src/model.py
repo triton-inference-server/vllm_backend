@@ -153,13 +153,15 @@ class TritonPythonModel:
             AsyncEngineArgs(**self.vllm_engine_config)
         )
 
-        # Create vLLM custom Metrics
-        labels = {
-            "model": self.args["model_name"],
-            "version": self.args["model_version"],
-        }
-        logger = VllmStatLogger(labels=labels)
-        self.llm_engine.add_logger("triton", logger)
+        # If TRITON_ENABLE_METRICS<_CPU/_GPU> build flag is enabled.
+        if self.args["metrics_mode"] in ["all", "cpu", "gpu"]:
+            # Create vLLM custom Metrics
+            labels = {
+                "model": self.args["model_name"],
+                "version": self.args["model_version"],
+            }
+            logger = VllmStatLogger(labels=labels)
+            self.llm_engine.add_logger("triton", logger)
 
     def setup_lora(self):
         self.enable_lora = False
