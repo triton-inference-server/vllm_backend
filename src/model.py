@@ -41,6 +41,8 @@ from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
+from utils.metrics import VllmStatLogger
+
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
 
@@ -155,9 +157,28 @@ class TritonPythonModel:
         self.setup_lora()
 
         # Create an AsyncLLMEngine from the config from JSON
-        self.llm_engine = AsyncLLMEngine.from_engine_args(
-            AsyncEngineArgs(**self.vllm_engine_config)
-        )
+        aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
+        self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
+
+        # Create vLLM custom metrics
+        if not aync_engine_args.disable_log_stats:
+            try:
+                labels = {
+                    "model": self.args["model_name"],
+                    "version": self.args["model_version"],
+                }
+                self.metrics = VllmStatLogger(labels=labels)
+            except pb_utils.TritonModelException as e:
+                if "metrics not supported" in str(e):
+                    # Metrics are disabled at the server
+                    self.metrics = None
+                    self.logger.log_info("[vllm] Metrics not supported")
+                else:
+                    raise e
+
+            # Add vLLM custom metrics
+            if self.metrics:
+                self.llm_engine.add_logger("triton", self.metrics)
 
     def setup_lora(self):
         self.enable_lora = False
