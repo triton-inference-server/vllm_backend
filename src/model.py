@@ -109,20 +109,6 @@ class TritonPythonModel:
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
-        # Create vLLM custom metrics
-        try:
-            labels = {
-                "model": self.args["model_name"],
-                "version": self.args["model_version"],
-            }
-            self.metrics = VllmStatLogger(labels=labels)
-        except pb_utils.TritonModelException as e:
-            if "metrics not supported" in str(e):
-                # Metrics are disabled at the server
-                self.metrics = None
-            else:
-                raise e
-
         # Prepare vLLM engine
         self.init_engine()
 
@@ -163,13 +149,28 @@ class TritonPythonModel:
         self.setup_lora()
 
         # Create an AsyncLLMEngine from the config from JSON
-        self.llm_engine = AsyncLLMEngine.from_engine_args(
-            AsyncEngineArgs(**self.vllm_engine_config)
-        )
+        aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
+        self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
 
-        # Add vLLM custom metrics
-        if self.metrics:
-            self.llm_engine.add_logger("triton", self.metrics)
+        # Create vLLM custom metrics
+        if not aync_engine_args.disable_log_stats:
+            try:
+                labels = {
+                    "model": self.args["model_name"],
+                    "version": self.args["model_version"],
+                }
+                self.metrics = VllmStatLogger(labels=labels)
+            except pb_utils.TritonModelException as e:
+                if "metrics not supported" in str(e):
+                    # Metrics are disabled at the server
+                    self.metrics = None
+                    self.logger.log_info("[vllm] Metrics not supported")
+                else:
+                    raise e
+
+            # Add vLLM custom metrics
+            if self.metrics:
+                self.llm_engine.add_logger("triton", self.metrics)
 
     def setup_lora(self):
         self.enable_lora = False
