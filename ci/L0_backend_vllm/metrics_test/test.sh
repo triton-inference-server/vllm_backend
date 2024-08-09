@@ -50,7 +50,7 @@ function assert_curl_success {
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-# `vllm_opt`` model will be loaded on server start and stay loaded throughout
+# `vllm_opt` model will be loaded on server start and stay loaded throughout
 # unittesting. To ensure that vllm's memory profiler will not error out
 # on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
 # so that at least 60% of GPU memory was available for other models.
@@ -71,7 +71,7 @@ python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics FAILED. \n***"
     RET=1
 else
     check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
@@ -101,7 +101,7 @@ python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
     RET=1
 else
     check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
@@ -132,7 +132,7 @@ python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics FAILED. \n***"
     RET=1
 else
     check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
