@@ -69,18 +69,6 @@ class VllmStatLogger(VllmStatLoggerBase):
     def info(self, type: str, obj: SupportsMetricsInfo) -> None:
         raise NotImplementedError
 
-    def _log_gauge(self, gauge, data: Union[int, float]) -> None:
-        """Convenience function for logging to gauge.
-
-        Args:
-            gauge: A gauge metric instance.
-            data: An int or float to set the gauge metric.
-
-        Returns:
-            None
-        """
-        gauge.set(data)
-
     def _log_counter(self, counter, data: Union[int, float]) -> None:
         """Convenience function for logging to counter.
 
