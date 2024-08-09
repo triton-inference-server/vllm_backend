@@ -110,11 +110,12 @@ In this case, please install vLLM first. You can do so by running
 container with the following commands:
 
 ```
-vllm_tmp_dir=/tmp/backends/vllm_backend
-mkdir -p /opt/tritonserver/backends/vllm $vllm_tmp_dir
-git clone https://github.com/triton-inference-server/vllm_backend.git $vllm_tmp_dir
-cp -r $vllm_tmp_dir/src/* /opt/tritonserver/backends/vllm
-rm -rf $vllm_tmp_dir
+TEMP_TRITON_VLLM_DIR=/tmp/backends/vllm_backend
+mkdir -p /opt/tritonserver/backends/vllm $TEMP_TRITON_VLLM_DIR
+git clone https://github.com/triton-inference-server/vllm_backend.git $TEMP_TRITON_VLLM_DIR
+cp -r $TEMP_TRITON_VLLM_DIR/src/* /opt/tritonserver/backends/vllm
+rm -rf $TEMP_TRITON_VLLM_DIR
+rm -d /tmp/backends
 ```
 
 ## Using the vLLM Backend
