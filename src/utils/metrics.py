@@ -67,7 +67,7 @@ class VllmStatLogger(VllmStatLoggerBase):
         self.metrics = TritonMetrics(labels=labels)
 
     def info(self, type: str, obj: SupportsMetricsInfo) -> None:
-        raise NotImplementedError
+        pass
 
     def _log_counter(self, counter, data: Union[int, float]) -> None:
         """Convenience function for logging to counter.
