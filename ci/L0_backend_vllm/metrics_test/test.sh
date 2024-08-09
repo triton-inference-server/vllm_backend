@@ -58,7 +58,7 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/v
 
 RET=0
 
-# test vLLM metrics
+# Test vLLM metrics
 run_server
 if [ "$SERVER_PID" == "0" ]; then
     cat $SERVER_LOG
@@ -86,7 +86,7 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# test disabling vLLM metrics with disable_log_stats set to true
+# Test disabling vLLM metrics with disable_log_stats set to true
 sed -i 's/"disable_log_stats": false/"disable_log_stats": true/' models/vllm_opt/1/model.json
 
 run_server
@@ -115,7 +115,38 @@ set -e
 
 kill $SERVER_PID
 wait $SERVER_PID
-rm -rf "./models"
+
+# Test vLLM metrics if disable_log_stats is not set in model.json
+jq 'del(.disable_log_stats)' models/vllm_opt/1/model.json > "temp.json"
+mv temp.json models/vllm_opt/1/model.json
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+rm -rf "./models" "temp.json"
 
 if [ $RET -eq 1 ]; then
     cat $CLIENT_LOG
