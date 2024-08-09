@@ -50,7 +50,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         ]
         self.sampling_parameters = {"temperature": "0", "top_p": "1"}
 
-    def get_metrics(self):
+    def get_vllm_metrics(self):
         """
         Store vllm metrics in a dictionary.
         """
@@ -112,21 +112,30 @@ class VLLMTritonMetricsTest(TestResultCollector):
         self.triton_client.stop_stream()
 
     def test_vllm_metrics(self):
-        # All vLLM metrics from tritonserver
-        expected_metrics_dict = {
-            "vllm:prompt_tokens_total": 0,
-            "vllm:generation_tokens_total": 0,
-        }
-
         # Test vLLM metrics
         self.vllm_infer(
             prompts=self.prompts,
             sampling_parameters=self.sampling_parameters,
             model_name=self.vllm_model_name,
         )
-        expected_metrics_dict["vllm:prompt_tokens_total"] = 18
-        expected_metrics_dict["vllm:generation_tokens_total"] = 48
-        self.assertEqual(self.get_metrics(), expected_metrics_dict)
+        metrics_dict = self.get_vllm_metrics()
+
+        # vllm:prompt_tokens_total
+        self.assertEqual(metrics_dict["vllm:prompt_tokens_total"], 18)
+        # vllm:generation_tokens_total
+        self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
+
+    def test_vllm_metrics_disabled(self):
+        # Test vLLM metrics
+        self.vllm_infer(
+            prompts=self.prompts,
+            sampling_parameters=self.sampling_parameters,
+            model_name=self.vllm_model_name,
+        )
+        metrics_dict = self.get_vllm_metrics()
+
+        # No vLLM metric found
+        self.assertEqual(len(metrics_dict), 0)
 
     def tearDown(self):
         self.triton_client.close()
