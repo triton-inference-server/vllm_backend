@@ -125,6 +125,17 @@ class VLLMTritonMetricsTest(TestResultCollector):
         # vllm:generation_tokens_total
         self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
 
+        # vllm:time_to_first_token_seconds
+        self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_count"], 3)
+        self.assertTrue(
+            0 < metrics_dict["vllm:time_to_first_token_seconds_sum"] < 0.0005
+        )
+        # vllm:time_per_output_token_seconds
+        self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_count"], 45)
+        self.assertTrue(
+            0 <= metrics_dict["vllm:time_per_output_token_seconds_sum"] <= 0.005
+        )
+
     def test_vllm_metrics_disabled(self):
         # Test vLLM metrics
         self.vllm_infer(
