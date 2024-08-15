@@ -223,6 +223,45 @@ vllm:prompt_tokens_total{model="vllm_model",version="1"} 10
 # HELP vllm:generation_tokens_total Number of generation tokens processed.
 # TYPE vllm:generation_tokens_total counter
 vllm:generation_tokens_total{model="vllm_model",version="1"} 16
+# HELP vllm:time_to_first_token_seconds Histogram of time to first token in seconds.
+# TYPE vllm:time_to_first_token_seconds histogram
+vllm:time_to_first_token_seconds_count{model="vllm_model",version="1"} 1
+vllm:time_to_first_token_seconds_sum{model="vllm_model",version="1"} 0.03233122825622559
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.001"} 0
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.005"} 0
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.01"} 0
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.02"} 0
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.04"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.06"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.08"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.1"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.25"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.5"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.75"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="2.5"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="5"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="7.5"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="10"} 1
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:time_per_output_token_seconds Histogram of time per output token in seconds.
+# TYPE vllm:time_per_output_token_seconds histogram
+vllm:time_per_output_token_seconds_count{model="vllm_model",version="1"} 15
+vllm:time_per_output_token_seconds_sum{model="vllm_model",version="1"} 0.04501533508300781
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.01"} 14
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.025"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.05"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.075"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.1"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.15"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.2"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.3"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.4"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.5"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.75"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="1"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="2.5"} 15
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 15
 ```
 To enable vLLM engine colleting metrics, "disable_log_stats" option need to be either false
 or left empty (false by default) in [model.json](https://github.com/triton-inference-server/vllm_backend/blob/main/samples/model_repository/vllm_model/1/model.json).
