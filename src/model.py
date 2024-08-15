@@ -165,6 +165,7 @@ class TritonPythonModel:
             "REPORT_CUSTOM_METRICS" in self.model_config["parameters"]
             and self.model_config["parameters"]["REPORT_CUSTOM_METRICS"]["string_value"]
             == "yes"
+            and not aync_engine_args.disable_log_stats
         ):
             try:
                 labels = {

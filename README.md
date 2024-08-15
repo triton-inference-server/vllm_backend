@@ -224,9 +224,14 @@ vllm:prompt_tokens_total{model="vllm_model",version="1"} 10
 # TYPE vllm:generation_tokens_total counter
 vllm:generation_tokens_total{model="vllm_model",version="1"} 16
 ```
-*Note:* The vLLM metrics reporting is disabled by default due to potential
-performance slowdowns. To enable vLLM model's metrics reporting, please add
-following lines to its config.pbtxt.
+To enable vLLM engine colleting metrics, "disable_log_stats" option need to be either false
+or left empty (false by default) in [model.json](https://github.com/triton-inference-server/vllm_backend/blob/main/samples/model_repository/vllm_model/1/model.json).
+```bash
+"disable_log_stats": false
+```
+*Note:* vLLM metrics are not reported to Triton metrics server by default
+due to potential performance slowdowns. To enable vLLM model's metrics
+reporting, please add following lines to its config.pbtxt as well.
 ```bash
 parameters: {
   key: "REPORT_CUSTOM_METRICS"

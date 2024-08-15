@@ -39,17 +39,20 @@ SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
 # Helpers =======================================
-rm -rf models && mkdir -p models
-cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-# `vllm_opt` model will be loaded on server start and stay loaded throughout
-# unittesting. To ensure that vllm's memory profiler will not error out
-# on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
-# so that at least 60% of GPU memory was available for other models.
-sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/vllm_opt/1/model.json
+function copy_model_repository {
+    rm -rf models && mkdir -p models
+    cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+    # `vllm_opt` model will be loaded on server start and stay loaded throughout
+    # unittesting. To ensure that vllm's memory profiler will not error out
+    # on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
+    # so that at least 60% of GPU memory was available for other models.
+    sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/vllm_opt/1/model.json
+}
 
 RET=0
 
 # Test disabling vLLM metrics reporting without parameter "REPORT_CUSTOM_METRICS" in config.pbtxt
+copy_model_repository
 run_server
 if [ "$SERVER_PID" == "0" ]; then
     cat $SERVER_LOG
@@ -78,6 +81,7 @@ kill $SERVER_PID
 wait $SERVER_PID
 
 # Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "no" in config.pbtxt
+copy_model_repository
 echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
@@ -115,6 +119,7 @@ kill $SERVER_PID
 wait $SERVER_PID
 
 # Test vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "yes" in config.pbtxt
+copy_model_repository
 cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
 echo -e "
 parameters: {
@@ -152,7 +157,56 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
+# Test enabling vLLM metrics reporting in config.pbtxt but disabling in model.json
+copy_model_repository
+jq '. += {"disable_log_stats" : true}' models/vllm_opt/1/model.json > "temp.json"
+mv temp.json models/vllm_opt/1/model.json
+echo -e "
+parameters: {
+  key: \"REPORT_CUSTOM_METRICS\"
+  value: {
+    string_value:\"yes\"
+  }
+}
+" >> models/vllm_opt/config.pbtxt
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+
 # Test enabling vLLM metrics reporting in config.pbtxt while disabling in server option
+copy_model_repository
+echo -e "
+parameters: {
+  key: \"REPORT_CUSTOM_METRICS\"
+  value: {
+    string_value:\"yes\"
+  }
+}
+" >> models/vllm_opt/config.pbtxt
 SERVER_ARGS="${SERVER_ARGS} --allow-metrics=false"
 run_server
 if [ "$SERVER_PID" == "0" ]; then
