@@ -162,8 +162,8 @@ class TritonPythonModel:
 
         # Create vLLM custom metrics
         if (
-            "REPORT_METRICS" in self.model_config["parameters"]
-            and self.model_config["parameters"]["REPORT_METRICS"]["string_value"]
+            "REPORT_CUSTOM_METRICS" in self.model_config["parameters"]
+            and self.model_config["parameters"]["REPORT_CUSTOM_METRICS"]["string_value"]
             == "yes"
         ):
             try:

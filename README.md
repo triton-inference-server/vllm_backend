@@ -197,13 +197,46 @@ starting from 23.10 release.
 
 You can use  `pip install ...` within the container to upgrade vLLM version.
 
-
 ## Running Multiple Instances of Triton Server
 
 If you are running multiple instances of Triton server with a Python-based backend,
 you need to specify a different `shm-region-prefix-name` for each server. See
 [here](https://github.com/triton-inference-server/python_backend#running-multiple-instances-of-triton-server)
 for more information.
+
+## Triton Metrics
+Starting with the 24.08 release of Triton, users can now obtain partial
+vLLM metrics by querying the Triton metrics endpoint (see complete vLLM metrics
+[here](https://docs.vllm.ai/en/latest/serving/metrics.html)). This can be
+accomplished by launching a Triton server in any of the ways described above
+(ensuring the build code / container is 24.08 or later) and querying the server.
+Upon receiving a successful response, you can query the metrics endpoint by entering
+the following:
+```bash
+curl localhost:8002/metrics
+```
+VLLM stats are reported by the metrics endpoint in fields that
+are prefixed with `vllm:`. Your output for these fields should look
+similar to the following:
+```bash
+# HELP vllm:prompt_tokens_total Number of prefill tokens processed.
+# TYPE vllm:prompt_tokens_total counter
+vllm:prompt_tokens_total{model="vllm_model",version="1"} 10
+# HELP vllm:generation_tokens_total Number of generation tokens processed.
+# TYPE vllm:generation_tokens_total counter
+vllm:generation_tokens_total{model="vllm_model",version="1"} 16
+```
+*Note:* The vLLM metrics reporting is disabled by default due to potential
+performance slowdowns. To enable vLLM model's metrics reporting, please add
+following lines to its config.pbtxt.
+```bash
+parameters: {
+  key: "REPORT_CUSTOM_METRICS"
+  value: {
+    string_value:"yes"
+  }
+}
+```
 
 ## Referencing the Tutorial
 

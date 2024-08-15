@@ -49,7 +49,7 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/v
 
 RET=0
 
-# Test disabling vLLM metrics reporting without parameter "REPORT_METRICS" in config.pbtxt
+# Test disabling vLLM metrics reporting without parameter "REPORT_CUSTOM_METRICS" in config.pbtxt
 run_server
 if [ "$SERVER_PID" == "0" ]; then
     cat $SERVER_LOG
@@ -77,10 +77,10 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Test disabling vLLM metrics reporting with parameter "REPORT_METRICS" set to "no" in config.pbtxt
+# Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "no" in config.pbtxt
 echo -e "
 parameters: {
-  key: \"REPORT_METRICS\"
+  key: \"REPORT_CUSTOM_METRICS\"
   value: {
     string_value:\"no\"
   }
@@ -114,11 +114,11 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Test vLLM metrics reporting with parameter "REPORT_METRICS" set to "yes" in config.pbtxt
+# Test vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "yes" in config.pbtxt
 cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
 echo -e "
 parameters: {
-  key: \"REPORT_METRICS\"
+  key: \"REPORT_CUSTOM_METRICS\"
   value: {
     string_value:\"yes\"
   }
