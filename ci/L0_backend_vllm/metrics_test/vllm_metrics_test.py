@@ -137,6 +137,16 @@ class VLLMTritonMetricsTest(TestResultCollector):
         # No vLLM metric found
         self.assertEqual(len(metrics_dict), 0)
 
+    def test_vllm_metrics_refused(self):
+        # Test vLLM metrics
+        self.vllm_infer(
+            prompts=self.prompts,
+            sampling_parameters=self.sampling_parameters,
+            model_name=self.vllm_model_name,
+        )
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            self.get_vllm_metrics()
+
     def tearDown(self):
         self.triton_client.close()
 

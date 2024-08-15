@@ -114,7 +114,7 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Test vLLM metrics reporting with parameter "REPORT_METRICS" set to "no" in config.pbtxt
+# Test vLLM metrics reporting with parameter "REPORT_METRICS" set to "yes" in config.pbtxt
 cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
 echo -e "
 parameters: {
@@ -138,6 +138,35 @@ python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
     echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+
+# Test enabling vLLM metrics reporting in config.pbtxt while disabling in server option
+SERVER_ARGS="${SERVER_ARGS} --allow-metrics=false"
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_refused -v > $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_refused FAILED. \n***"
     RET=1
 else
     check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
