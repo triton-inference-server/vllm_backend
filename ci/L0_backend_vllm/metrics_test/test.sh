@@ -39,15 +39,6 @@ SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
 # Helpers =======================================
-function assert_curl_success {
-  message="${1}"
-  if [ "$code" != "200" ]; then
-    cat ./curl.out
-    echo -e "\n***\n*** ${message} : line ${BASH_LINENO}\n***"
-    RET=1
-  fi
-}
-
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
 # `vllm_opt` model will be loaded on server start and stay loaded throughout
@@ -58,7 +49,7 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/v
 
 RET=0
 
-# Test vLLM metrics
+# Test disabling vLLM metrics reporting without parameter "REPORT_METRICS" in config.pbtxt
 run_server
 if [ "$SERVER_PID" == "0" ]; then
     cat $SERVER_LOG
@@ -67,11 +58,11 @@ if [ "$SERVER_PID" == "0" ]; then
 fi
 
 set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
+python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics FAILED. \n***"
+    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
     RET=1
 else
     check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
@@ -86,8 +77,15 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Test disabling vLLM metrics with disable_log_stats set to true
-sed -i 's/"disable_log_stats": false/"disable_log_stats": true/' models/vllm_opt/1/model.json
+# Test disabling vLLM metrics reporting with parameter "REPORT_METRICS" set to "no" in config.pbtxt
+echo -e "
+parameters: {
+  key: \"REPORT_METRICS\"
+  value: {
+    string_value:\"no\"
+  }
+}
+" >> models/vllm_opt/config.pbtxt
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
@@ -116,9 +114,16 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Test vLLM metrics if disable_log_stats is not set in model.json
-jq 'del(.disable_log_stats)' models/vllm_opt/1/model.json > "temp.json"
-mv temp.json models/vllm_opt/1/model.json
+# Test vLLM metrics reporting with parameter "REPORT_METRICS" set to "no" in config.pbtxt
+cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
+echo -e "
+parameters: {
+  key: \"REPORT_METRICS\"
+  value: {
+    string_value:\"yes\"
+  }
+}
+" >> models/vllm_opt/config.pbtxt
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then

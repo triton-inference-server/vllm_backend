@@ -161,7 +161,11 @@ class TritonPythonModel:
         self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
 
         # Create vLLM custom metrics
-        if not aync_engine_args.disable_log_stats:
+        if (
+            "REPORT_METRICS" in self.model_config["parameters"]
+            and self.model_config["parameters"]["REPORT_METRICS"]["string_value"]
+            == "yes"
+        ):
             try:
                 labels = {
                     "model": self.args["model_name"],
