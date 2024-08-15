@@ -83,7 +83,7 @@ class VllmStatLogger(VllmStatLoggerBase):
             counter.increment(data)
 
     def log(self, stats: VllmStats) -> None:
-        """Logs to triton metrics server every iteration.
+        """Report stats to Triton metrics server.
 
         Args:
             stats: Created by LLMEngine for use by VllmStatLogger.
