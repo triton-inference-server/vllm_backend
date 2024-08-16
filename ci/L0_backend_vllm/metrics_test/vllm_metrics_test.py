@@ -127,11 +127,11 @@ class VLLMTritonMetricsTest(TestResultCollector):
 
         # vllm:time_to_first_token_seconds
         self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_count"], 3)
-        self.assertTrue(metrics_dict["vllm:time_to_first_token_seconds_sum"] > 0)
+        self.assertGreater(metrics_dict["vllm:time_to_first_token_seconds_sum"], 0)
         self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_bucket"], 3)
         # vllm:time_per_output_token_seconds
         self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_count"], 45)
-        self.assertTrue(metrics_dict["vllm:time_per_output_token_seconds_sum"] > 0)
+        self.assertGreater(metrics_dict["vllm:time_per_output_token_seconds_sum"], 0)
         self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_bucket"], 45)
 
     def test_vllm_metrics_disabled(self):
