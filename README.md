@@ -202,6 +202,71 @@ you need to specify a different `shm-region-prefix-name` for each server. See
 [here](https://github.com/triton-inference-server/python_backend#running-multiple-instances-of-triton-server)
 for more information.
 
+## Triton Metrics
+Starting with the 24.08 release of Triton, users can now obtain specific
+vLLM metrics by querying the Triton metrics endpoint (see complete vLLM metrics
+[here](https://docs.vllm.ai/en/latest/serving/metrics.html)). This can be
+accomplished by launching a Triton server in any of the ways described above
+(ensuring the build code / container is 24.08 or later) and querying the server.
+Upon receiving a successful response, you can query the metrics endpoint by entering
+the following:
+```bash
+curl localhost:8002/metrics
+```
+VLLM stats are reported by the metrics endpoint in fields that are prefixed with
+`vllm:`. Triton currently supports reporting of the following metrics from vLLM.
+```bash
+# Number of prefill tokens processed.
+counter_prompt_tokens
+# Number of generation tokens processed.
+counter_generation_tokens
+# Histogram of time to first token in seconds.
+histogram_time_to_first_token
+# Histogram of time per output token in seconds.
+histogram_time_per_output_token
+```
+Your output for these fields should look similar to the following:
+```bash
+# HELP vllm:prompt_tokens_total Number of prefill tokens processed.
+# TYPE vllm:prompt_tokens_total counter
+vllm:prompt_tokens_total{model="vllm_model",version="1"} 10
+# HELP vllm:generation_tokens_total Number of generation tokens processed.
+# TYPE vllm:generation_tokens_total counter
+vllm:generation_tokens_total{model="vllm_model",version="1"} 16
+# HELP vllm:time_to_first_token_seconds Histogram of time to first token in seconds.
+# TYPE vllm:time_to_first_token_seconds histogram
+vllm:time_to_first_token_seconds_count{model="vllm_model",version="1"} 1
+vllm:time_to_first_token_seconds_sum{model="vllm_model",version="1"} 0.03233122825622559
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.001"} 0
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.005"} 0
+...
+vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:time_per_output_token_seconds Histogram of time per output token in seconds.
+# TYPE vllm:time_per_output_token_seconds histogram
+vllm:time_per_output_token_seconds_count{model="vllm_model",version="1"} 15
+vllm:time_per_output_token_seconds_sum{model="vllm_model",version="1"} 0.04501533508300781
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.01"} 14
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.025"} 15
+...
+vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 15
+```
+To enable vLLM engine colleting metrics, "disable_log_stats" option need to be either false
+or left empty (false by default) in [model.json](https://github.com/triton-inference-server/vllm_backend/blob/main/samples/model_repository/vllm_model/1/model.json).
+```bash
+"disable_log_stats": false
+```
+*Note:* vLLM metrics are not reported to Triton metrics server by default
+due to potential performance slowdowns. To enable vLLM model's metrics
+reporting, please add following lines to its config.pbtxt as well.
+```bash
+parameters: {
+  key: "REPORT_CUSTOM_METRICS"
+  value: {
+    string_value:"yes"
+  }
+}
+```
+
 ## Referencing the Tutorial
 
 You can read further in the
