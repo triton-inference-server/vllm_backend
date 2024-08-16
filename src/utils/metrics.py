@@ -65,7 +65,6 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
-
         # Use the same bucket boundaries from vLLM sample metrics.
         # https://github.com/vllm-project/vllm/blob/21313e09e3f9448817016290da20d0db1adf3664/vllm/engine/metrics.py#L81-L96
         self.histogram_time_to_first_token = (
