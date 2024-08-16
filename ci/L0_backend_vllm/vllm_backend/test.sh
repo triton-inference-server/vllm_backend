@@ -50,7 +50,7 @@ function assert_curl_success {
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-# `vllm_opt`` model will be loaded on server start and stay loaded throughout
+# `vllm_opt` model will be loaded on server start and stay loaded throughout
 # unittesting. To test vllm model load/unload we use a dedicated
 # `vllm_load_test`. To ensure that vllm's memory profiler will not error out
 # on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
