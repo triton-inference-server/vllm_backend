@@ -111,7 +111,8 @@ container with the following commands:
 
 ```
 mkdir -p /opt/tritonserver/backends/vllm
-wget -P /opt/tritonserver/backends/vllm https://raw.githubusercontent.com/triton-inference-server/vllm_backend/main/src/model.py
+git clone https://github.com/triton-inference-server/vllm_backend.git /tmp/vllm_backend
+cp -r /tmp/vllm_backend/src/* /opt/tritonserver/backends/vllm
 ```
 
 ## Using the vLLM Backend
@@ -193,7 +194,6 @@ You can check the vLLM version included in Triton Inference Server from
 starting from 23.10 release.
 
 You can use  `pip install ...` within the container to upgrade vLLM version.
-
 
 ## Running Multiple Instances of Triton Server
 
