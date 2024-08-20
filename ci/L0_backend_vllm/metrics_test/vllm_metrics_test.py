@@ -119,39 +119,60 @@ class VLLMTritonMetricsTest(TestResultCollector):
             model_name=self.vllm_model_name,
         )
         metrics_dict = self.parse_vllm_metrics()
+        total_prompts = len(self.prompts)
 
         # vllm:prompt_tokens_total
         self.assertEqual(metrics_dict["vllm:prompt_tokens_total"], 18)
         # vllm:generation_tokens_total
         self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
         # vllm:time_to_first_token_seconds
-        self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_count"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:time_to_first_token_seconds_count"], total_prompts
+        )
         self.assertGreater(metrics_dict["vllm:time_to_first_token_seconds_sum"], 0)
-        self.assertEqual(metrics_dict["vllm:time_to_first_token_seconds_bucket"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:time_to_first_token_seconds_bucket"], total_prompts
+        )
         # vllm:time_per_output_token_seconds
         self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_count"], 45)
         self.assertGreater(metrics_dict["vllm:time_per_output_token_seconds_sum"], 0)
         self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_bucket"], 45)
         # vllm:e2e_request_latency_seconds
-        self.assertEqual(metrics_dict["vllm:e2e_request_latency_seconds_count"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:e2e_request_latency_seconds_count"], total_prompts
+        )
         self.assertGreater(metrics_dict["vllm:e2e_request_latency_seconds_sum"], 0)
-        self.assertEqual(metrics_dict["vllm:e2e_request_latency_seconds_bucket"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:e2e_request_latency_seconds_bucket"], total_prompts
+        )
         # vllm:request_prompt_tokens
-        self.assertEqual(metrics_dict["vllm:request_prompt_tokens_count"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_prompt_tokens_count"], total_prompts
+        )
         self.assertEqual(metrics_dict["vllm:request_prompt_tokens_sum"], 18)
-        self.assertEqual(metrics_dict["vllm:request_prompt_tokens_bucket"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_prompt_tokens_bucket"], total_prompts
+        )
         # vllm:request_generation_tokens
-        self.assertEqual(metrics_dict["vllm:request_generation_tokens_count"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_generation_tokens_count"], total_prompts
+        )
         self.assertEqual(metrics_dict["vllm:request_generation_tokens_sum"], 48)
-        self.assertEqual(metrics_dict["vllm:request_generation_tokens_bucket"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_generation_tokens_bucket"], total_prompts
+        )
         # vllm:request_params_best_of
-        self.assertEqual(metrics_dict["vllm:request_params_best_of_count"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_params_best_of_count"], total_prompts
+        )
         self.assertEqual(metrics_dict["vllm:request_params_best_of_sum"], 3)
-        self.assertEqual(metrics_dict["vllm:request_params_best_of_bucket"], 3)
+        self.assertEqual(
+            metrics_dict["vllm:request_params_best_of_bucket"], total_prompts
+        )
         # vllm:request_params_n
-        self.assertEqual(metrics_dict["vllm:request_params_n_count"], 3)
+        self.assertEqual(metrics_dict["vllm:request_params_n_count"], total_prompts)
         self.assertEqual(metrics_dict["vllm:request_params_n_sum"], 3)
-        self.assertEqual(metrics_dict["vllm:request_params_n_bucket"], 3)
+        self.assertEqual(metrics_dict["vllm:request_params_n_bucket"], total_prompts)
 
     def test_vllm_metrics_disabled(self):
         # Test vLLM metrics
