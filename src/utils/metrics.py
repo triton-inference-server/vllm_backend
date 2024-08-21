@@ -93,7 +93,7 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
-        # Use the same bucket boundaries from vLLM sample metrics.
+        # Use the same bucket boundaries from vLLM sample metrics as an example.
         # https://github.com/vllm-project/vllm/blob/21313e09e3f9448817016290da20d0db1adf3664/vllm/engine/metrics.py#L81-L96
         self.histogram_time_to_first_token = (
             self.histogram_time_to_first_token_family.Metric(
@@ -214,35 +214,35 @@ class VllmStatLogger(VllmStatLoggerBase):
         Returns:
             None
         """
-        # Iteration stats
-        self._log_counter(
-            self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter
-        )
-        self._log_counter(
-            self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter
-        )
-        self._log_histogram(
-            self.metrics.histogram_time_to_first_token, stats.time_to_first_tokens_iter
-        )
-        self._log_histogram(
-            self.metrics.histogram_time_per_output_token,
-            stats.time_per_output_tokens_iter,
-        )
-        # Request stats
-        #   Latency
-        self._log_histogram(
-            self.metrics.histogram_e2e_time_request, stats.time_e2e_requests
-        )
-        #   Metadata
-        self._log_histogram(
-            self.metrics.histogram_num_prompt_tokens_request,
-            stats.num_prompt_tokens_requests,
-        )
-        self._log_histogram(
-            self.metrics.histogram_num_generation_tokens_request,
-            stats.num_generation_tokens_requests,
-        )
-        self._log_histogram(
-            self.metrics.histogram_best_of_request, stats.best_of_requests
-        )
-        self._log_histogram(self.metrics.histogram_n_request, stats.n_requests)
+        # The list of vLLM metrics reporting to Triton is also documented here.
+        # https://github.com/triton-inference-server/vllm_backend/blob/main/README.md#triton-metrics
+        counter_metrics = [
+            (self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter),
+            (self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter),
+        ]
+        histogram_metrics = [
+            (
+                self.metrics.histogram_time_to_first_token,
+                stats.time_to_first_tokens_iter,
+            ),
+            (
+                self.metrics.histogram_time_per_output_token,
+                stats.time_per_output_tokens_iter,
+            ),
+            (self.metrics.histogram_e2e_time_request, stats.time_e2e_requests),
+            (
+                self.metrics.histogram_num_prompt_tokens_request,
+                stats.num_prompt_tokens_requests,
+            ),
+            (
+                self.metrics.histogram_num_generation_tokens_request,
+                stats.num_generation_tokens_requests,
+            ),
+            (self.metrics.histogram_best_of_request, stats.best_of_requests),
+            (self.metrics.histogram_n_request, stats.n_requests),
+        ]
+
+        for metric, data in counter_metrics:
+            self._log_counter(metric, data)
+        for metric, data in histogram_metrics:
+            self._log_histogram(metric, data)
