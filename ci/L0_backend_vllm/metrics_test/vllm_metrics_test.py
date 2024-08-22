@@ -113,6 +113,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
 
     def test_vllm_metrics(self):
         # Adding sampling parameters for testing metrics.
+        # Definitions can be found here https://docs.vllm.ai/en/latest/dev/sampling_params.html
         n, best_of = 2, 4
         custom_sampling_parameters = self.sampling_parameters.copy()
         # Changing "temperature" because "best_of" must be 1 when using greedy
