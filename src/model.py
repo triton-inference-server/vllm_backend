@@ -173,7 +173,10 @@ class TritonPythonModel:
                     "version": self.args["model_version"],
                 }
                 # Add vLLM custom metrics
-                self.llm_engine.add_logger("triton", VllmStatLogger(labels=labels))
+                engine_config = self.llm_engine.engine.model_config
+                self.llm_engine.add_logger(
+                    "triton", VllmStatLogger(labels, engine_config.max_model_len)
+                )
             except pb_utils.TritonModelException as e:
                 if "metrics not supported" in str(e):
                     # Metrics are disabled at the server

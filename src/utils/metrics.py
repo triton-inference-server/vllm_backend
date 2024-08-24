@@ -29,11 +29,11 @@ from typing import Dict, List, Union
 import triton_python_backend_utils as pb_utils
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
 from vllm.engine.metrics import Stats as VllmStats
-from vllm.engine.metrics import SupportsMetricsInfo
+from vllm.engine.metrics import SupportsMetricsInfo, build_1_2_5_buckets
 
 
 class TritonMetrics:
-    def __init__(self, labels):
+    def __init__(self, labels: List[str], max_model_len: int):
         # Initialize metric families
         # Iteration stats
         self.counter_prompt_tokens_family = pb_utils.MetricFamily(
@@ -56,6 +56,34 @@ class TritonMetrics:
             description="Histogram of time per output token in seconds.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
         )
+        # Request stats
+        #   Latency
+        self.histogram_e2e_time_request_family = pb_utils.MetricFamily(
+            name="vllm:e2e_request_latency_seconds",
+            description="Histogram of end to end request latency in seconds.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        #   Metadata
+        self.histogram_num_prompt_tokens_request_family = pb_utils.MetricFamily(
+            name="vllm:request_prompt_tokens",
+            description="Number of prefill tokens processed.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_num_generation_tokens_request_family = pb_utils.MetricFamily(
+            name="vllm:request_generation_tokens",
+            description="Number of generation tokens processed.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_best_of_request_family = pb_utils.MetricFamily(
+            name="vllm:request_params_best_of",
+            description="Histogram of the best_of request parameter.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_n_request_family = pb_utils.MetricFamily(
+            name="vllm:request_params_n",
+            description="Histogram of the n request parameter.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
 
         # Initialize metrics
         # Iteration stats
@@ -65,7 +93,7 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
-        # Use the same bucket boundaries from vLLM sample metrics.
+        # Use the same bucket boundaries from vLLM sample metrics as an example.
         # https://github.com/vllm-project/vllm/blob/21313e09e3f9448817016290da20d0db1adf3664/vllm/engine/metrics.py#L81-L96
         self.histogram_time_to_first_token = (
             self.histogram_time_to_first_token_family.Metric(
@@ -110,16 +138,43 @@ class TritonMetrics:
                 ],
             )
         )
+        # Request stats
+        #   Latency
+        self.histogram_e2e_time_request = self.histogram_e2e_time_request_family.Metric(
+            labels=labels,
+            buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+        )
+        #   Metadata
+        self.histogram_num_prompt_tokens_request = (
+            self.histogram_num_prompt_tokens_request_family.Metric(
+                labels=labels,
+                buckets=build_1_2_5_buckets(max_model_len),
+            )
+        )
+        self.histogram_num_generation_tokens_request = (
+            self.histogram_num_generation_tokens_request_family.Metric(
+                labels=labels,
+                buckets=build_1_2_5_buckets(max_model_len),
+            )
+        )
+        self.histogram_best_of_request = self.histogram_best_of_request_family.Metric(
+            labels=labels,
+            buckets=[1, 2, 5, 10, 20],
+        )
+        self.histogram_n_request = self.histogram_n_request_family.Metric(
+            labels=labels,
+            buckets=[1, 2, 5, 10, 20],
+        )
 
 
 class VllmStatLogger(VllmStatLoggerBase):
     """StatLogger is used as an adapter between vLLM stats collector and Triton metrics provider."""
 
     # local_interval not used here. It's for vLLM logs to stdout.
-    def __init__(self, labels: Dict, local_interval: float = 0) -> None:
+    def __init__(self, labels: Dict, max_model_len: int) -> None:
         # Tracked stats over current local logging interval.
-        super().__init__(local_interval)
-        self.metrics = TritonMetrics(labels=labels)
+        super().__init__(local_interval=0)
+        self.metrics = TritonMetrics(labels, max_model_len)
 
     def info(self, type: str, obj: SupportsMetricsInfo) -> None:
         pass
@@ -159,16 +214,35 @@ class VllmStatLogger(VllmStatLoggerBase):
         Returns:
             None
         """
-        self._log_counter(
-            self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter
-        )
-        self._log_counter(
-            self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter
-        )
-        self._log_histogram(
-            self.metrics.histogram_time_to_first_token, stats.time_to_first_tokens_iter
-        )
-        self._log_histogram(
-            self.metrics.histogram_time_per_output_token,
-            stats.time_per_output_tokens_iter,
-        )
+        # The list of vLLM metrics reporting to Triton is also documented here.
+        # https://github.com/triton-inference-server/vllm_backend/blob/main/README.md#triton-metrics
+        counter_metrics = [
+            (self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter),
+            (self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter),
+        ]
+        histogram_metrics = [
+            (
+                self.metrics.histogram_time_to_first_token,
+                stats.time_to_first_tokens_iter,
+            ),
+            (
+                self.metrics.histogram_time_per_output_token,
+                stats.time_per_output_tokens_iter,
+            ),
+            (self.metrics.histogram_e2e_time_request, stats.time_e2e_requests),
+            (
+                self.metrics.histogram_num_prompt_tokens_request,
+                stats.num_prompt_tokens_requests,
+            ),
+            (
+                self.metrics.histogram_num_generation_tokens_request,
+                stats.num_generation_tokens_requests,
+            ),
+            (self.metrics.histogram_best_of_request, stats.best_of_requests),
+            (self.metrics.histogram_n_request, stats.n_requests),
+        ]
+
+        for metric, data in counter_metrics:
+            self._log_counter(metric, data)
+        for metric, data in histogram_metrics:
+            self._log_histogram(metric, data)

@@ -224,6 +224,16 @@ counter_generation_tokens
 histogram_time_to_first_token
 # Histogram of time per output token in seconds.
 histogram_time_per_output_token
+# Histogram of end to end request latency in seconds.
+histogram_e2e_time_request
+# Number of prefill tokens processed.
+histogram_num_prompt_tokens_request
+# Number of generation tokens processed.
+histogram_num_generation_tokens_request
+# Histogram of the best_of request parameter.
+histogram_best_of_request
+# Histogram of the n request parameter.
+histogram_n_request
 ```
 Your output for these fields should look similar to the following:
 ```bash
@@ -238,7 +248,6 @@ vllm:generation_tokens_total{model="vllm_model",version="1"} 16
 vllm:time_to_first_token_seconds_count{model="vllm_model",version="1"} 1
 vllm:time_to_first_token_seconds_sum{model="vllm_model",version="1"} 0.03233122825622559
 vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.001"} 0
-vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="0.005"} 0
 ...
 vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
 # HELP vllm:time_per_output_token_seconds Histogram of time per output token in seconds.
@@ -246,9 +255,43 @@ vllm:time_to_first_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"
 vllm:time_per_output_token_seconds_count{model="vllm_model",version="1"} 15
 vllm:time_per_output_token_seconds_sum{model="vllm_model",version="1"} 0.04501533508300781
 vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.01"} 14
-vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="0.025"} 15
 ...
 vllm:time_per_output_token_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 15
+# HELP vllm:e2e_request_latency_seconds Histogram of end to end request latency in seconds.
+# TYPE vllm:e2e_request_latency_seconds histogram
+vllm:e2e_request_latency_seconds_count{model="vllm_model",version="1"} 1
+vllm:e2e_request_latency_seconds_sum{model="vllm_model",version="1"} 0.08686184883117676
+vllm:e2e_request_latency_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:e2e_request_latency_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_prompt_tokens Number of prefill tokens processed.
+# TYPE vllm:request_prompt_tokens histogram
+vllm:request_prompt_tokens_count{model="vllm_model",version="1"} 1
+vllm:request_prompt_tokens_sum{model="vllm_model",version="1"} 10
+vllm:request_prompt_tokens_bucket{model="vllm_model",version="1",le="1"} 0
+...
+vllm:request_prompt_tokens_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_generation_tokens Number of generation tokens processed.
+# TYPE vllm:request_generation_tokens histogram
+vllm:request_generation_tokens_count{model="vllm_model",version="1"} 1
+vllm:request_generation_tokens_sum{model="vllm_model",version="1"} 16
+vllm:request_generation_tokens_bucket{model="vllm_model",version="1",le="1"} 0
+...
+vllm:request_generation_tokens_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_params_best_of Histogram of the best_of request parameter.
+# TYPE vllm:request_params_best_of histogram
+vllm:request_params_best_of_count{model="vllm_model",version="1"} 1
+vllm:request_params_best_of_sum{model="vllm_model",version="1"} 1
+vllm:request_params_best_of_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_params_best_of_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_params_n Histogram of the n request parameter.
+# TYPE vllm:request_params_n histogram
+vllm:request_params_n_count{model="vllm_model",version="1"} 1
+vllm:request_params_n_sum{model="vllm_model",version="1"} 1
+vllm:request_params_n_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_params_n_bucket{model="vllm_model",version="1",le="+Inf"} 1
 ```
 To enable vLLM engine colleting metrics, "disable_log_stats" option need to be either false
 or left empty (false by default) in [model.json](https://github.com/triton-inference-server/vllm_backend/blob/main/samples/model_repository/vllm_model/1/model.json).
