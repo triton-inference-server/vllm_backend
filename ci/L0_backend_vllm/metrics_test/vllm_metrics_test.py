@@ -112,20 +112,10 @@ class VLLMTritonMetricsTest(TestResultCollector):
         self.triton_client.stop_stream()
 
     def test_vllm_metrics(self):
-        # Adding sampling parameters for testing metrics.
-        # Definitions can be found here https://docs.vllm.ai/en/latest/dev/sampling_params.html
-        n, best_of = 2, 4
-        custom_sampling_parameters = self.sampling_parameters.copy()
-        # Changing "temperature" because "best_of" must be 1 when using greedy
-        # sampling, i.e. "temperature": "0".
-        custom_sampling_parameters.update(
-            {"n": str(n), "best_of": str(best_of), "temperature": "1"}
-        )
-
         # Test vLLM metrics
         self.vllm_infer(
             prompts=self.prompts,
-            sampling_parameters=custom_sampling_parameters,
+            sampling_parameters=self.sampling_parameters,
             model_name=self.vllm_model_name,
         )
         metrics_dict = self.parse_vllm_metrics()
@@ -134,7 +124,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         # vllm:prompt_tokens_total
         self.assertEqual(metrics_dict["vllm:prompt_tokens_total"], 18)
         # vllm:generation_tokens_total
-        self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 188)
+        self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
         # vllm:time_to_first_token_seconds
         self.assertEqual(
             metrics_dict["vllm:time_to_first_token_seconds_count"], total_prompts
@@ -166,13 +156,34 @@ class VLLMTritonMetricsTest(TestResultCollector):
         # vllm:request_generation_tokens
         self.assertEqual(
             metrics_dict["vllm:request_generation_tokens_count"],
-            best_of * total_prompts,
+            total_prompts,
         )
-        self.assertEqual(metrics_dict["vllm:request_generation_tokens_sum"], 188)
+        self.assertEqual(metrics_dict["vllm:request_generation_tokens_sum"], 48)
         self.assertEqual(
             metrics_dict["vllm:request_generation_tokens_bucket"],
-            best_of * total_prompts,
+            total_prompts,
         )
+
+    def test_custom_sampling_params(self):
+        # Adding sampling parameters for testing metrics.
+        # Definitions can be found here https://docs.vllm.ai/en/latest/dev/sampling_params.html
+        n, best_of = 2, 4
+        custom_sampling_parameters = self.sampling_parameters.copy()
+        # Changing "temperature" because "best_of" must be 1 when using greedy
+        # sampling, i.e. "temperature": "0".
+        custom_sampling_parameters.update(
+            {"n": str(n), "best_of": str(best_of), "temperature": "1"}
+        )
+
+        # Test vLLM metrics
+        self.vllm_infer(
+            prompts=self.prompts,
+            sampling_parameters=custom_sampling_parameters,
+            model_name=self.vllm_model_name,
+        )
+        metrics_dict = self.parse_vllm_metrics()
+        total_prompts = len(self.prompts)
+
         # vllm:request_params_best_of
         self.assertEqual(
             metrics_dict["vllm:request_params_best_of_count"], total_prompts

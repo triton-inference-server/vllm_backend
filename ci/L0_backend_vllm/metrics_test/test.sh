@@ -49,36 +49,42 @@ function copy_model_repository {
     sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/vllm_opt/1/model.json
 }
 
+run_test() {
+    local TEST_CASE=$1
+
+    run_server
+    if [ "$SERVER_PID" == "0" ]; then
+        cat $SERVER_LOG
+        echo -e "\n***\n*** Failed to start $SERVER\n***"
+        exit 1
+    fi
+
+    set +e
+    python3 $CLIENT_PY $TEST_CASE -v > $CLIENT_LOG 2>&1
+
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
+        RET=1
+    else
+        check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+        if [ $? -ne 0 ]; then
+            cat $CLIENT_LOG
+            echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+            RET=1
+        fi
+    fi
+    set -e
+
+    kill $SERVER_PID
+    wait $SERVER_PID
+}
+
 RET=0
 
 # Test disabling vLLM metrics reporting without parameter "REPORT_CUSTOM_METRICS" in config.pbtxt
 copy_model_repository
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
-
-set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
-fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
+run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
 # Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "no" in config.pbtxt
 copy_model_repository
@@ -90,33 +96,7 @@ parameters: {
   }
 }
 " >> models/vllm_opt/config.pbtxt
-
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
-
-set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
-fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
+run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
 # Test vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "yes" in config.pbtxt
 copy_model_repository
@@ -129,33 +109,22 @@ parameters: {
   }
 }
 " >> models/vllm_opt/config.pbtxt
+run_test VLLMTritonMetricsTest.test_vllm_metrics
 
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
-
-set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics -v > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
-fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
+# Test vLLM metrics custom sampling parameters
+# Custom sampling parameters may result in different vLLM output depending
+# on the platform. Therefore, these metrics are tests separately.
+copy_model_repository
+cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
+echo -e "
+parameters: {
+  key: \"REPORT_CUSTOM_METRICS\"
+  value: {
+    string_value:\"yes\"
+  }
+}
+" >> models/vllm_opt/config.pbtxt
+run_test VLLMTritonMetricsTest.test_custom_sampling_params
 
 # Test enabling vLLM metrics reporting in config.pbtxt but disabling in model.json
 copy_model_repository
@@ -169,33 +138,7 @@ parameters: {
   }
 }
 " >> models/vllm_opt/config.pbtxt
-
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
-
-set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled -v > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
-fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
+run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
 # Test enabling vLLM metrics reporting in config.pbtxt while disabling in server option
 copy_model_repository
@@ -208,32 +151,8 @@ parameters: {
 }
 " >> models/vllm_opt/config.pbtxt
 SERVER_ARGS="${SERVER_ARGS} --allow-metrics=false"
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
+run_test VLLMTritonMetricsTest.test_vllm_metrics_refused
 
-set +e
-python3 $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_refused -v > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_refused FAILED. \n***"
-    RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
-fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
 rm -rf "./models" "temp.json"
 
 if [ $RET -eq 1 ]; then
