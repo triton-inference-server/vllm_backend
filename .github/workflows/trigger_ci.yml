@@ -19,11 +19,11 @@ jobs:
           #!/bin/bash
           # Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
           TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-          export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+          export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.08
           if [ -z "$TRITON_CONTAINER_VERSION" ]
             then
               echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.07"
-              TRITON_CONTAINER_VERSION=24.07
+              TRITON_CONTAINER_VERSION=24.08
             else
               echo "\$TRITON_CONTAINER_VERSION is NOT NULL"
           fi
@@ -31,11 +31,11 @@ jobs:
 
           # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
           TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-          export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+          export VLLM_VERSION=${TAG#v} # example: 0.5.5
           if [ -z "$VLLM_VERSION" ]
             then
-              echo "\$VLLM_VERSION is NULL, setting it to 0.5.3.post1"
-              VLLM_VERSION=0.5.3.post1
+              echo "\$VLLM_VERSION is NULL, setting it to 0.5.5"
+              VLLM_VERSION=0.5.5
             else
               echo "\$VLLM_VERSION is NOT NULL"
           fi
