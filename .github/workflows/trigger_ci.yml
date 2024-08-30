@@ -22,7 +22,7 @@ jobs:
           export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.08
           if [ -z "$TRITON_CONTAINER_VERSION" ]
             then
-              echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.07"
+              echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.08"
               TRITON_CONTAINER_VERSION=24.08
             else
               echo "\$TRITON_CONTAINER_VERSION is NOT NULL"
