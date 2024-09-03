@@ -64,7 +64,7 @@ run_test() {
 
     if [ $? -ne 0 ]; then
         cat $CLIENT_LOG
-        echo -e "\n***\n*** Running $CLIENT_PY VLLMTritonMetricsTest.test_vllm_metrics_disabled FAILED. \n***"
+        echo -e "\n***\n*** Running $CLIENT_PY $TEST_CASE FAILED. \n***"
         RET=1
     else
         check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
