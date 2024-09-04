@@ -25,13 +25,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-while getopts t:v: flag
+while getopts t: flag
 do
     case "${flag}" in
-        u) TRITON_CONTAINER_VERSION=${OPTARG};;
-        a) VLLM_VERSION=${OPTARG};;
+        u) PROD_CONTAINER=${OPTARG};;
     esac
 done
 
-echo "Triton version is ${TRITON_CONTAINER_VERSION} and vllm version is ${VLLM_VERSION}"
-docker pull nvcr.io/nvidia/tritonserver:${TRITON_CONTAINER_VERSION}-vllm-python-py3
+echo "Pulling container image ${PROD_CONTAINER}"
+docker pull ${PROD_CONTAINER}
