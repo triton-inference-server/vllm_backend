@@ -28,5 +28,12 @@
 # Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
 TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
 export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+if [ -z "$TRITON_CONTAINER_VERSION" ]
+            then
+              echo "\$TRITON_CONTAINER_VERSION is NULL, setting it to 24.08"
+              TRITON_CONTAINER_VERSION=24.08
+            else
+              echo "\$TRITON_CONTAINER_VERSION is NOT NULL"
+          fi
 
 docker pull nvcr.io/nvidia/tritonserver:${TRITON_CONTAINER_VERSION}-vllm-python-py3
