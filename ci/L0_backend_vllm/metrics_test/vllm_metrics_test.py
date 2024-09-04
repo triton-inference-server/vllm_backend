@@ -122,8 +122,14 @@ class VLLMTritonMetricsTest(TestResultCollector):
         total_prompts = len(self.prompts)
 
         # vllm:prompt_tokens_total
+        # (2, 133, 144, 2702, 3477, 16)
+        # (2, 133, 812, 9, 1470, 16)
+        # (2, 133, 499, 9, 4687, 16)
         self.assertEqual(metrics_dict["vllm:prompt_tokens_total"], 18)
         # vllm:generation_tokens_total
+        # (5, 65, 14, 16, 144, 533, 7, 28, 848, 30, 10, 512, 4, 50118, 100, 437)
+        # (5, 812, 9, 5, 1515, 3497, 4, 50118, 50118, 133, 812, 9, 1470, 16, 5, 812)
+        # (11, 5, 1420, 9, 5, 82, 4, 50118, 50118, 133, 499, 9, 4687, 16, 11, 5)
         self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
         # vllm:time_to_first_token_seconds
         self.assertEqual(
