@@ -1,3 +1,4 @@
+name: Validate Triton Pull request by running our change on latest vLLM release
 on:
   pull_request:
 jobs:
