@@ -42,4 +42,4 @@ jobs:
           fi
           echo "VLLM_VERSION = ${VLLM_VERSION}"
 
-          curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD_SOURCE" -F variables[TRITON_CONTAINER_VERSION]="${TRITON_CONTAINER_VERSION}" -F variables[VLLM_VERSION]="${VLLM_VERSION}" "${{ secrets.PIPELINE_URL }}"
+          curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD_SOURCE" -F variables[TRITON_CONTAINER_VERSION]="${TRITON_CONTAINER_VERSION}" -F variables[VLLM_VERSION]="${VLLM_VERSION}" -F variables[TEST_OPTION]="ALL_TESTS" "${{ secrets.PIPELINE_URL }}"
