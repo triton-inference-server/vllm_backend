@@ -1,4 +1,4 @@
-name: Validate latest vLLM release from https://github.com/vllm-project/vllm/releases against latest Triton release
+name: Validate latest vLLM release from https://github.com/vllm-project/vllm/releases against latest Triton release https://github.com/triton-inference-server/vllm_backend/releases
 on:
   schedule:
     - cron: "30 09 */3 * *"
