@@ -22,12 +22,10 @@ jobs:
           # Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
           TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
           export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.08
-          
           # Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
           TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
           export VLLM_VERSION=${TAG#v} # example: 0.5.5
           echo "VLLM_VERSION = ${VLLM_VERSION}"
-          
           if [ -z "$TRITON_CONTAINER_VERSION" || -z "$VLLM_VERSION"]
             then
               echo "Can't find latest Triton or vllm version.. Skipping CI run"
