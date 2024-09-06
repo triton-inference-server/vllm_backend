@@ -29,7 +29,7 @@
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
 ![Static Badge](https://img.shields.io/badge/Triton-24.08-8A2BE2)
 ![Static Badge](https://img.shields.io/badge/vLLM-0.5.5-blue)
-![Static Badge](https://img.shields.io/badge/CI_Passing-A100%2CH100%2CGH100-Green)
+![Static Badge](https://img.shields.io/badge/CI_Passing-AV00%2CA100%2CH100-Green)
 
 # vLLM Backend
 
