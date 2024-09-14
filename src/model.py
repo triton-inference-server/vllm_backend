@@ -511,11 +511,8 @@ class TritonPythonModel:
         self.engine_client.close()
         self.engine_process.join()
 
-
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
         self.logger.log_info("[vllm] Running Garbage Collector on finalize...")
         gc.collect()
         self.logger.log_info("[vllm] Garbage Collector on finalize... done")
-
-
