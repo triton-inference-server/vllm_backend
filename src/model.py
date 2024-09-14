@@ -112,7 +112,15 @@ class TritonPythonModel:
             self.model_config, "text_output"
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
-
+        
+        # Loop.
+        self._shutdown_event = asyncio.Event()
+        self._loop = asyncio.get_event_loop()
+        self._event_thread = threading.Thread(
+            target=self.engine_loop, args=(self._loop,)
+        )
+        self._event_thread.start()
+        
         # Initialize vllm.
         self.init_engine()
 
@@ -124,15 +132,6 @@ class TritonPythonModel:
         self._response_queue = queue.Queue()
         self._response_thread = threading.Thread(target=self.response_loop)
         self._response_thread.start()
-
-        # Starting asyncio event loop to process the received requests asynchronously.
-        self._loop = asyncio.get_event_loop()
-        self._event_thread = threading.Thread(
-            target=self.engine_loop, args=(self._loop,)
-        )
-        self._shutdown_event = asyncio.Event()
-        self._event_thread.start()
-
 
     def make_engine_process(self, engine_args: AsyncEngineArgs, ipc_path: str):
         context = multiprocessing.get_context("spawn")
@@ -148,17 +147,20 @@ class TritonPythonModel:
         engine_client = MQLLMEngineClient(ipc_path, engine_config, self._loop)
 
         async def startup_loop():
+            print("running startup loop")
             while True:
                 try:
                     await engine_client.setup()
                     break
                 except TimeoutError:
-                    return False
+                    print("trying again...")
             return True
 
         print("running loop")
-        success = self.create_task(startup_loop())
-        print("task loop")
+        success_future = self.create_task(startup_loop())
+        print("got future")
+        success = success_future.result()
+        print(success)
         if not success:
             raise RuntimeError
         
@@ -229,8 +231,9 @@ class TritonPythonModel:
         assert (
             self._shutdown_event.is_set() is False
         ), "Cannot create tasks after shutdown has been requested"
-
-        return asyncio.run_coroutine_threadsafe(coro, self._loop)
+        
+        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return fut
 
     def engine_loop(self, loop):
         """
@@ -410,9 +413,9 @@ class TritonPythonModel:
             last_output = None
             prev_outputs = None
 
-            response_iterator =  self.engine_client.generate(request_id,
-                                                             prompt,
-                                                             sampling_params)
+            response_iterator =  self.engine_client.generate(request_id=request_id,
+                                                             inputs=prompt,
+                                                             sampling_params=sampling_params)
 
             async for output in response_iterator:
                 is_cancelled = response_state["is_cancelled"]
