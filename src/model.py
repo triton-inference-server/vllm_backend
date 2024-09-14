@@ -44,7 +44,7 @@ from vllm.usage.usage_lib import UsageContext
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid, get_open_zmq_ipc_path
 
-from utils.metrics import VllmStatLogger
+# from utils.metrics import VllmStatLogger
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 
@@ -113,6 +113,8 @@ class TritonPythonModel:
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
+        # Initialize vllm.
+        self.init_engine()
 
         # Counter to keep track of ongoing request counts
         self.ongoing_request_count = 0
@@ -138,16 +140,14 @@ class TritonPythonModel:
             target=run_mp_engine,
             args=(engine_args, UsageContext.UNKNOWN_CONTEXT, ipc_path))
         engine_process.start()
-        self.logger.info("[vllm] Started engine process with PID %d", 
-                         engine_process.pid)
     
         return engine_process
 
     def make_engine_client(self, engine_args: AsyncEngineArgs, ipc_path: str):
         engine_config = engine_args.create_engine_config()
-        engine_client = MQLLMEngineClient(ipc_path, engine_config)
+        engine_client = MQLLMEngineClient(ipc_path, engine_config, self._loop)
 
-        async def startup():
+        async def startup_loop():
             while True:
                 try:
                     await engine_client.setup()
@@ -156,7 +156,9 @@ class TritonPythonModel:
                     return False
             return True
 
-        success = self.create_task(startup())
+        print("running loop")
+        success = self.create_task(startup_loop())
+        print("task loop")
         if not success:
             raise RuntimeError
         
@@ -189,7 +191,9 @@ class TritonPythonModel:
 
         # Make engine process and client.
         ipc_path = get_open_zmq_ipc_path()
+        print("making engine process")
         self.engine_process = self.make_engine_process(engine_args, ipc_path)
+        print("making engine client")
         self.engine_client = self.make_engine_client(engine_args, ipc_path)
 
     def validate_device_config(self):
