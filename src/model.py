@@ -29,22 +29,24 @@ import gc
 import json
 import os
 import queue
+import multiprocessing
 import threading
-from typing import Dict, List
 
 import numpy as np
 import torch
 import triton_python_backend_utils as pb_utils
+from vllm.usage.usage_lib import UsageContext
 from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.lora.request import LoRARequest
+from vllm.engine.multiprocessing.engine import run_mp_engine
+from vllm.engine.multiprocessing.client import MQLLMEngineClient
+from vllm.usage.usage_lib import UsageContext
+
 from vllm.sampling_params import SamplingParams
-from vllm.utils import random_uuid
+from vllm.utils import random_uuid, get_open_zmq_ipc_path
 
 from utils.metrics import VllmStatLogger
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
-_MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
 
 
 class TritonPythonModel:
@@ -111,8 +113,6 @@ class TritonPythonModel:
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
-        # Prepare vLLM engine
-        self.init_engine()
 
         # Counter to keep track of ongoing request counts
         self.ongoing_request_count = 0
@@ -130,6 +130,37 @@ class TritonPythonModel:
         )
         self._shutdown_event = asyncio.Event()
         self._event_thread.start()
+
+
+    def make_engine_process(self, engine_args: AsyncEngineArgs, ipc_path: str):
+        context = multiprocessing.get_context("spawn")
+        engine_process = context.Process(
+            target=run_mp_engine,
+            args=(engine_args, UsageContext.UNKNOWN_CONTEXT, ipc_path))
+        engine_process.start()
+        self.logger.info("[vllm] Started engine process with PID %d", 
+                         engine_process.pid)
+    
+        return engine_process
+
+    def make_engine_client(self, engine_args: AsyncEngineArgs, ipc_path: str):
+        engine_config = engine_args.create_engine_config()
+        engine_client = MQLLMEngineClient(ipc_path, engine_config)
+
+        async def startup():
+            while True:
+                try:
+                    await engine_client.setup()
+                    break
+                except TimeoutError:
+                    return False
+            return True
+
+        success = self.create_task(startup())
+        if not success:
+            raise RuntimeError
+        
+        return engine_client
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -153,59 +184,13 @@ class TritonPythonModel:
         # Validate device and multi-processing settings are currently set based on model/configs.
         self.validate_device_config()
 
-        # Check for LoRA config and set it up if enabled
-        self.setup_lora()
+        # Make engine args from JSON.
+        engine_args = AsyncEngineArgs(**self.vllm_engine_config)
 
-        # Create an AsyncLLMEngine from the config from JSON
-        aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
-        self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
-
-        # Create vLLM custom metrics
-        if (
-            "REPORT_CUSTOM_METRICS" in self.model_config["parameters"]
-            and self.model_config["parameters"]["REPORT_CUSTOM_METRICS"]["string_value"]
-            == "yes"
-            and not aync_engine_args.disable_log_stats
-        ):
-            try:
-                labels = {
-                    "model": self.args["model_name"],
-                    "version": self.args["model_version"],
-                }
-                # Add vLLM custom metrics
-                engine_config = self.llm_engine.engine.model_config
-                self.llm_engine.add_logger(
-                    "triton", VllmStatLogger(labels, engine_config.max_model_len)
-                )
-            except pb_utils.TritonModelException as e:
-                if "metrics not supported" in str(e):
-                    # Metrics are disabled at the server
-                    self.logger.log_info("[vllm] Metrics not supported")
-                else:
-                    raise e
-
-    def setup_lora(self):
-        self.enable_lora = False
-
-        if (
-            "enable_lora" in self.vllm_engine_config.keys()
-            and self.vllm_engine_config["enable_lora"].lower() == "true"
-        ):
-            # create Triton LoRA weights repository
-            multi_lora_args_filepath = os.path.join(
-                pb_utils.get_model_dir(), _MULTI_LORA_ARGS_FILENAME
-            )
-            try:
-                with open(multi_lora_args_filepath) as lora_file:
-                    lora_repository: Dict[str, str] = json.load(lora_file)
-                self.lora_repository = lora_repository
-                self.supported_loras: List[str] = list(self.lora_repository.keys())
-                self.supported_loras_len = len(self.supported_loras)
-                self.enable_lora = True
-            except FileNotFoundError:
-                raise FileNotFoundError(
-                    f"Triton backend cannot find {multi_lora_args_filepath}."
-                )
+        # Make engine process and client.
+        ipc_path = get_open_zmq_ipc_path()
+        self.engine_process = self.make_engine_process(engine_args, ipc_path)
+        self.engine_client = self.make_engine_client(engine_args, ipc_path)
 
     def validate_device_config(self):
         triton_kind = self.args["model_instance_kind"]
@@ -417,20 +402,13 @@ class TritonPythonModel:
                 parameters = request.parameters()
 
             sampling_params_dict = self.get_sampling_params_dict(parameters)
-            lora_name = sampling_params_dict.pop("lora_name", None)
             sampling_params = SamplingParams(**sampling_params_dict)
             last_output = None
             prev_outputs = None
-            lora_request = None
-            if lora_name is not None:
-                lora_id = str(self.supported_loras.index(lora_name) + 1)
-                lora_int_id = int(lora_id)
-                lora_local_path = self.lora_repository[lora_name]
-                lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
-            response_iterator = await self.llm_engine.add_request(
-                request_id, prompt, sampling_params, lora_request=lora_request
-            )
+            response_iterator =  self.engine_client.generate(request_id,
+                                                             prompt,
+                                                             sampling_params)
 
             async for output in response_iterator:
                 is_cancelled = response_state["is_cancelled"]
@@ -438,7 +416,7 @@ class TritonPythonModel:
                     is_cancelled = response_sender.is_cancelled()
                 if is_cancelled:
                     self.logger.log_info("[vllm] Cancelling the request")
-                    await self.llm_engine.abort(request_id)
+                    await self.engine_client.abort(request_id)
                     self.logger.log_info("[vllm] Successfully cancelled the request")
                     if stream:
                         response_state["last_response_generated"] = True
@@ -495,49 +473,6 @@ class TritonPythonModel:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
 
-    def verify_loras(self, request):
-        # We will check if the requested lora exists here, if not we will send a
-        # response with `LoRA not found` information. In this way we may avoid
-        # further processing.
-        verified_request = None
-        lora_error = None
-        lora_name = None
-        parameters_input_tensor = pb_utils.get_input_tensor_by_name(
-            request, "sampling_parameters"
-        )
-        if parameters_input_tensor:
-            parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            sampling_params_dict = self.get_sampling_params_dict(parameters)
-            lora_name = sampling_params_dict.pop("lora_name", None)
-
-        if lora_name is not None:
-            if not self.enable_lora:
-                lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
-                self.logger.log_info(
-                    "[vllm] LoRA is not enabled, please restart the backend with LoRA enabled."
-                )
-            elif lora_name not in self.supported_loras:
-                lora_error = pb_utils.TritonError(
-                    f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
-                )
-                self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
-
-        if lora_error is not None:
-            output_tensor = pb_utils.Tensor(
-                "text_output",
-                np.asarray(["[Error] Unsupported LoRA."], dtype=self.output_dtype),
-            )
-            response = pb_utils.InferenceResponse(
-                output_tensors=[output_tensor], error=lora_error
-            )
-            response_sender = request.get_response_sender()
-            response_sender.send(
-                response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
-            )
-        else:
-            verified_request = request
-        return verified_request
-
     def execute(self, requests):
         """
         Triton core issues requests to the backend via this method.
@@ -549,7 +484,6 @@ class TritonPythonModel:
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
         for request in requests:
-            request = self.verify_loras(request)
             if request is not None:
                 self.create_task(self.generate(request))
         return None
@@ -572,8 +506,16 @@ class TritonPythonModel:
             self._response_thread.join()
             self._response_thread = None
 
+        # Shutdown MQLLMEngine.
+        self.engine_process.kill()
+        self.engine_client.close()
+        self.engine_process.join()
+
+
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
         self.logger.log_info("[vllm] Running Garbage Collector on finalize...")
         gc.collect()
         self.logger.log_info("[vllm] Garbage Collector on finalize... done")
+
+
