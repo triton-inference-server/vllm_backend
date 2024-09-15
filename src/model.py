@@ -26,16 +26,17 @@
 
 import gc
 import json
-import os
-import queue
 import multiprocessing
+import os
+import pickle
 import threading
 import zmq
-import pickle
 
 import numpy as np
 import torch
+
 import triton_python_backend_utils as pb_utils
+
 from vllm.usage.usage_lib import UsageContext
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.multiprocessing.engine import run_mp_engine
@@ -46,23 +47,10 @@ from vllm.usage.usage_lib import UsageContext
 
 from vllm.sampling_params import SamplingParams, RequestOutputKind
 from vllm.utils import random_uuid, get_open_zmq_ipc_path
-from typing import Any, Optional
 
 # from utils.metrics import VllmStatLogger
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
-
-from dataclasses import dataclass
-
-@dataclass
-class ResponseItem:
-    sender: Any
-    response: Any
-    flag: Any
-
-    def send(self):
-        self.sender.send(self.response, self.flag)
-
 
 class TritonPythonModel:
     @staticmethod
@@ -129,9 +117,7 @@ class TritonPythonModel:
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
         # Map: [ request_id -> sender ]
-        # Map: [ request_id -> prev_output_lens ]
         self._sender_map = {}
-        self._prev_output_lens_map = {}
 
         # IPC path
         ipc_path = get_open_zmq_ipc_path()
@@ -197,19 +183,18 @@ class TritonPythonModel:
 
             # Loop through outputs, streaming responses back.
             for request_output in request_outputs:
-                # Flag if finished.
-                flag = (pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL if
-                        request_output.finished else 0)
+                # Get sender.
+                sender = self._sender_map[request_output.request_id]
 
-                # Make and send response to client.
-                request_id = request_output.request_id
-                stream_response = self.create_stream_response(request_output)
-                self._sender_map[request_id].send(stream_response, flag)
-
-                # Cleanup state if finished.
+                # Cleanup if finsihed.
+                flag = 0
                 if request_output.finished:
-                    self._sender_map.pop(request_id)
-                    self._prev_output_lens_map.pop(request_id)
+                    flag = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
+                    self._sender_map.pop(request_output.request_id)
+
+                # Send response back.
+                stream_response = self.create_stream_response(request_output)
+                sender.send(stream_response, flag)
 
 
     def make_engine_process(self, engine_args: AsyncEngineArgs, ipc_path: str):
@@ -322,41 +307,33 @@ class TritonPythonModel:
         )
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
-    def create_stream_response(self, vllm_output):
+    @staticmethod
+    def create_stream_response(request_output, output_dtype):
         """
         Parses the output from the vLLM engine, extracts only newly generated
         text and packs it into Triton response.
         """
 
-        request_id = vllm_output.request_id
-
-        # Previous output lengths.
-        previous_outputs_lengths = self._prev_output_lens_map[request_id]
-        self._prev_output_lens_map[request_id] = [
-            len(output.text) for output in vllm_output.outputs]
-
-        if previous_outputs_lengths is None:
-            return TritonPythonModel.create_response(vllm_output,
+        # If Prompt is None, this is the first request, so send a normal response.
+        if request_output.prompt is not None:
+            return TritonPythonModel.create_response(request_output,
                                                      prepend_input=False,
-                                                     output_dtype=self.output_dtype)
-
+                                                     output_dtype=output_dtype)
+        
+        # Otherwise, send the incremental outputs.
         text_outputs = [
-            (output.text[prev_output_length:]).encode("utf-8")
-            for output, prev_output_length in zip(
-                vllm_output.outputs, previous_outputs_lengths
-            )
-        ]
+            output.text.encode("utf-8") for output in request_output.outputs]
         triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
-        )
+            "text_output", np.asarray(text_outputs, dtype=output_dtype))
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
 
     def add_request(self, request):
+        """Make and send an RPCGenerateRequest to MQLLMEngine."""
+
         # Make request.
         request_id = random_uuid()
         self._sender_map[request_id] = request.get_response_sender()
-        self._prev_output_lens_map[request_id] = None
 
         prompt = pb_utils.get_input_tensor_by_name(request, "text_input").as_numpy()[0]
         if isinstance(prompt, bytes):
@@ -395,7 +372,8 @@ class TritonPythonModel:
             parameters = request.parameters()
 
         sampling_params_dict = self.get_sampling_params_dict(parameters)
-        sampling_params = SamplingParams(**sampling_params_dict)
+        sampling_params = SamplingParams(**sampling_params_dict,
+                                         output_kind=RequestOutputKind.DELTA)
 
         # Send request to MQLLMEngine.
         request_bytes = pickle.dumps(
@@ -408,7 +386,6 @@ class TritonPythonModel:
         for request in requests:
             if request is not None:
                 self.add_request(request)
-        
 
     def finalize(self):
         """
