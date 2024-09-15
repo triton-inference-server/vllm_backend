@@ -193,7 +193,8 @@ class TritonPythonModel:
                     self._sender_map.pop(request_output.request_id)
 
                 # Send response back.
-                stream_response = self.create_stream_response(request_output)
+                stream_response = self.create_stream_response(request_output,
+                                                              self.output_dtype)
                 sender.send(stream_response, flag)
 
 
