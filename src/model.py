@@ -24,13 +24,14 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import asyncio
 import gc
 import json
 import os
 import queue
 import multiprocessing
 import threading
+import zmq
+import pickle
 
 import numpy as np
 import torch
@@ -38,15 +39,29 @@ import triton_python_backend_utils as pb_utils
 from vllm.usage.usage_lib import UsageContext
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.multiprocessing.engine import run_mp_engine
-from vllm.engine.multiprocessing.client import MQLLMEngineClient
+from vllm.engine.multiprocessing import (
+    RPCStartupRequest, RPCGenerateRequest,
+    IPC_DATA_EXT, IPC_INPUT_EXT, IPC_OUTPUT_EXT,)
 from vllm.usage.usage_lib import UsageContext
 
-from vllm.sampling_params import SamplingParams
+from vllm.sampling_params import SamplingParams, RequestOutputKind
 from vllm.utils import random_uuid, get_open_zmq_ipc_path
+from typing import Any, Optional
 
 # from utils.metrics import VllmStatLogger
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
+
+from dataclasses import dataclass
+
+@dataclass
+class ResponseItem:
+    sender: Any
+    response: Any
+    flag: Any
+
+    def send(self):
+        self.sender.send(self.response, self.flag)
 
 
 class TritonPythonModel:
@@ -112,26 +127,90 @@ class TritonPythonModel:
             self.model_config, "text_output"
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
-        
-        # Loop.
-        self._shutdown_event = asyncio.Event()
-        self._loop = asyncio.get_event_loop()
-        self._event_thread = threading.Thread(
-            target=self.engine_loop, args=(self._loop,)
-        )
-        self._event_thread.start()
-        
-        # Initialize vllm.
-        self.init_engine()
 
-        # Counter to keep track of ongoing request counts
-        self.ongoing_request_count = 0
+        # Map: [ request_id -> sender ]
+        # Map: [ request_id -> prev_output_lens ]
+        self._sender_map = {}
+        self._prev_output_lens_map = {}
 
-        # Starting the response thread. It allows vLLM to keep making progress while
-        # response sender(s) are sending responses to server frontend.
-        self._response_queue = queue.Queue()
-        self._response_thread = threading.Thread(target=self.response_loop)
-        self._response_thread.start()
+        # IPC path
+        ipc_path = get_open_zmq_ipc_path()
+
+        # Make MQLLMEngine
+        engine_args = self.make_and_validate_engine_args()
+        self.engine_process = self.make_engine_process(engine_args, ipc_path)
+
+        self.context = zmq.Context()
+        
+        socket = self.context.socket(zmq.constants.DEALER)
+        socket.connect(f"{ipc_path}{IPC_DATA_EXT}")
+        self.wait_for_engine(socket)
+        
+        # Send input to MQLLMEngine.
+        self.input_socket = self.context.socket(zmq.constants.PUSH)
+        self.input_socket.connect(f"{ipc_path}{IPC_INPUT_EXT}")
+
+        # Get output from MQLLMEngine.
+        self.output_socket = self.context.socket(zmq.constants.PULL)
+        self.output_socket.connect(f"{ipc_path}{IPC_OUTPUT_EXT}") 
+
+        # Thread for sending responses to client.
+        self._output_thread = threading.Thread(target=self.output_loop)
+        self._output_thread.start()       
+
+    
+    @staticmethod
+    def wait_for_engine(socket):
+        while True:
+            try:
+                # Wait for server to be ready.
+                TritonPythonModel.send_rpc_request(
+                    RPCStartupRequest.IS_SERVER_READY, socket)
+                break
+            except TimeoutError:
+                print("RPC server timeout ... retrying")
+        
+        # Notify that client is ready.
+        TritonPythonModel.send_rpc_request(
+            RPCStartupRequest.CLIENT_IS_READY, socket, await_reply=False)
+
+    @staticmethod
+    def send_rpc_request(request, socket, await_reply=True):
+        socket.send_multipart((pickle.dumps(request), ), copy=False)
+
+        if await_reply:
+            if socket.poll(timeout=10000.) == 0:
+                raise TimeoutError
+            frame = socket.recv(copy=False)
+            data = pickle.loads(frame.buffer)
+            if isinstance(data, BaseException):
+                raise data
+
+    def output_loop(self):
+        while True:
+            while self.output_socket.poll(5000.) == 0:
+                print("Waiting for output")
+            
+            # Output of last engine step.
+            message = self.output_socket.recv(copy=False)
+            request_outputs = pickle.loads(message.buffer)
+
+            # Loop through outputs, streaming responses back.
+            for request_output in request_outputs:
+                # Flag if finished.
+                flag = (pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL if
+                        request_output.finished else 0)
+
+                # Make and send response to client.
+                request_id = request_output.request_id
+                stream_response = self.create_stream_response(request_output)
+                self._sender_map[request_id].send(stream_response, flag)
+
+                # Cleanup state if finished.
+                if request_output.finished:
+                    self._sender_map.pop(request_id)
+                    self._prev_output_lens_map.pop(request_id)
+
 
     def make_engine_process(self, engine_args: AsyncEngineArgs, ipc_path: str):
         context = multiprocessing.get_context("spawn")
@@ -140,33 +219,9 @@ class TritonPythonModel:
             args=(engine_args, UsageContext.UNKNOWN_CONTEXT, ipc_path))
         engine_process.start()
     
-        return engine_process
+        return engine_process        
 
-    def make_engine_client(self, engine_args: AsyncEngineArgs, ipc_path: str):
-        engine_config = engine_args.create_engine_config()
-        engine_client = MQLLMEngineClient(ipc_path, engine_config, self._loop)
-
-        async def startup_loop():
-            print("running startup loop")
-            while True:
-                try:
-                    await engine_client.setup()
-                    break
-                except TimeoutError:
-                    print("trying again...")
-            return True
-
-        print("running loop")
-        success_future = self.create_task(startup_loop())
-        print("got future")
-        success = success_future.result()
-        print(success)
-        if not success:
-            raise RuntimeError
-        
-        return engine_client
-
-    def init_engine(self):
+    def make_and_validate_engine_args(self) -> AsyncEngineArgs:
         # Currently, Triton needs to use decoupled policy for asynchronously
         # forwarding requests to vLLM engine, so assert it.
         self.using_decoupled = pb_utils.using_decoupled_model_transaction_policy(
@@ -189,14 +244,7 @@ class TritonPythonModel:
         self.validate_device_config()
 
         # Make engine args from JSON.
-        engine_args = AsyncEngineArgs(**self.vllm_engine_config)
-
-        # Make engine process and client.
-        ipc_path = get_open_zmq_ipc_path()
-        print("making engine process")
-        self.engine_process = self.make_engine_process(engine_args, ipc_path)
-        print("making engine client")
-        self.engine_client = self.make_engine_client(engine_args, ipc_path)
+        return AsyncEngineArgs(**self.vllm_engine_config)
 
     def validate_device_config(self):
         triton_kind = self.args["model_instance_kind"]
@@ -224,47 +272,6 @@ class TritonPythonModel:
             # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
             torch.cuda.set_device(triton_device_id)
 
-    def create_task(self, coro):
-        """
-        Creates a task on the engine's event loop which is running on a separate thread.
-        """
-        assert (
-            self._shutdown_event.is_set() is False
-        ), "Cannot create tasks after shutdown has been requested"
-        
-        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return fut
-
-    def engine_loop(self, loop):
-        """
-        Runs the engine's event loop on a separate thread.
-        """
-        asyncio.set_event_loop(loop)
-        self._loop.run_until_complete(self.await_shutdown())
-
-    async def await_shutdown(self):
-        """
-        Primary coroutine running on the engine event loop. This coroutine is responsible for
-        keeping the engine alive until a shutdown is requested.
-        """
-        # first await the shutdown signal
-        while self._shutdown_event.is_set() is False:
-            await asyncio.sleep(5)
-
-        # Wait for the ongoing_requests
-        while self.ongoing_request_count > 0:
-            self.logger.log_info(
-                "[vllm] Awaiting remaining {} requests".format(
-                    self.ongoing_request_count
-                )
-            )
-            await asyncio.sleep(5)
-
-        for task in asyncio.all_tasks(loop=self._loop):
-            if task is not asyncio.current_task():
-                task.cancel()
-
-        self.logger.log_info("[vllm] Shutdown complete")
 
     def get_sampling_params_dict(self, params_json):
         """
@@ -297,29 +304,9 @@ class TritonPythonModel:
                 params_dict[k] = int(params_dict[k])
 
         return params_dict
-
-    def response_loop(self):
-        while True:
-            item = self._response_queue.get()
-            # To signal shutdown a None item will be added to the queue.
-            if item is None:
-                break
-            response_state, response, response_flag = item
-            response_sender = response_state["response_sender"]
-            try:
-                response_sender.send(response, response_flag)
-                # Stop checking for cancellation if the last response is generated.
-                if not response_state["last_response_generated"]:
-                    response_state["is_cancelled"] = response_sender.is_cancelled()
-            except Exception as e:
-                self.logger.log_error(
-                    f"An error occurred while sending a response: {e}"
-                )
-            finally:
-                if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
-                    self.ongoing_request_count -= 1
-
-    def create_response(self, vllm_output, prepend_input):
+                
+    @staticmethod
+    def create_response(vllm_output, prepend_input, output_dtype):
         """
         Parses the output from the vLLM engine into Triton
         response.
@@ -331,17 +318,27 @@ class TritonPythonModel:
             (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
         ]
         triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
+            "text_output", np.asarray(text_outputs, dtype=output_dtype)
         )
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
-    def create_stream_response(self, vllm_output, previous_outputs_lengths):
+    def create_stream_response(self, vllm_output):
         """
         Parses the output from the vLLM engine, extracts only newly generated
         text and packs it into Triton response.
         """
+
+        request_id = vllm_output.request_id
+
+        # Previous output lengths.
+        previous_outputs_lengths = self._prev_output_lens_map[request_id]
+        self._prev_output_lens_map[request_id] = [
+            len(output.text) for output in vllm_output.outputs]
+
         if previous_outputs_lengths is None:
-            return self.create_response(vllm_output, prepend_input=False)
+            return TritonPythonModel.create_response(vllm_output,
+                                                     prepend_input=False,
+                                                     output_dtype=self.output_dtype)
 
         text_outputs = [
             (output.text[prev_output_length:]).encode("utf-8")
@@ -354,169 +351,80 @@ class TritonPythonModel:
         )
         return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
 
-    async def generate(self, request):
-        """
-        Forwards single request to LLM engine and returns responses.
-        """
-        response_sender = request.get_response_sender()
-        response_state = {
-            "response_sender": response_sender,
-            "is_cancelled": False,
-            "last_response_generated": False,  # last response ready but not yet sent
-        }
-        self.ongoing_request_count += 1
-        decrement_ongoing_request_count = True
-        try:
-            request_id = random_uuid()
-            prompt = pb_utils.get_input_tensor_by_name(
-                request, "text_input"
-            ).as_numpy()[0]
-            if isinstance(prompt, bytes):
-                prompt = prompt.decode("utf-8")
-            stream = pb_utils.get_input_tensor_by_name(request, "stream")
-            if stream:
-                stream = stream.as_numpy()[0]
-            else:
-                stream = False
-            prepend_input = pb_utils.get_input_tensor_by_name(
-                request, "exclude_input_in_output"
+
+    def add_request(self, request):
+        # Make request.
+        request_id = random_uuid()
+        self._sender_map[request_id] = request.get_response_sender()
+        self._prev_output_lens_map[request_id] = None
+
+        prompt = pb_utils.get_input_tensor_by_name(request, "text_input").as_numpy()[0]
+        if isinstance(prompt, bytes):
+            prompt = prompt.decode("utf-8")
+        stream = pb_utils.get_input_tensor_by_name(request, "stream")
+        if stream:
+            stream = stream.as_numpy()[0]
+        else:
+            raise NotImplementedError
+        prepend_input = pb_utils.get_input_tensor_by_name(request, "exclude_input_in_output")
+        if prepend_input:
+            # When `exclude_input_in_output` is False, we want to prepend
+            # input prompt to output, thus prepend_input should be True,
+            # and vice versa.
+            prepend_input = not prepend_input.as_numpy()[0]
+        elif prepend_input is None and stream:
+            prepend_input = False
+        else:
+            prepend_input = True
+
+        if prepend_input and stream:
+            raise ValueError(
+                "When streaming, `exclude_input_in_output` = False is not allowed."
             )
-            if prepend_input:
-                # When `exclude_input_in_output` is False, we want to prepend
-                # input prompt to output, thus prepend_input should be True,
-                # and vice versa.
-                prepend_input = not prepend_input.as_numpy()[0]
-            elif prepend_input is None and stream:
-                prepend_input = False
-            else:
-                prepend_input = True
 
-            if prepend_input and stream:
-                raise ValueError(
-                    "When streaming, `exclude_input_in_output` = False is not allowed."
-                )
+        # Request parameters are not yet supported via
+        # BLS. Provide an optional mechanism to receive serialized
+        # parameters as an input tensor until support is added
 
-            # Request parameters are not yet supported via
-            # BLS. Provide an optional mechanism to receive serialized
-            # parameters as an input tensor until support is added
+        parameters_input_tensor = pb_utils.get_input_tensor_by_name(
+            request, "sampling_parameters"
+        )
+        if parameters_input_tensor:
+            parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
+        else:
+            parameters = request.parameters()
 
-            parameters_input_tensor = pb_utils.get_input_tensor_by_name(
-                request, "sampling_parameters"
-            )
-            if parameters_input_tensor:
-                parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            else:
-                parameters = request.parameters()
+        sampling_params_dict = self.get_sampling_params_dict(parameters)
+        sampling_params = SamplingParams(**sampling_params_dict)
 
-            sampling_params_dict = self.get_sampling_params_dict(parameters)
-            sampling_params = SamplingParams(**sampling_params_dict)
-            last_output = None
-            prev_outputs = None
-
-            response_iterator =  self.engine_client.generate(request_id=request_id,
-                                                             inputs=prompt,
-                                                             sampling_params=sampling_params)
-
-            async for output in response_iterator:
-                is_cancelled = response_state["is_cancelled"]
-                if not stream:
-                    is_cancelled = response_sender.is_cancelled()
-                if is_cancelled:
-                    self.logger.log_info("[vllm] Cancelling the request")
-                    await self.engine_client.abort(request_id)
-                    self.logger.log_info("[vllm] Successfully cancelled the request")
-                    if stream:
-                        response_state["last_response_generated"] = True
-                        response = pb_utils.InferenceResponse(
-                            error=pb_utils.TritonError(
-                                message="Request was cancelled",
-                                code=pb_utils.TritonError.CANCELLED,
-                            )
-                        )
-                        flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
-                        decrement_ongoing_request_count = False
-                        self._response_queue.put_nowait(
-                            (response_state, response, flags)
-                        )
-                    break
-                if stream:
-                    prev_outputs_lengths = None
-                    if prev_outputs is not None:
-                        prev_outputs_lengths = [
-                            len(prev_output.text)
-                            for prev_output in prev_outputs.outputs
-                        ]
-                    response = self.create_stream_response(output, prev_outputs_lengths)
-                    flags = 0
-                    if output.finished:
-                        response_state["last_response_generated"] = True
-                        flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
-                        decrement_ongoing_request_count = False
-                    self._response_queue.put_nowait((response_state, response, flags))
-                prev_outputs = output
-
-            last_output = output
-
-            if not stream:
-                response_sender.send(
-                    self.create_response(last_output, prepend_input),
-                    flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
-                )
-
-        except Exception as e:
-            self.logger.log_error(f"[vllm] Error generating stream: {e}")
-            error = pb_utils.TritonError(f"Error generating stream: {e}")
-            triton_output_tensor = pb_utils.Tensor(
-                "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
-            )
-            response = pb_utils.InferenceResponse(
-                output_tensors=[triton_output_tensor], error=error
-            )
-            response_sender.send(
-                response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
-            )
-            raise e
-        finally:
-            if decrement_ongoing_request_count:
-                self.ongoing_request_count -= 1
+        # Send request to MQLLMEngine.
+        request_bytes = pickle.dumps(
+            RPCGenerateRequest(inputs=prompt,
+                               sampling_params=sampling_params,
+                               request_id=request_id))
+        self.input_socket.send_multipart((request_bytes,), copy=False)        
 
     def execute(self, requests):
-        """
-        Triton core issues requests to the backend via this method.
-
-        When this method returns, new requests can be issued to the backend. Blocking
-        this function would prevent the backend from pulling additional requests from
-        Triton into the vLLM engine. This can be done if the kv cache within vLLM engine
-        is too loaded.
-        We are pushing all the requests on vllm and let it handle the full traffic.
-        """
         for request in requests:
             if request is not None:
-                self.create_task(self.generate(request))
-        return None
+                self.add_request(request)
+        
 
     def finalize(self):
         """
         Triton virtual method; called when the model is unloaded.
         """
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
-        self._shutdown_event.set()
+
+        self.engine_process.kill()
+        self.engine_process.join()
+
+        self.context.destroy(linger=0)
 
         # Shutdown the event thread.
-        if self._event_thread is not None:
-            self._event_thread.join()
-            self._event_thread = None
-
-        # Shutdown the response thread.
-        self._response_queue.put(None)
-        if self._response_thread is not None:
-            self._response_thread.join()
-            self._response_thread = None
-
-        # Shutdown MQLLMEngine.
-        self.engine_process.kill()
-        self.engine_client.close()
-        self.engine_process.join()
+        # if self._engine_thread is not None:
+        #     self._engine_thread.join()
+        #     self._engine_thread = None
 
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
