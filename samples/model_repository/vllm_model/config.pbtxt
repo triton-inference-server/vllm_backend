@@ -35,3 +35,10 @@ instance_group [
     kind: KIND_MODEL
   }
 ]
+
+parameters: {
+  key: "REPORT_CUSTOM_METRICS"
+  value: {
+    string_value:"yes"
+  }
+}

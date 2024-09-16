@@ -187,9 +187,19 @@ class TritonPythonModel:
     def setup_lora(self):
         self.enable_lora = False
 
-        if (
-            "enable_lora" in self.vllm_engine_config.keys()
-            and self.vllm_engine_config["enable_lora"].lower() == "true"
+        # Check if `enable_lora` field is in the `model.json`,
+        # and if it is, read its contents, which can be string or bool.
+        if "enable_lora" in self.vllm_engine_config.keys() and (
+            (
+                isinstance(self.vllm_engine_config["enable_lora"], str)
+                and self.vllm_engine_config["enable_lora"].lower() == "true"
+            )
+            or (
+                (
+                    isinstance(self.vllm_engine_config["enable_lora"], bool)
+                    and self.vllm_engine_config["enable_lora"]
+                )
+            )
         ):
             # create Triton LoRA weights repository
             multi_lora_args_filepath = os.path.join(
