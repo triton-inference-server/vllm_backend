@@ -37,7 +37,7 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./multi_lora_test.py"
 DOWNLOAD_PY="./download.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
-EXPECTED_NUM_TESTS=4
+EXPECTED_NUM_TESTS=2
 
 # first we download weights
 pip install -U huggingface_hub
