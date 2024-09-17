@@ -37,7 +37,7 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./multi_lora_test.py"
 DOWNLOAD_PY="./download.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
-EXPECTED_NUM_TESTS=2
+EXPECTED_NUM_TESTS=4
 
 # first we download weights
 pip install -U huggingface_hub
@@ -52,6 +52,7 @@ cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_llama_multi_lora
 
 export SERVER_ENABLE_LORA=true
 
+# Check boolean flag value for `enable_lora`
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
@@ -110,8 +111,54 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
+# Check string flag value for `enable_lora`
+model_json=$(cat <<EOF
+{
+    "model":"./weights/backbone/gemma-2b",
+    "disable_log_requests": true,
+    "gpu_memory_utilization": 0.7,
+    "tensor_parallel_size": 2,
+    "block_size": 16,
+    "enforce_eager": true,
+    "enable_lora": "true",
+    "max_lora_rank": 32,
+    "lora_extra_vocab_size": 256,
+    "distributed_executor_backend":"ray"
+}
+EOF
+)
+echo "$model_json" > models/vllm_llama_multi_lora/1/model.json
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY -v > $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+
 # disable lora
 export SERVER_ENABLE_LORA=false
+# check bool flag value for `enable_lora`
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
@@ -121,6 +168,52 @@ model_json=$(cat <<EOF
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": false,
+    "lora_extra_vocab_size": 256,
+    "distributed_executor_backend":"ray"
+}
+EOF
+)
+echo "$model_json" > models/vllm_llama_multi_lora/1/model.json
+
+run_server
+if [ "$SERVER_PID" == "0" ]; then
+    cat $SERVER_LOG
+    echo -e "\n***\n*** Failed to start $SERVER\n***"
+    exit 1
+fi
+
+set +e
+python3 $CLIENT_PY -v >> $CLIENT_LOG 2>&1
+
+if [ $? -ne 0 ]; then
+    cat $CLIENT_LOG
+    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+    RET=1
+else
+    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
+    if [ $? -ne 0 ]; then
+        cat $CLIENT_LOG
+        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
+        RET=1
+    fi
+fi
+set -e
+
+kill $SERVER_PID
+wait $SERVER_PID
+
+# disable lora
+export SERVER_ENABLE_LORA=false
+# check string flag value for `enable_lora`
+model_json=$(cat <<EOF
+{
+    "model":"./weights/backbone/gemma-2b",
+    "disable_log_requests": true,
+    "gpu_memory_utilization": 0.8,
+    "tensor_parallel_size": 2,
+    "block_size": 16,
+    "enforce_eager": true,
+    "enable_lora": "false",
     "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
