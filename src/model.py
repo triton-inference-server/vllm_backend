@@ -174,9 +174,10 @@ class TritonPythonModel:
                 }
                 # Add vLLM custom metrics
                 engine_config = self.llm_engine.engine.model_config
-                self.llm_engine.add_logger(
-                    "triton", VllmStatLogger(labels, engine_config.max_model_len)
+                self.vllm_metrics = VllmStatLogger(
+                    labels, engine_config.max_model_len, self.logger
                 )
+                self.llm_engine.add_logger("triton", self.vllm_metrics)
             except pb_utils.TritonModelException as e:
                 if "metrics not supported" in str(e):
                     # Metrics are disabled at the server
@@ -571,6 +572,9 @@ class TritonPythonModel:
         if self._response_thread is not None:
             self._response_thread.join()
             self._response_thread = None
+
+        # Shutdown the logger thread.
+        self.vllm_metrics.finalize()
 
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
