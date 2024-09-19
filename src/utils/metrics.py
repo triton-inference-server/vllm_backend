@@ -172,12 +172,12 @@ class TritonMetrics:
 class VllmStatLogger(VllmStatLoggerBase):
     """StatLogger is used as an adapter between vLLM stats collector and Triton metrics provider."""
 
-    def __init__(self, labels: Dict, max_model_len: int, logger) -> None:
+    def __init__(self, labels: Dict, max_model_len: int, log_logger) -> None:
         # Tracked stats over current local logging interval.
         # local_interval not used here. It's for vLLM logs to stdout.
         super().__init__(local_interval=0)
         self.metrics = TritonMetrics(labels, max_model_len)
-        self.logger = logger
+        self.log_logger = log_logger
 
         # Starting the metrics thread. It allows vLLM to keep making progress
         # while reporting metrics to triton metrics service.
@@ -268,7 +268,7 @@ class VllmStatLogger(VllmStatLoggerBase):
             elif command == "observe":
                 metric.observe(data)
             else:
-                self.logger.log_error(f"Undefined command name: {command}")
+                self.log_logger.log_error(f"Undefined command name: {command}")
 
     def finalize(self):
         # Shutdown the logger thread.
