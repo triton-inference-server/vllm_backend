@@ -35,8 +35,8 @@ jobs:
           export VLLM_VERSION=${TAG#v} # example: 0.5.5
           if [ -z "$VLLM_VERSION" ]
             then
-              echo "\$VLLM_VERSION is NULL, setting it to 0.5.5"
-              VLLM_VERSION=0.5.5
+              echo "\$VLLM_VERSION is NULL, setting it to 0.5.3.post1"
+              VLLM_VERSION=0.5.3.post1
             else
               echo "\$VLLM_VERSION is NOT NULL"
           fi
