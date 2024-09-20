@@ -161,6 +161,7 @@ class TritonPythonModel:
         self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
 
         # Create vLLM custom metrics
+        self.vllm_metrics = None
         if (
             "REPORT_CUSTOM_METRICS" in self.model_config["parameters"]
             and self.model_config["parameters"]["REPORT_CUSTOM_METRICS"]["string_value"]
@@ -574,7 +575,8 @@ class TritonPythonModel:
             self._response_thread = None
 
         # Shutdown the logger thread.
-        self.vllm_metrics.finalize()
+        if self.vllm_metrics is not None:
+            self.vllm_metrics.finalize()
 
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
