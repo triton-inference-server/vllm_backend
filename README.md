@@ -115,7 +115,7 @@ git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-se
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}
                 --vllm-version=${VLLM_VERSION}
 # Build Triton Server
-cd server/build
+cd build
 bash -x ./docker_build
 ```
 
