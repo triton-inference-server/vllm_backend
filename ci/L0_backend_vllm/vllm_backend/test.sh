@@ -35,7 +35,8 @@ SERVER_LOG="./vllm_backend_server.log"
 CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_backend_test.py"
-SAMPLE_MODELS_REPO="../../../samples/model_repository"
+SAMPLE_BASIC_MODELS_REPO="../../../samples/basic_model/model_repository"
+SAMPLE_ENSEMBLE_MODELS_REPO="../../../samples/ensemble_model/model_repository"
 EXPECTED_NUM_TESTS=6
 
 # Helpers =======================================
@@ -49,7 +50,7 @@ function assert_curl_success {
 }
 
 rm -rf models && mkdir -p models
-cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
+cp -r ${SAMPLE_BASIC_MODELS_REPO}/vllm_model models/vllm_opt
 # `vllm_opt` model will be loaded on server start and stay loaded throughout
 # unittesting. To test vllm model load/unload we use a dedicated
 # `vllm_load_test`. To ensure that vllm's memory profiler will not error out
@@ -63,11 +64,11 @@ wget -P models/add_sub/1/ https://raw.githubusercontent.com/triton-inference-ser
 wget -P models/add_sub https://raw.githubusercontent.com/triton-inference-server/python_backend/main/examples/add_sub/config.pbtxt
 
 # Invalid model attribute
-cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_1/
+cp -r ${SAMPLE_BASIC_MODELS_REPO}/vllm_model models/vllm_invalid_1/
 sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/model.json
 
 # Invalid model name
-cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
+cp -r ${SAMPLE_BASIC_MODELS_REPO}/vllm_model models/vllm_invalid_2/
 sed -i 's/"facebook\/opt-125m"/"invalid_model"/' models/vllm_invalid_2/1/model.json
 
 RET=0

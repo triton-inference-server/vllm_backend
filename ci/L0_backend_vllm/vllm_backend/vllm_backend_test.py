@@ -247,6 +247,9 @@ class VLLMTritonBackendTest(TestResultCollector):
             np.allclose(input0_data - input1_data, response.as_numpy("OUTPUT1"))
         )
 
+    def _test_ensemble_model(self):
+        pass
+
     def tearDown(self):
         self.triton_client.close()
 
