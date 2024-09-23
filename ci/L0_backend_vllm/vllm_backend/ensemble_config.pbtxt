@@ -1,0 +1,33 @@
+name: "ensemble_model"
+platform: "ensemble"
+max_batch_size: 1
+input [
+  {
+    name: "text_input"
+    data_type: TYPE_STRING
+    dims: [ -1 ]
+  }
+]
+output [
+  {
+    name: "text_output"
+    data_type: TYPE_STRING
+    dims: [ -1 ]
+  }
+]
+ensemble_scheduling {
+  step [
+    {
+      model_name: "vllm_model"
+      model_version: -1
+      input_map {
+        key: "text_input"
+        value: "text_input"
+      }
+      output_map {
+        key: "text_output"
+        value: "text_output"
+      }
+    }
+  ]
+}

@@ -48,6 +48,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
         self.python_model_name = "add_sub"
+        self.enseble_model_name = "ensemble_model"
         self.vllm_load_test = "vllm_load_test"
 
     def test_vllm_triton_backend(self):
@@ -163,6 +164,12 @@ class VLLMTritonBackendTest(TestResultCollector):
             expected_output=expected_output,
         )
 
+    def test_ensemble_model(self):
+        # Test to ensure that ensemble models are supported in vllm container.
+        # If ensemble support not present, triton will error out at model loading stage.
+        self.triton_client.load_model(self.enseble_model_name)
+        self.assertTrue(self.triton_client.is_model_ready(self.enseble_model_name))
+
     def _test_vllm_model(
         self,
         prompts,
@@ -246,9 +253,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.assertTrue(
             np.allclose(input0_data - input1_data, response.as_numpy("OUTPUT1"))
         )
-
-    def _test_ensemble_model(self):
-        pass
 
     def tearDown(self):
         self.triton_client.close()
