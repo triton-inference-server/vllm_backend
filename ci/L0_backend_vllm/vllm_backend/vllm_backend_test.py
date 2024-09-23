@@ -48,7 +48,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
         self.python_model_name = "add_sub"
-        self.enseble_model_name = "ensemble_model"
+        self.ensemble_model_name = "ensemble_model"
         self.vllm_load_test = "vllm_load_test"
 
     def test_vllm_triton_backend(self):
