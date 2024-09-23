@@ -44,7 +44,7 @@ output [
 ensemble_scheduling {
   step [
     {
-      model_name: "vllm_model"
+      model_name: "vllm_opt"
       model_version: -1
       input_map {
         key: "text_input"

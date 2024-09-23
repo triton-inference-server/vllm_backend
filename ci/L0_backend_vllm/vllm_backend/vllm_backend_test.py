@@ -167,6 +167,12 @@ class VLLMTritonBackendTest(TestResultCollector):
     def test_ensemble_model(self):
         # Test to ensure that ensemble models are supported in vllm container.
         # If ensemble support not present, triton will error out at model loading stage.
+        
+        # Before loading ensemble model, the dependency model is loaded.
+        self.triton_client.load_model(self.vllm_model_name)
+        self.assertTrue(self.triton_client.is_model_ready(self.vllm_model_name))
+         
+        
         self.triton_client.load_model(self.enseble_model_name)
         self.assertTrue(self.triton_client.is_model_ready(self.enseble_model_name))
 
