@@ -64,7 +64,7 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client.load_model(self.ensemble_model_name)
         self.assertTrue(self.triton_client.is_model_ready(self.ensemble_model_name))
         self.triton_client.unload_model(self.ensemble_model_name)
-        
+
         # Unload vllm model and test add_sub model
         self.triton_client.unload_model(self.vllm_load_test)
         self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
@@ -93,8 +93,6 @@ class VLLMTritonBackendTest(TestResultCollector):
         )
         self.triton_client.unload_model(self.vllm_load_test)
         self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
-        
-        
 
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
@@ -172,7 +170,6 @@ class VLLMTritonBackendTest(TestResultCollector):
             exclude_input_in_output=True,
             expected_output=expected_output,
         )
-
 
     def _test_vllm_model(
         self,
