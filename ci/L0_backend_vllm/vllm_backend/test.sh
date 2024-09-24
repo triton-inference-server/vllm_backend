@@ -70,6 +70,11 @@ sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/m
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
 sed -i 's/"facebook\/opt-125m"/"invalid_model"/' models/vllm_invalid_2/1/model.json
 
+
+# Sanity check ensembles are enabled and can successfully be loaded
+mkdir -p models/ensemble_model/1
+cp -r ensemble_config.pbtxt models/ensemble_model/config.pbtxt
+
 RET=0
 
 run_server

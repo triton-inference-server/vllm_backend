@@ -100,6 +100,7 @@ export TRITON_CONTAINER_VERSION=<YY.MM>
                 --upstream-container-version=${TRITON_CONTAINER_VERSION}
                 --backend=python:r${TRITON_CONTAINER_VERSION}
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}
+                --backend=ensemble
 ```
 
 ### Option 3. Add the vLLM Backend to the Default Triton Container
