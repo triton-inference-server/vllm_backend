@@ -1,0 +1,6 @@
+{
+    "model":"invalid_model",
+    "disable_log_requests": true,
+    "gpu_memory_utilization": 0.5,
+    "enforce_eager": true
+}
