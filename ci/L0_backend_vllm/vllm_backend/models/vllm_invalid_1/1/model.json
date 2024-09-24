@@ -1,6 +1,0 @@
-{
-    "model":"facebook/opt-125m",
-    "invalid_attribute": true,
-    "gpu_memory_utilization": 0.5,
-    "enforce_eager": true
-}
