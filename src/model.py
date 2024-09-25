@@ -71,7 +71,11 @@ class TritonPythonModel:
                 "optional": True,
             },
         ]
-        outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
+        outputs = [
+            {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
+            {"name": "input_tokens", "data_type": "TYPE_INT32", "dims": [-1]},
+            {"name": "output_tokens", "data_type": "TYPE_INT32", "dims": [-1]},
+        ]
 
         # Store the model configuration as a dictionary.
         config = auto_complete_model_config.as_dict()
@@ -110,6 +114,14 @@ class TritonPythonModel:
             self.model_config, "text_output"
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
+        output_tokens_config = pb_utils.get_output_config_by_name(
+            self.model_config, "output_tokens"
+        )
+        self.output_tokens_dtype = pb_utils.triton_string_to_numpy(output_tokens_config["data_type"])
+        input_tokens_config = pb_utils.get_output_config_by_name(
+            self.model_config, "input_tokens"
+        )
+        self.input_tokens_dtype = pb_utils.triton_string_to_numpy(input_tokens_config["data_type"])
 
         # Prepare vLLM engine
         self.init_engine()
@@ -342,10 +354,17 @@ class TritonPythonModel:
         text_outputs = [
             (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
         ]
+        output_tokens = sum([len(output.token_ids) for output in vllm_output.outputs])
         triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
+            "text_output", np.asarray(text_outputs, dtype=self.output_dtype),
         )
-        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
+        triton_tokens_tensor = pb_utils.Tensor(
+            "output_tokens", np.asarray(output_tokens, dtype=self.output_tokens_dtype),
+        )
+        triton_input_tokens_tensor = pb_utils.Tensor(
+            "input_tokens", np.asarray(len(vllm_output.prompt_token_ids), dtype=self.input_tokens_dtype),
+        )
+        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor, triton_tokens_tensor, triton_input_tokens_tensor])
 
     def create_stream_response(self, vllm_output, previous_outputs_lengths):
         """
