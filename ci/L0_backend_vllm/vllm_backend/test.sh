@@ -50,7 +50,7 @@ function assert_curl_success {
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
-# `vllm_opt`` model will be loaded on server start and stay loaded throughout
+# `vllm_opt` model will be loaded on server start and stay loaded throughout
 # unittesting. To test vllm model load/unload we use a dedicated
 # `vllm_load_test`. To ensure that vllm's memory profiler will not error out
 # on `vllm_load_test` load, we reduce "gpu_memory_utilization" for `vllm_opt`,
@@ -69,6 +69,11 @@ sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/m
 # Invalid model name
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
 sed -i 's/"facebook\/opt-125m"/"invalid_model"/' models/vllm_invalid_2/1/model.json
+
+
+# Sanity check ensembles are enabled and can successfully be loaded
+mkdir -p models/ensemble_model/1
+cp -r ensemble_config.pbtxt models/ensemble_model/config.pbtxt
 
 RET=0
 
