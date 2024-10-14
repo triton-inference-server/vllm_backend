@@ -53,6 +53,12 @@ class TritonPythonModel:
         inputs = [
             {"name": "text_input", "data_type": "TYPE_STRING", "dims": [1]},
             {
+                "name": "multi_modal_data",
+                "data_type": "TYPE_STRING",
+                "dims": [1],
+                "optional": True,
+            },
+            {
                 "name": "stream",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
@@ -385,6 +391,21 @@ class TritonPythonModel:
             ).as_numpy()[0]
             if isinstance(prompt, bytes):
                 prompt = prompt.decode("utf-8")
+
+            multi_modal_data = pb_utils.get_input_tensor_by_name(
+                request, "multi_modal_data"
+            ).as_numpy()[0]
+            if isinstance(multi_modal_data, bytes):
+                multi_modal_data = multi_modal_data.decode("utf-8")
+
+            if multi_modal_data is not None:
+                # Build TextPrompt format prompt for multi modal models
+                multi_modal_data = json.loads(multi_modal_data)
+                prompt = {
+                    "prompt": prompt,
+                    "multi_modal_data": multi_modal_data
+                }
+
             stream = pb_utils.get_input_tensor_by_name(request, "stream")
             if stream:
                 stream = stream.as_numpy()[0]
