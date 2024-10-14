@@ -392,13 +392,11 @@ class TritonPythonModel:
             if isinstance(prompt, bytes):
                 prompt = prompt.decode("utf-8")
 
-            multi_modal_data = pb_utils.get_input_tensor_by_name(
+            multi_modal_data_input_tensor = pb_utils.get_input_tensor_by_name(
                 request, "multi_modal_data"
-            ).as_numpy()[0]
-            if isinstance(multi_modal_data, bytes):
-                multi_modal_data = multi_modal_data.decode("utf-8")
-
-            if multi_modal_data is not None:
+            )
+            if multi_modal_data_input_tensor:
+                multi_modal_data = multi_modal_data_input_tensor.as_numpy()[0].decode("utf-8")
                 # Build TextPrompt format prompt for multi modal models
                 multi_modal_data = json.loads(multi_modal_data)
                 prompt = {
