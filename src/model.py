@@ -417,44 +417,30 @@ class TritonPythonModel:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
 
-    def create_response(self, vllm_output, prepend_input, additional_outputs):
-        """
-        Parses the output from the vLLM engine into Triton
-        response.
-        """
-        prompt = ""
-        if prepend_input:
-            prompt = vllm_output.prompt
-        text_outputs = [
-            (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
-        ]
-        triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
-        )
-        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
-
-    def create_stream_response(
-        self, vllm_output, previous_outputs_lengths, additional_outputs
+    def _create_response(
+        self, prev_request_output, request_output, prepend_input=False
     ):
-        """
-        Parses the output from the vLLM engine, extracts only newly generated
-        text and packs it into Triton response.
-        """
-        if previous_outputs_lengths is None:
-            return self.create_response(
-                vllm_output, prepend_input=False, additional_outputs=additional_outputs
-            )
-
-        text_outputs = [
-            (output.text[prev_output_length:]).encode("utf-8")
-            for output, prev_output_length in zip(
-                vllm_output.outputs, previous_outputs_lengths
-            )
+        # text_output
+        prepend_prompt = ""
+        if prev_request_output is None:
+            # this is the first response
+            if prepend_input:
+                prepend_prompt = request_output.prompt
+            prev_lens = [0] * len(request_output.outputs)
+        else:
+            # this is a subsequent response
+            prev_lens = [
+                len(prev_output.text) for prev_output in prev_request_output.outputs
+            ]
+        text_output = [
+            (prepend_prompt + output.text[prev_len:]).encode("utf-8")
+            for output, prev_len in zip(request_output.outputs, prev_lens)
         ]
-        triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
+        text_output_tensor = pb_utils.Tensor(
+            "text_output", np.asarray(text_output, dtype=self.output_dtype)
         )
-        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
+
+        return pb_utils.InferenceResponse(output_tensors=[text_output_tensor])
 
     async def generate(self, request):
         """
@@ -481,8 +467,6 @@ class TritonPythonModel:
             sampling_params_dict = self.get_sampling_params_dict(parameters)
             lora_name = sampling_params_dict.pop("lora_name", None)
             sampling_params = SamplingParams(**sampling_params_dict)
-            last_output = None
-            prev_outputs = None
             lora_request = None
             if lora_name is not None:
                 lora_id = str(self.supported_loras.index(lora_name) + 1)
@@ -494,7 +478,11 @@ class TritonPythonModel:
                 request_id, prompt, sampling_params, lora_request=lora_request
             )
 
-            async for output in response_iterator:
+            prev_request_output = None
+            async for request_output in response_iterator:
+                # Cancellation state will be checked by the response loop and written to
+                # the response state if streaming. If not streaming, cancellation state
+                # needs to be checked here.
                 is_cancelled = response_state["is_cancelled"]
                 if not stream:
                     is_cancelled = response_sender.is_cancelled()
@@ -502,7 +490,9 @@ class TritonPythonModel:
                     self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
                     self.logger.log_info("[vllm] Successfully cancelled the request")
+
                     if stream:
+                        # Add cancelled final response to response loop.
                         response_state["last_response_generated"] = True
                         response = pb_utils.InferenceResponse(
                             error=pb_utils.TritonError(
@@ -515,48 +505,44 @@ class TritonPythonModel:
                         self._response_queue.put_nowait(
                             (response_state, response, flags)
                         )
+
                     break
+
+                # Send each response if streaming.
                 if stream:
-                    prev_outputs_lengths = None
-                    if prev_outputs is not None:
-                        prev_outputs_lengths = [
-                            len(prev_output.text)
-                            for prev_output in prev_outputs.outputs
-                        ]
-                    response = self.create_stream_response(
-                        output, prev_outputs_lengths, additional_outputs
+                    response = self._create_response(
+                        prev_request_output, request_output
                     )
                     flags = 0
-                    if output.finished:
+                    if request_output.finished:
                         response_state["last_response_generated"] = True
                         flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
                         decrement_ongoing_request_count = False
                     self._response_queue.put_nowait((response_state, response, flags))
-                prev_outputs = output
 
-            last_output = output
+                prev_request_output = request_output
 
+            # Send the last response which contains all the outputs if not streaming.
             if not stream:
                 response_sender.send(
-                    self.create_response(
-                        last_output, prepend_input, additional_outputs
-                    ),
+                    self._create_response(None, request_output, prepend_input),
                     flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                 )
 
         except Exception as e:
             self.logger.log_error(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
-            triton_output_tensor = pb_utils.Tensor(
+            text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
             )
             response = pb_utils.InferenceResponse(
-                output_tensors=[triton_output_tensor], error=error
+                output_tensors=[text_output_tensor], error=error
             )
             response_sender.send(
                 response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
             )
             raise e
+
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
