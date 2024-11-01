@@ -418,8 +418,10 @@ class TritonPythonModel:
                     self.ongoing_request_count -= 1
 
     def _create_response(
-        self, prev_request_output, request_output, prepend_input=False
+        self, prev_request_output, request_output, prepend_input, additional_outputs
     ):
+        output_tensors = []
+
         # text_output
         prepend_prompt = ""
         if prev_request_output is None:
@@ -436,11 +438,57 @@ class TritonPythonModel:
             (prepend_prompt + output.text[prev_len:]).encode("utf-8")
             for output, prev_len in zip(request_output.outputs, prev_lens)
         ]
-        text_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_output, dtype=self.output_dtype)
+        output_tensors.append(
+            pb_utils.Tensor(
+                "text_output", np.asarray(text_output, dtype=self.output_dtype)
+            )
         )
 
-        return pb_utils.InferenceResponse(output_tensors=[text_output_tensor])
+        # finish_reason
+        if additional_outputs["output_finish_reason"]:
+            finish_reason = [
+                str(output.finish_reason) for output in request_output.outputs
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "finish_reason", np.asarray(finish_reason, dtype=np.object_)
+                )
+            )
+
+        # cumulative_logprob
+        if additional_outputs["output_cumulative_logprob"]:
+            cumulative_logprob = [
+                output.cumulative_logprob for output in request_output.outputs
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "cumulative_logprob",
+                    np.asarray(cumulative_logprob, dtype=np.float32),
+                )
+            )
+
+        # num_token_ids
+        if additional_outputs["output_num_token_ids"]:
+            if prev_request_output is None:
+                # this is the first response
+                prev_lens = [0] * len(request_output.outputs)
+            else:
+                # this is a subsequent response
+                prev_lens = [
+                    len(prev_output.token_ids)
+                    for prev_output in prev_request_output.outputs
+                ]
+            num_token_ids = [
+                (len(output.token_ids) - prev_len)
+                for output, prev_len in zip(request_output.outputs, prev_lens)
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "num_token_ids", np.asarray(num_token_ids, dtype=np.uint32)
+                )
+            )
+
+        return pb_utils.InferenceResponse(output_tensors=output_tensors)
 
     async def generate(self, request):
         """
@@ -511,7 +559,10 @@ class TritonPythonModel:
                 # Send each response if streaming.
                 if stream:
                     response = self._create_response(
-                        prev_request_output, request_output
+                        prev_request_output,
+                        request_output,
+                        prepend_input=False,
+                        additional_outputs=additional_outputs,
                     )
                     flags = 0
                     if request_output.finished:
@@ -525,7 +576,12 @@ class TritonPythonModel:
             # Send the last response which contains all the outputs if not streaming.
             if not stream:
                 response_sender.send(
-                    self._create_response(None, request_output, prepend_input),
+                    self._create_response(
+                        prev_request_output=None,
+                        request_output=request_output,
+                        prepend_input=prepend_input,
+                        additional_outputs=additional_outputs,
+                    ),
                     flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                 )
 
