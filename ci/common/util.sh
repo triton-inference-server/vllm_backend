@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+SERVER=${SERVER:=/opt/tritonserver/bin/tritonserver}
 SERVER_IPADDR=${TRITONSERVER_IPADDR:=localhost}
 SERVER_LOG=${SERVER_LOG:=./server.log}
 SERVER_TIMEOUT=${SERVER_TIMEOUT:=120}
