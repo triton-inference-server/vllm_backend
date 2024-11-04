@@ -203,6 +203,11 @@ you need to specify a different `shm-region-prefix-name` for each server. See
 [here](https://github.com/triton-inference-server/python_backend#running-multiple-instances-of-triton-server)
 for more information.
 
+## Additional vLLM outputs
+
+Additional vLLM outputs may be requested optionally on a per-request basis. See
+[this docs](docs/additional_outputs.md) for more information.
+
 ## Triton Metrics
 Starting with the 24.08 release of Triton, users can now obtain specific
 vLLM metrics by querying the Triton metrics endpoint (see complete vLLM metrics
