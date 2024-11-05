@@ -76,11 +76,14 @@ class TritonMetrics:
             description="Number of generation tokens processed.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
         )
-        self.histogram_best_of_request_family = pb_utils.MetricFamily(
-            name="vllm:request_params_best_of",
-            description="Histogram of the best_of request parameter.",
-            kind=pb_utils.MetricFamily.HISTOGRAM,
-        )
+        # TODO: Remove best_of_request when upgrading vLLM >= 0.6.3
+        self.histogram_best_of_request_family = None
+        if "best_of_requests" in getattr(VllmStats, "__dataclass_fields__", {}):
+            self.histogram_best_of_request_family = pb_utils.MetricFamily(
+                name="vllm:request_params_best_of",
+                description="Histogram of the best_of request parameter.",
+                kind=pb_utils.MetricFamily.HISTOGRAM,
+            )
         self.histogram_n_request_family = pb_utils.MetricFamily(
             name="vllm:request_params_n",
             description="Histogram of the n request parameter.",
@@ -159,10 +162,14 @@ class TritonMetrics:
                 buckets=build_1_2_5_buckets(max_model_len),
             )
         )
-        self.histogram_best_of_request = self.histogram_best_of_request_family.Metric(
-            labels=labels,
-            buckets=[1, 2, 5, 10, 20],
-        )
+        self.histogram_best_of_request = None
+        if self.histogram_best_of_request_family is not None:
+            self.histogram_best_of_request = (
+                self.histogram_best_of_request_family.Metric(
+                    labels=labels,
+                    buckets=[1, 2, 5, 10, 20],
+                )
+            )
         self.histogram_n_request = self.histogram_n_request_family.Metric(
             labels=labels,
             buckets=[1, 2, 5, 10, 20],
@@ -247,9 +254,12 @@ class VllmStatLogger(VllmStatLoggerBase):
                 self.metrics.histogram_num_generation_tokens_request,
                 stats.num_generation_tokens_requests,
             ),
-            (self.metrics.histogram_best_of_request, stats.best_of_requests),
             (self.metrics.histogram_n_request, stats.n_requests),
         ]
+        if self.metrics.histogram_best_of_request is not None:
+            histogram_metrics.append(
+                (self.metrics.histogram_best_of_request, stats.best_of_requests)
+            )
 
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
