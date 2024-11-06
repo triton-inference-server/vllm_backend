@@ -32,7 +32,7 @@ import triton_python_backend_utils as pb_utils
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
 from vllm.engine.metrics import Stats as VllmStats
 from vllm.engine.metrics import SupportsMetricsInfo, build_1_2_5_buckets
-
+from vllm.version import __version__ as _VLLM_VERSION
 
 class TritonMetrics:
     def __init__(self, labels: List[str], max_model_len: int):
@@ -76,6 +76,14 @@ class TritonMetrics:
             description="Number of generation tokens processed.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
         )
+        # 'best_of' metric has been hidden since vllm 0.6.3
+        # https://github.com/vllm-project/vllm/commit/cbc2ef55292b2af6ff742095c030e8425124c005
+        if _VLLM_VERSION < "0.6.3":
+            self.histogram_best_of_request_family = pb_utils.MetricFamily(
+                name="vllm:request_params_best_of",
+                description="Histogram of the best_of request parameter.",
+                kind=pb_utils.MetricFamily.HISTOGRAM,
+            )
         self.histogram_n_request_family = pb_utils.MetricFamily(
             name="vllm:request_params_n",
             description="Histogram of the n request parameter.",
@@ -154,6 +162,11 @@ class TritonMetrics:
                 buckets=build_1_2_5_buckets(max_model_len),
             )
         )
+        if _VLLM_VERSION < "0.6.3":
+            self.histogram_best_of_request = self.histogram_best_of_request_family.Metric(
+                labels=labels,
+                buckets=[1, 2, 5, 10, 20],
+            )
         self.histogram_n_request = self.histogram_n_request_family.Metric(
             labels=labels,
             buckets=[1, 2, 5, 10, 20],
@@ -240,7 +253,8 @@ class VllmStatLogger(VllmStatLoggerBase):
             ),
             (self.metrics.histogram_n_request, stats.n_requests),
         ]
-
+        if _VLLM_VERSION < "0.6.3":
+            histogram_metrics.append((self.metrics.histogram_best_of_request, stats.best_of_requests))
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
         for metric, data in histogram_metrics:
