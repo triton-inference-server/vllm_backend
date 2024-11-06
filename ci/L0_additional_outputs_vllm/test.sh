@@ -49,7 +49,7 @@ if [ "$SERVER_PID" == "0" ]; then
     exit 1
 fi
 set +e
-python3 -m pytest -s -v additional_outputs_test.py
+python3 -m pytest --junitxml=test_additional_outputs.xml -s -v additional_outputs_test.py
 if [ $? -ne 0 ]; then
     echo -e "\n***\n*** additional_outputs_test FAILED. \n***"
     RET=1
