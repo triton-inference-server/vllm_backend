@@ -28,6 +28,7 @@
 export CUDA_VISIBLE_DEVICES=0
 source ../common/util.sh
 
+pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
 
 # Prepare Model
@@ -38,8 +39,7 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/v
 
 RET=0
 
-# Infer Test
-CLIENT_LOG="vllm_opt.log"
+# Test
 SERVER_LOG="vllm_opt.server.log"
 SERVER_ARGS="--model-repository=models"
 run_server
@@ -49,9 +49,8 @@ if [ "$SERVER_PID" == "0" ]; then
     exit 1
 fi
 set +e
-python3 additional_outputs_test.py > $CLIENT_LOG 2>&1
+python3 -m pytest -s -v additional_outputs_test.py
 if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
     echo -e "\n***\n*** additional_outputs_test FAILED. \n***"
     RET=1
 fi

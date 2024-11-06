@@ -25,13 +25,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-import unittest
 
 import numpy as np
+import pytest
 import tritonclient.grpc as grpcclient
 
 
-class InferTest(unittest.TestCase):
+class TestAdditionalOutputs:
     _grpc_url = "localhost:8001"
     _model_name = "vllm_opt"
     _sampling_parameters = {"temperature": "0", "top_p": "1"}
@@ -93,51 +93,51 @@ class InferTest(unittest.TestCase):
                 self._model_name, inputs=inputs, parameters=self._sampling_parameters
             )
             client.stop_stream()
-        self.assertGreater(len(self._responses), 0)
+        assert len(self._responses) > 0
 
     def _assert_text_output_valid(self):
         text_output = ""
         for response in self._responses:
             result, error = response["result"], response["error"]
-            self.assertIsNone(error)
+            assert error is None
             text_output += result.as_numpy(name="text_output")[0].decode("utf-8")
-        self.assertGreater(len(text_output), 0, "output is empty")
-        self.assertGreater(text_output.count(" "), 4, "output is not a sentence")
+        assert len(text_output) > 0, "output is empty"
+        assert text_output.count(" ") > 4, "output is not a sentence"
 
     def _assert_finish_reason(self, output_finish_reason):
         for i in range(len(self._responses)):
             result, error = self._responses[i]["result"], self._responses[i]["error"]
-            self.assertIsNone(error)
+            assert error is None
             finish_reason_np = result.as_numpy(name="finish_reason")
             if output_finish_reason is None or output_finish_reason == False:
-                self.assertIsNone(finish_reason_np)
+                assert finish_reason_np is None
                 continue
             finish_reason = finish_reason_np[0].decode("utf-8")
             if i < len(self._responses) - 1:
-                self.assertEqual(finish_reason, "None")
+                assert finish_reason == "None"
             else:
-                self.assertEqual(finish_reason, "length")
+                assert finish_reason == "length"
 
     def _assert_cumulative_logprob(self, output_cumulative_logprob):
         prev_cumulative_logprob = 0.0
         for response in self._responses:
             result, error = response["result"], response["error"]
-            self.assertIsNone(error)
+            assert error is None
             cumulative_logprob_np = result.as_numpy(name="cumulative_logprob")
             if output_cumulative_logprob is None or output_cumulative_logprob == False:
-                self.assertIsNone(cumulative_logprob_np)
+                assert cumulative_logprob_np is None
                 continue
             cumulative_logprob = cumulative_logprob_np[0].astype(float)
-            self.assertNotEqual(cumulative_logprob, prev_cumulative_logprob)
+            assert cumulative_logprob != prev_cumulative_logprob
             prev_cumulative_logprob = cumulative_logprob
 
     def _assert_num_token_ids(self, output_num_token_ids):
         for response in self._responses:
             result, error = response["result"], response["error"]
-            self.assertIsNone(error)
+            assert error is None
             num_token_ids_np = result.as_numpy(name="num_token_ids")
             if output_num_token_ids is None or output_num_token_ids == False:
-                self.assertIsNone(num_token_ids_np)
+                assert num_token_ids_np is None
                 continue
             num_token_ids = num_token_ids_np[0].astype(int)
             # TODO: vLLM may return token ids identical to the previous one when
@@ -156,10 +156,14 @@ class InferTest(unittest.TestCase):
             #       curr: text=' the term “', token_ids=array('l', [5, 1385, 44, 48])
             #
             #       If this is no longer the case in a future release, change the assert
-            #       to assertGreater().
-            self.assertGreaterEqual(num_token_ids, 0)
+            #       to assert num_token_ids > 0.
+            assert num_token_ids >= 0
 
-    def _assert_additional_outputs_valid(
+    @pytest.mark.parametrize("stream", [True, False])
+    @pytest.mark.parametrize("output_finish_reason", [None, True, False])
+    @pytest.mark.parametrize("output_cumulative_logprob", [None, True, False])
+    @pytest.mark.parametrize("output_num_token_ids", [None, True, False])
+    def test_additional_outputs(
         self,
         stream,
         output_finish_reason,
@@ -179,20 +183,3 @@ class InferTest(unittest.TestCase):
         self._assert_finish_reason(output_finish_reason)
         self._assert_cumulative_logprob(output_cumulative_logprob)
         self._assert_num_token_ids(output_num_token_ids)
-
-    def test_additional_outputs(self):
-        for stream in [True, False]:
-            choices = [None, False, True]
-            for output_finish_reason in choices:
-                for output_cumulative_logprob in choices:
-                    for output_num_token_ids in choices:
-                        self._assert_additional_outputs_valid(
-                            stream,
-                            output_finish_reason,
-                            output_cumulative_logprob,
-                            output_num_token_ids,
-                        )
-
-
-if __name__ == "__main__":
-    unittest.main()
