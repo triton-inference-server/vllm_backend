@@ -59,14 +59,17 @@ point value will be sent on the `cumulative_logprob` output tensor.
 
 Supported since r24.11.
 
-### Token IDs
+### Number of token IDs
 
-The token IDs of the generated output text sent on this response. See
+The number of token IDs of the generated output text sent on this response. It
+is the difference in length of the token IDs generated from the last response to
+this response. If this is the first response, the last response length is
+presumed to be zero. See
 [here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L21)
-for more details.
+for more details on the token IDs of the generated output text.
 
-To enable, set `return_token_ids` input tensor to `True`. The array of integer
-value will be sent on the `token_ids` output tensor.
+To enable, set `return_num_token_ids` input tensor to `True`. The unsigned
+integer value will be sent on the `num_token_ids` output tensor.
 
 Supported since r24.11.
 
