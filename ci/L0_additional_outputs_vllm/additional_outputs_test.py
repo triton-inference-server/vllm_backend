@@ -42,9 +42,9 @@ class TestAdditionalOutputs:
         prompt,
         stream=True,
         sampling_parameters=None,
-        output_finish_reason=None,
-        output_cumulative_logprob=None,
-        output_num_token_ids=None,
+        return_finish_reason=None,
+        return_cumulative_logprob=None,
+        return_num_token_ids=None,
     ):
         inputs = []
 
@@ -64,21 +64,21 @@ class TestAdditionalOutputs:
                 )
             )
 
-        if output_finish_reason is not None:
-            inputs.append(grpcclient.InferInput("output_finish_reason", [1], "BOOL"))
-            inputs[-1].set_data_from_numpy(np.array([output_finish_reason], dtype=bool))
+        if return_finish_reason is not None:
+            inputs.append(grpcclient.InferInput("return_finish_reason", [1], "BOOL"))
+            inputs[-1].set_data_from_numpy(np.array([return_finish_reason], dtype=bool))
 
-        if output_cumulative_logprob is not None:
+        if return_cumulative_logprob is not None:
             inputs.append(
-                grpcclient.InferInput("output_cumulative_logprob", [1], "BOOL")
+                grpcclient.InferInput("return_cumulative_logprob", [1], "BOOL")
             )
             inputs[-1].set_data_from_numpy(
-                np.array([output_cumulative_logprob], dtype=bool)
+                np.array([return_cumulative_logprob], dtype=bool)
             )
 
-        if output_num_token_ids is not None:
-            inputs.append(grpcclient.InferInput("output_num_token_ids", [1], "BOOL"))
-            inputs[-1].set_data_from_numpy(np.array([output_num_token_ids], dtype=bool))
+        if return_num_token_ids is not None:
+            inputs.append(grpcclient.InferInput("return_num_token_ids", [1], "BOOL"))
+            inputs[-1].set_data_from_numpy(np.array([return_num_token_ids], dtype=bool))
 
         return inputs
 
@@ -104,12 +104,12 @@ class TestAdditionalOutputs:
         assert len(text_output) > 0, "output is empty"
         assert text_output.count(" ") > 4, "output is not a sentence"
 
-    def _assert_finish_reason(self, output_finish_reason):
+    def _assert_finish_reason(self, return_finish_reason):
         for i in range(len(self._responses)):
             result, error = self._responses[i]["result"], self._responses[i]["error"]
             assert error is None
             finish_reason_np = result.as_numpy(name="finish_reason")
-            if output_finish_reason is None or output_finish_reason == False:
+            if return_finish_reason is None or return_finish_reason == False:
                 assert finish_reason_np is None
                 continue
             finish_reason = finish_reason_np[0].decode("utf-8")
@@ -118,25 +118,25 @@ class TestAdditionalOutputs:
             else:
                 assert finish_reason == "length"
 
-    def _assert_cumulative_logprob(self, output_cumulative_logprob):
+    def _assert_cumulative_logprob(self, return_cumulative_logprob):
         prev_cumulative_logprob = 0.0
         for response in self._responses:
             result, error = response["result"], response["error"]
             assert error is None
             cumulative_logprob_np = result.as_numpy(name="cumulative_logprob")
-            if output_cumulative_logprob is None or output_cumulative_logprob == False:
+            if return_cumulative_logprob is None or return_cumulative_logprob == False:
                 assert cumulative_logprob_np is None
                 continue
             cumulative_logprob = cumulative_logprob_np[0].astype(float)
             assert cumulative_logprob != prev_cumulative_logprob
             prev_cumulative_logprob = cumulative_logprob
 
-    def _assert_num_token_ids(self, output_num_token_ids):
+    def _assert_num_token_ids(self, return_num_token_ids):
         for response in self._responses:
             result, error = response["result"], response["error"]
             assert error is None
             num_token_ids_np = result.as_numpy(name="num_token_ids")
-            if output_num_token_ids is None or output_num_token_ids == False:
+            if return_num_token_ids is None or return_num_token_ids == False:
                 assert num_token_ids_np is None
                 continue
             num_token_ids = num_token_ids_np[0].astype(int)
@@ -160,26 +160,26 @@ class TestAdditionalOutputs:
             assert num_token_ids >= 0
 
     @pytest.mark.parametrize("stream", [True, False])
-    @pytest.mark.parametrize("output_finish_reason", [None, True, False])
-    @pytest.mark.parametrize("output_cumulative_logprob", [None, True, False])
-    @pytest.mark.parametrize("output_num_token_ids", [None, True, False])
+    @pytest.mark.parametrize("return_finish_reason", [None, True, False])
+    @pytest.mark.parametrize("return_cumulative_logprob", [None, True, False])
+    @pytest.mark.parametrize("return_num_token_ids", [None, True, False])
     def test_additional_outputs(
         self,
         stream,
-        output_finish_reason,
-        output_cumulative_logprob,
-        output_num_token_ids,
+        return_finish_reason,
+        return_cumulative_logprob,
+        return_num_token_ids,
     ):
         inputs = self._get_inputs(
             self._prompt,
             stream=stream,
             sampling_parameters=self._sampling_parameters,
-            output_finish_reason=output_finish_reason,
-            output_cumulative_logprob=output_cumulative_logprob,
-            output_num_token_ids=output_num_token_ids,
+            return_finish_reason=return_finish_reason,
+            return_cumulative_logprob=return_cumulative_logprob,
+            return_num_token_ids=return_num_token_ids,
         )
         self._llm_infer(inputs)
         self._assert_text_output_valid()
-        self._assert_finish_reason(output_finish_reason)
-        self._assert_cumulative_logprob(output_cumulative_logprob)
-        self._assert_num_token_ids(output_num_token_ids)
+        self._assert_finish_reason(return_finish_reason)
+        self._assert_cumulative_logprob(return_cumulative_logprob)
+        self._assert_num_token_ids(return_num_token_ids)

@@ -43,7 +43,7 @@ The reason why the sequence is finished. See
 [here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L26)
 for more details.
 
-To enable, set `output_finish_reason` input tensor to `True`. The reason will be
+To enable, set `return_finish_reason` input tensor to `True`. The reason will be
 sent as a string on the `finish_reason` output tensor.
 
 Supported since r24.11.
@@ -54,7 +54,7 @@ The cumulative log probability of the generated output text. See
 [here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L22)
 for more details.
 
-To enable, set `output_cumulative_logprob` input tensor to `True`. The floating
+To enable, set `return_cumulative_logprob` input tensor to `True`. The floating
 point value will be sent on the `cumulative_logprob` output tensor.
 
 Supported since r24.11.
@@ -68,7 +68,7 @@ presumed to be zero. See
 [here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L21)
 for more details on the token IDs of the generated output text.
 
-To enable, set `output_num_token_ids` input tensor to `True`. The unsigned
+To enable, set `return_num_token_ids` input tensor to `True`. The unsigned
 integer value will be sent on the `num_token_ids` output tensor.
 
 Supported since r24.11.
@@ -88,7 +88,7 @@ inputs[-1].set_data_from_numpy(
     np.array(["example prompt".encode("utf-8")], dtype=np.object_)
 )
 
-inputs.append(grpcclient.InferInput("output_finish_reason", [1], "BOOL"))
+inputs.append(grpcclient.InferInput("return_finish_reason", [1], "BOOL"))
 inputs[-1].set_data_from_numpy(np.array([True], dtype=bool))
 
 def callback(result, error):
