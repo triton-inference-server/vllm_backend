@@ -44,7 +44,7 @@ class TestAdditionalOutputs:
         sampling_parameters=None,
         return_finish_reason=None,
         return_cumulative_logprob=None,
-        return_num_token_ids=None,
+        return_num_output_tokens=None,
     ):
         inputs = []
 
@@ -76,9 +76,13 @@ class TestAdditionalOutputs:
                 np.array([return_cumulative_logprob], dtype=bool)
             )
 
-        if return_num_token_ids is not None:
-            inputs.append(grpcclient.InferInput("return_num_token_ids", [1], "BOOL"))
-            inputs[-1].set_data_from_numpy(np.array([return_num_token_ids], dtype=bool))
+        if return_num_output_tokens is not None:
+            inputs.append(
+                grpcclient.InferInput("return_num_output_tokens", [1], "BOOL")
+            )
+            inputs[-1].set_data_from_numpy(
+                np.array([return_num_output_tokens], dtype=bool)
+            )
 
         return inputs
 
@@ -131,15 +135,15 @@ class TestAdditionalOutputs:
             assert cumulative_logprob != prev_cumulative_logprob
             prev_cumulative_logprob = cumulative_logprob
 
-    def _assert_num_token_ids(self, return_num_token_ids):
+    def _assert_num_output_tokens(self, return_num_output_tokens):
         for response in self._responses:
             result, error = response["result"], response["error"]
             assert error is None
-            num_token_ids_np = result.as_numpy(name="num_token_ids")
-            if return_num_token_ids is None or return_num_token_ids == False:
-                assert num_token_ids_np is None
+            num_output_tokens_np = result.as_numpy(name="num_output_tokens")
+            if return_num_output_tokens is None or return_num_output_tokens == False:
+                assert num_output_tokens_np is None
                 continue
-            num_token_ids = num_token_ids_np[0].astype(int)
+            num_output_tokens = num_output_tokens_np[0].astype(int)
             # TODO: vLLM may return token ids identical to the previous one when
             #       streaming, for example:
             #
@@ -156,19 +160,19 @@ class TestAdditionalOutputs:
             #       curr: text=' the term “', token_ids=array('l', [5, 1385, 44, 48])
             #
             #       If this is no longer the case in a future release, change the assert
-            #       to assert num_token_ids > 0.
-            assert num_token_ids >= 0
+            #       to assert num_output_tokens > 0.
+            assert num_output_tokens >= 0
 
     @pytest.mark.parametrize("stream", [True, False])
     @pytest.mark.parametrize("return_finish_reason", [None, True, False])
     @pytest.mark.parametrize("return_cumulative_logprob", [None, True, False])
-    @pytest.mark.parametrize("return_num_token_ids", [None, True, False])
+    @pytest.mark.parametrize("return_num_output_tokens", [None, True, False])
     def test_additional_outputs(
         self,
         stream,
         return_finish_reason,
         return_cumulative_logprob,
-        return_num_token_ids,
+        return_num_output_tokens,
     ):
         inputs = self._get_inputs(
             self._prompt,
@@ -176,10 +180,10 @@ class TestAdditionalOutputs:
             sampling_parameters=self._sampling_parameters,
             return_finish_reason=return_finish_reason,
             return_cumulative_logprob=return_cumulative_logprob,
-            return_num_token_ids=return_num_token_ids,
+            return_num_output_tokens=return_num_output_tokens,
         )
         self._llm_infer(inputs)
         self._assert_text_output_valid()
         self._assert_finish_reason(return_finish_reason)
         self._assert_cumulative_logprob(return_cumulative_logprob)
-        self._assert_num_token_ids(return_num_token_ids)
+        self._assert_num_output_tokens(return_num_output_tokens)

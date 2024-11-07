@@ -101,7 +101,7 @@ class TritonPythonModel:
                 "optional": True,
             },
             {
-                "name": "return_num_token_ids",
+                "name": "return_num_output_tokens",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
                 "optional": True,
@@ -111,7 +111,7 @@ class TritonPythonModel:
             {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "finish_reason", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "cumulative_logprob", "data_type": "TYPE_FP32", "dims": [-1]},
-            {"name": "num_token_ids", "data_type": "TYPE_UINT32", "dims": [-1]},
+            {"name": "num_output_tokens", "data_type": "TYPE_UINT32", "dims": [-1]},
         ]
 
         # Collect input and output names from the provided model config.
@@ -348,11 +348,11 @@ class TritonPythonModel:
         else:
             parameters = request.parameters()
 
-        # return_finish_reason, return_cumulative_logprob, return_num_token_ids
+        # return_finish_reason, return_cumulative_logprob, return_num_output_tokens
         additional_outputs = {
             "return_finish_reason": None,
             "return_cumulative_logprob": None,
-            "return_num_token_ids": None,
+            "return_num_output_tokens": None,
         }
         for tensor_name in additional_outputs.keys():
             tensor = pb_utils.get_input_tensor_by_name(request, tensor_name)
@@ -467,8 +467,8 @@ class TritonPythonModel:
                 )
             )
 
-        # num_token_ids
-        if additional_outputs["return_num_token_ids"]:
+        # num_output_tokens
+        if additional_outputs["return_num_output_tokens"]:
             if prev_request_output is None:
                 # this is the first response
                 prev_lens = [0] * len(request_output.outputs)
@@ -478,13 +478,13 @@ class TritonPythonModel:
                     len(prev_output.token_ids)
                     for prev_output in prev_request_output.outputs
                 ]
-            num_token_ids = [
+            num_output_tokens = [
                 (len(output.token_ids) - prev_len)
                 for output, prev_len in zip(request_output.outputs, prev_lens)
             ]
             output_tensors.append(
                 pb_utils.Tensor(
-                    "num_token_ids", np.asarray(num_token_ids, dtype=np.uint32)
+                    "num_output_tokens", np.asarray(num_output_tokens, dtype=np.uint32)
                 )
             )
 
