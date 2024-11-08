@@ -72,7 +72,7 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
                 result, error = response
                 if expect_error:
                     self.assertIsInstance(error, InferenceServerException)
-                    self.assertEquals(
+                    self.assertEqual(
                         error.message(),
                         "Error generating stream: When streaming, `exclude_input_in_output` = False is not allowed.",
                         error,
