@@ -28,7 +28,7 @@
 RET=0
 SUBTESTS="vllm_backend multi_lora"
 
-python3 -m pip install --upgrade pip && pip3 install tritonclient[grpc]
+python3 -m pip install tritonclient[grpc]
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)
