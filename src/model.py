@@ -111,6 +111,9 @@ class TritonPythonModel:
         )
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
+        # Setup vLLM engine health check
+        self._setup_health_check()
+
         # Prepare vLLM engine
         self.init_engine()
 
@@ -130,6 +133,31 @@ class TritonPythonModel:
         )
         self._shutdown_event = asyncio.Event()
         self._event_thread.start()
+
+    def _setup_health_check(self):
+        # Check if health check should be enabled
+        self._enable_health_check = (
+            "ENABLE_VLLM_HEALTH_CHECK" in self.model_config["parameters"]
+        ) and (
+            self.model_config["parameters"]["ENABLE_VLLM_HEALTH_CHECK"][
+                "string_value"
+            ].lower()
+            in ["yes", "true"]
+        )
+        # Setup health check if enabled
+        if self._enable_health_check:
+            # Only enable health check if there is exactly 1 instance
+            num_instances = 0
+            for group in self.model_config["instance_group"]:
+                num_instances += group["count"]
+            if num_instances != 1:
+                self.logger.log_warn(
+                    f"[vllm] Health check may only be enabled when the model has exactly 1 instance but {num_instances} are found"
+                )
+                self._enable_health_check = False
+                return
+            # Set is healthy flag
+            self._is_healthy = True
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -542,6 +570,28 @@ class TritonPythonModel:
             verified_request = request
         return verified_request
 
+    def _check_health(self, requests):
+        coro = self.llm_engine.check_health()
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        try:
+            future.result()
+        except Exception as e:
+            self.logger.log_error(f"[vllm] Engine is not healthy: {e}")
+            pb_utils.unload_model(self.model_config["name"])  # non-blocking
+            self._is_healthy = False
+        if not self._is_healthy:
+            for request in requests:
+                request.get_response_sender().send(
+                    pb_utils.InferenceResponse(
+                        error=pb_utils.TritonError(
+                            message="vLLM engine is not healthy",
+                            code=pb_utils.TritonError.UNAVAILABLE,
+                        )
+                    ),
+                    flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
+                )
+        return self._is_healthy
+
     def execute(self, requests):
         """
         Triton core issues requests to the backend via this method.
@@ -552,6 +602,8 @@ class TritonPythonModel:
         is too loaded.
         We are pushing all the requests on vllm and let it handle the full traffic.
         """
+        if self._enable_health_check and not self._check_health(requests):
+            return None
         for request in requests:
             request = self.verify_loras(request)
             if request is not None:
