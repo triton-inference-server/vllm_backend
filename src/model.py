@@ -558,7 +558,9 @@ class TritonPythonModel:
         try:
             future.result()
         except Exception as e:
-            self.logger.log_error(f"[vllm] Engine is not healthy: {e}")
+            self.logger.log_error(
+                f"[vllm] Engine is not healthy and will be unloaded: {e}"
+            )
             pb_utils.unload_model(self.model_config["name"])  # non-blocking
             self._is_healthy = False
         if not self._is_healthy:
