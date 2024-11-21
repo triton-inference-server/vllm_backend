@@ -39,15 +39,6 @@ function setup_model_repository {
     cp -r $sample_model_repo_path/vllm_model models/vllm_opt
 }
 
-function setup_model_repository_with_multi_instances {
-    setup_model_repository
-    echo -e "backend: \"vllm\"" > models/vllm_opt/config.pbtxt
-    echo -e "instance_group [" >> models/vllm_opt/config.pbtxt
-    echo -e "  { kind: KIND_MODEL }," >> models/vllm_opt/config.pbtxt
-    echo -e "  { kind: KIND_MODEL \n count: 1 }" >> models/vllm_opt/config.pbtxt
-    echo -e "]" >> models/vllm_opt/config.pbtxt
-}
-
 function enable_health_check {
     local enable_vllm_health_check="$1"
     echo -e "parameters: {" >> models/vllm_opt/config.pbtxt
@@ -82,7 +73,7 @@ function test_check_health {
     fi
 
     set +e
-    SERVER_LOG=$SERVER_LOG python3 -m pytest --junitxml=$test_name.report.xml -s -v check_health_test.py::TestCheckHealth::$unit_test_name > $test_name.log
+    python3 -m pytest --junitxml=$test_name.report.xml -s -v check_health_test.py::TestCheckHealth::$unit_test_name > $test_name.log
     if [ $? -ne 0 ]; then
         echo -e "\n***\n*** $test_name FAILED. \n***"
         RET=1
@@ -123,12 +114,6 @@ test_check_health "health_check_disabled_mocked_failure" "test_vllm_is_healthy"
 setup_model_repository
 enable_health_check "true"
 test_check_health "health_check_enabled_mocked_failure" "test_vllm_not_healthy"
-
-# Test health check enabled with mocked vLLM check_health() failure when there
-# are multiple instances
-setup_model_repository_with_multi_instances
-enable_health_check "true"
-test_check_health "health_check_enabled_multi_instance_mocked_failure" "test_vllm_enable_health_check_multi_instance"
 
 # Unmock check_health()
 unmock_vllm_async_llm_engine

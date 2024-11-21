@@ -112,7 +112,10 @@ class TritonPythonModel:
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
 
         # Setup vLLM engine health check
-        self._setup_health_check()
+        self._enable_health_check = self._get_bool_config_param(
+            "ENABLE_VLLM_HEALTH_CHECK"
+        )
+        self._is_healthy = True
 
         # Prepare vLLM engine
         self.init_engine()
@@ -133,31 +136,6 @@ class TritonPythonModel:
         )
         self._shutdown_event = asyncio.Event()
         self._event_thread.start()
-
-    def _setup_health_check(self):
-        # Check if health check should be enabled
-        self._enable_health_check = (
-            "ENABLE_VLLM_HEALTH_CHECK" in self.model_config["parameters"]
-        ) and (
-            self.model_config["parameters"]["ENABLE_VLLM_HEALTH_CHECK"][
-                "string_value"
-            ].lower()
-            in ["yes", "true"]
-        )
-        # Setup health check if enabled
-        if self._enable_health_check:
-            # Only enable health check if there is exactly 1 instance
-            num_instances = 0
-            for group in self.model_config["instance_group"]:
-                num_instances += group["count"]
-            if num_instances != 1:
-                self.logger.log_warn(
-                    f"[vllm] Health check may only be enabled when the model has exactly 1 instance but {num_instances} are found"
-                )
-                self._enable_health_check = False
-                return
-            # Set is healthy flag
-            self._is_healthy = True
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -191,9 +169,7 @@ class TritonPythonModel:
         # Create vLLM custom metrics
         self.vllm_metrics = None
         if (
-            "REPORT_CUSTOM_METRICS" in self.model_config["parameters"]
-            and self.model_config["parameters"]["REPORT_CUSTOM_METRICS"]["string_value"]
-            == "yes"
+            self._get_bool_config_param("REPORT_CUSTOM_METRICS")
             and not aync_engine_args.disable_log_stats
         ):
             try:
@@ -213,6 +189,12 @@ class TritonPythonModel:
                     self.logger.log_info("[vllm] Metrics not supported")
                 else:
                     raise e
+
+    def _get_bool_config_param(self, param_name: str) -> bool:
+        return (param_name in self.model_config["parameters"]) and (
+            self.model_config["parameters"][param_name]["string_value"].lower()
+            in ["yes", "true"]
+        )
 
     def setup_lora(self):
         self.enable_lora = False

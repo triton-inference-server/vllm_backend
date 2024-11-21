@@ -25,10 +25,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-import os
 
 import numpy as np
-import pytest
 import tritonclient.grpc as grpcclient
 
 
@@ -118,11 +116,3 @@ class TestCheckHealth:
             "Request for unknown model: 'vllm_opt' has no available versions"
         )
         self._assert_model_ready(False)
-
-    def test_vllm_enable_health_check_multi_instance(self):
-        with open(os.environ["SERVER_LOG"]) as f:
-            server_log = f.read()
-        expected_vllm_warning = "[vllm] Health check may only be enabled when the model has exactly 1 instance but 2 are found"
-        assert expected_vllm_warning in server_log
-        # Health check should be disabled
-        self.test_vllm_is_healthy()
