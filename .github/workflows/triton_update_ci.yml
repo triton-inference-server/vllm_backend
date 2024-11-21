@@ -43,3 +43,41 @@ jobs:
           echo "VLLM_VERSION = ${VLLM_VERSION}"
 
           curl --fail --request POST --form token=${{ secrets.PIPELINE_TOKEN }} -F ref=${GITHUB_HEAD_REF} -F variables[BUILD_OPTION]="BUILD_SOURCE" -F variables[TRITON_CONTAINER_VERSION]="${TRITON_CONTAINER_VERSION}" -F variables[VLLM_VERSION]="${VLLM_VERSION}" -F variables[TEST_OPTION]="ALL_TESTS" "${{ secrets.PIPELINE_URL }}"
+  add-badges:
+    environment: GITLAB
+    needs: trigger-ci
+    runs-on: self-hosted
+    steps:
+      - uses: wow-actions/add-badges@v1
+        env:
+          repo_url: ${{ github.event.repository.html_url }}
+          repo_name: ${{ github.event.repository.name }}
+          repo_owner: ${{ github.event.repository.owner.login }}
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          center: true
+          badges: |
+            [
+              [
+                {
+                  "badge": "https://img.shields.io/github/license/${{ env.repo_owner }}/${{ env.repo_name }}?style=flat-square",
+                  "alt": "MIT License",
+                  "link": "${{ env.repo_url }}/blob/master/LICENSE"
+                },
+                {
+                  "badge": "https://img.shields.io/badge/Triton-24.10-8A2BE2",
+                  "alt": "Triton",
+                  "link": "https://github.com/triton-inference-server/vllm_backend"
+                },
+                {
+                  "badge": "https://img.shields.io/badge/vLLM-0.5.5-blue",
+                  "alt": "vLLM",
+                  "link": "https://github.com/vllm-project/vllm"
+                },
+                {
+                  "badge": "https://img.shields.io/badge/CI_Passing-V100%2CA100%2CH100-Green",
+                  "alt": "CI",
+                  "link": "https://github.com/triton-inference-server/vllm_backend/actions"
+                }
+                ]
+            ]
