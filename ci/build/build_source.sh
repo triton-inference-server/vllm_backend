@@ -34,7 +34,9 @@ do
 done
 
 echo "Triton version is ${TRITON_CONTAINER_VERSION} and vllm version is ${VLLM_VERSION}"
-git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
+# This change will start working for r24.12 release
+#git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
+git clone https://github.com/triton-inference-server/server.git
 set -x && python3 server/build.py -v  \
                 --enable-logging \
                 --enable-stats \
