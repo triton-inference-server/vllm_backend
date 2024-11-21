@@ -559,7 +559,7 @@ class TritonPythonModel:
             future.result()
         except Exception as e:
             self.logger.log_error(
-                f"[vllm] Engine is not healthy and will be unloaded: {e}"
+                f"[vllm] Engine is not healthy and model will be unloaded: {e}"
             )
             pb_utils.unload_model(self.model_config["name"])  # non-blocking
             self._is_healthy = False
@@ -568,7 +568,7 @@ class TritonPythonModel:
                 request.get_response_sender().send(
                     pb_utils.InferenceResponse(
                         error=pb_utils.TritonError(
-                            message="vLLM engine is not healthy",
+                            message="vLLM engine is not healthy and model will be unloaded",
                             code=pb_utils.TritonError.UNAVAILABLE,
                         )
                     ),
