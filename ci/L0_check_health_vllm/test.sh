@@ -64,7 +64,7 @@ function test_check_health {
     local unit_test_name="$2"
 
     SERVER_LOG="$test_name.server.log"
-    SERVER_ARGS="--model-repository=models --model-control-mode=explicit --load-model=*"
+    SERVER_ARGS="--model-repository=models"
     run_server
     if [ "$SERVER_PID" == "0" ]; then
         echo -e "\n***\n*** Failed to start $SERVER\n***"
