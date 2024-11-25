@@ -31,7 +31,9 @@ import os
 import queue
 import threading
 from typing import Dict, List
-
+import base64
+from PIL import Image
+from io import BytesIO
 import numpy as np
 import torch
 import triton_python_backend_utils as pb_utils
@@ -40,6 +42,7 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
+from vllm.version import __version__ as _VLLM_VERSION
 
 from utils.metrics import VllmStatLogger
 
@@ -71,6 +74,14 @@ class TritonPythonModel:
                 "optional": True,
             },
         ]
+        if _VLLM_VERSION >= "0.6.3.post1":
+            inputs.append({
+                "name": "image",
+                "data_type": "TYPE_STRING",
+                "dims": [-1],  # can be multiple images as separate elements
+                "optional": True,
+            })
+
         outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
 
         # Store the model configuration as a dictionary.
@@ -385,6 +396,25 @@ class TritonPythonModel:
             ).as_numpy()[0]
             if isinstance(prompt, bytes):
                 prompt = prompt.decode("utf-8")
+
+            if _VLLM_VERSION >= "0.6.3.post1":
+                image_input_tensor = pb_utils.get_input_tensor_by_name(
+                    request, "image"
+                )
+                if image_input_tensor:
+                    image_list = []
+                    for image_raw in image_input_tensor.as_numpy():
+                        image_data = base64.b64decode(image_raw.decode("utf-8"))
+                        image = Image.open(BytesIO(image_data)).convert("RGB")
+                        image_list.append(image)
+                    if len(image_list) > 0:
+                        prompt = {
+                            "prompt": prompt,
+                            "multi_modal_data": {
+                                "image": image_list
+                            }
+                        }
+
             stream = pb_utils.get_input_tensor_by_name(request, "stream")
             if stream:
                 stream = stream.as_numpy()[0]
