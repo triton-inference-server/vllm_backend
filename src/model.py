@@ -25,21 +25,25 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import asyncio
+import base64
 import gc
 import json
 import os
 import queue
 import threading
+from io import BytesIO
 from typing import Dict, List
 
 import numpy as np
 import torch
 import triton_python_backend_utils as pb_utils
+from PIL import Image
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
+from vllm.version import __version__ as _VLLM_VERSION
 
 from utils.metrics import VllmStatLogger
 
@@ -48,8 +52,26 @@ _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
 
 
 class TritonPythonModel:
+    @classmethod
+    def auto_complete_config(cls, auto_complete_model_config):
+        # Add inputs/outputs to the model config.
+        cls._auto_complete_inputs_and_outputs(auto_complete_model_config)
+
+        # We need to use decoupled transaction policy for saturating
+        # vLLM engine for max throughtput.
+        # TODO [DLIS:5233]: Allow asynchronous execution to lift this
+        # restriction for cases there is exactly a single response to
+        # a single request.
+        auto_complete_model_config.set_model_transaction_policy(dict(decoupled=True))
+
+        # Disabling batching in Triton, let vLLM handle the batching on its own.
+        auto_complete_model_config.set_max_batch_size(0)
+
+        return auto_complete_model_config
+
     @staticmethod
-    def auto_complete_config(auto_complete_model_config):
+    def _auto_complete_inputs_and_outputs(auto_complete_model_config):
+        # Inputs expected by the backend.
         inputs = [
             {"name": "text_input", "data_type": "TYPE_STRING", "dims": [1]},
             {
@@ -70,10 +92,43 @@ class TritonPythonModel:
                 "dims": [1],
                 "optional": True,
             },
+            {
+                "name": "return_finish_reason",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
+                "name": "return_cumulative_logprob",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
+                "name": "return_num_output_tokens",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
         ]
-        outputs = [{"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]}]
+        if _VLLM_VERSION >= "0.6.3.post1":
+            inputs.append(
+                {
+                    "name": "image",
+                    "data_type": "TYPE_STRING",
+                    "dims": [-1],  # can be multiple images as separate elements
+                    "optional": True,
+                }
+            )
+        # Outputs expected by the backend.
+        outputs = [
+            {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
+            {"name": "finish_reason", "data_type": "TYPE_STRING", "dims": [-1]},
+            {"name": "cumulative_logprob", "data_type": "TYPE_FP32", "dims": [-1]},
+            {"name": "num_output_tokens", "data_type": "TYPE_UINT32", "dims": [-1]},
+        ]
 
-        # Store the model configuration as a dictionary.
+        # Collect input and output names from the provided model config.
         config = auto_complete_model_config.as_dict()
         input_names = []
         output_names = []
@@ -82,25 +137,13 @@ class TritonPythonModel:
         for output in config["output"]:
             output_names.append(output["name"])
 
-        # Add only missing inputs and output to the model configuration.
+        # Add missing inputs and outputs to the model config.
         for input in inputs:
             if input["name"] not in input_names:
                 auto_complete_model_config.add_input(input)
         for output in outputs:
             if output["name"] not in output_names:
                 auto_complete_model_config.add_output(output)
-
-        # We need to use decoupled transaction policy for saturating
-        # vLLM engine for max throughtput.
-        # TODO [DLIS:5233]: Allow asynchronous execution to lift this
-        # restriction for cases there is exactly a single response to
-        # a single request.
-        auto_complete_model_config.set_model_transaction_policy(dict(decoupled=True))
-
-        # Disabling batching in Triton, let vLLM handle the batching on its own.
-        auto_complete_model_config.set_max_batch_size(0)
-
-        return auto_complete_model_config
 
     def initialize(self, args):
         self.args = args
@@ -288,6 +331,78 @@ class TritonPythonModel:
 
         self.logger.log_info("[vllm] Shutdown complete")
 
+    def _get_input_tensors(self, request):
+        # prompt
+        prompt = pb_utils.get_input_tensor_by_name(request, "text_input").as_numpy()[0]
+        if isinstance(prompt, bytes):
+            prompt = prompt.decode("utf-8")
+
+        # image
+        if _VLLM_VERSION >= "0.6.3.post1":
+            images = pb_utils.get_input_tensor_by_name(request, "image")
+            if images:
+                images_vllm = []
+                for image_np in images.as_numpy():
+                    image_b = base64.b64decode(image_np.decode("utf-8"))
+                    image_rgb = Image.open(BytesIO(image_b)).convert("RGB")
+                    images_vllm.append(image_rgb)
+                if len(images_vllm) > 0:
+                    prompt = {
+                        "prompt": prompt,
+                        "multi_modal_data": {"image": images_vllm},
+                    }
+
+        # stream
+        stream = pb_utils.get_input_tensor_by_name(request, "stream")
+        if stream:
+            stream = stream.as_numpy()[0]
+        else:
+            stream = False
+
+        # prepend_input / exclude_input_in_output
+        prepend_input = pb_utils.get_input_tensor_by_name(
+            request, "exclude_input_in_output"
+        )
+        if prepend_input:
+            # When `exclude_input_in_output` is False, we want to prepend input prompt
+            # to output, thus prepend_input should be True, and vice versa.
+            prepend_input = not prepend_input.as_numpy()[0]
+        elif prepend_input is None and stream:
+            prepend_input = False
+        else:
+            prepend_input = True
+        if prepend_input and stream:
+            raise ValueError(
+                "When streaming, `exclude_input_in_output` = False is not allowed."
+            )
+
+        # parameters / sampling_parameters
+        # An alternative mechanism to receive serialized parameters as an input tensor,
+        # because request parameters are not yet supported via BLS.
+        sampling_parameters = pb_utils.get_input_tensor_by_name(
+            request, "sampling_parameters"
+        )
+        if sampling_parameters:
+            parameters = sampling_parameters.as_numpy()[0].decode("utf-8")
+        else:
+            parameters = request.parameters()
+
+        # return_finish_reason, return_cumulative_logprob, return_num_output_tokens
+        additional_outputs = {
+            "return_finish_reason": None,
+            "return_cumulative_logprob": None,
+            "return_num_output_tokens": None,
+        }
+        for tensor_name in additional_outputs.keys():
+            tensor = pb_utils.get_input_tensor_by_name(request, tensor_name)
+            if tensor:
+                tensor = bool(tensor.as_numpy()[0])
+            else:
+                tensor = False
+            additional_outputs[tensor_name] = tensor
+
+        return prompt, stream, prepend_input, parameters, additional_outputs
+
     def get_sampling_params_dict(self, params_json):
         """
         This functions parses the dictionary values into their
@@ -341,40 +456,78 @@ class TritonPythonModel:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
                     self.ongoing_request_count -= 1
 
-    def create_response(self, vllm_output, prepend_input):
-        """
-        Parses the output from the vLLM engine into Triton
-        response.
-        """
-        prompt = ""
-        if prepend_input:
-            prompt = vllm_output.prompt
-        text_outputs = [
-            (prompt + output.text).encode("utf-8") for output in vllm_output.outputs
+    def _create_response(
+        self, prev_request_output, request_output, prepend_input, additional_outputs
+    ):
+        output_tensors = []
+
+        # text_output
+        prepend_prompt = ""
+        if prev_request_output is None:
+            # this is the first response
+            if prepend_input:
+                prepend_prompt = request_output.prompt
+            prev_lens = [0] * len(request_output.outputs)
+        else:
+            # this is a subsequent response
+            prev_lens = [
+                len(prev_output.text) for prev_output in prev_request_output.outputs
+            ]
+        text_output = [
+            (prepend_prompt + output.text[prev_len:]).encode("utf-8")
+            for output, prev_len in zip(request_output.outputs, prev_lens)
         ]
-        triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
-        )
-        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
-
-    def create_stream_response(self, vllm_output, previous_outputs_lengths):
-        """
-        Parses the output from the vLLM engine, extracts only newly generated
-        text and packs it into Triton response.
-        """
-        if previous_outputs_lengths is None:
-            return self.create_response(vllm_output, prepend_input=False)
-
-        text_outputs = [
-            (output.text[prev_output_length:]).encode("utf-8")
-            for output, prev_output_length in zip(
-                vllm_output.outputs, previous_outputs_lengths
+        output_tensors.append(
+            pb_utils.Tensor(
+                "text_output", np.asarray(text_output, dtype=self.output_dtype)
             )
-        ]
-        triton_output_tensor = pb_utils.Tensor(
-            "text_output", np.asarray(text_outputs, dtype=self.output_dtype)
         )
-        return pb_utils.InferenceResponse(output_tensors=[triton_output_tensor])
+
+        # finish_reason
+        if additional_outputs["return_finish_reason"]:
+            finish_reason = [
+                str(output.finish_reason) for output in request_output.outputs
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "finish_reason", np.asarray(finish_reason, dtype=np.object_)
+                )
+            )
+
+        # cumulative_logprob
+        if additional_outputs["return_cumulative_logprob"]:
+            cumulative_logprob = [
+                output.cumulative_logprob for output in request_output.outputs
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "cumulative_logprob",
+                    np.asarray(cumulative_logprob, dtype=np.float32),
+                )
+            )
+
+        # num_output_tokens
+        if additional_outputs["return_num_output_tokens"]:
+            if prev_request_output is None:
+                # this is the first response
+                prev_lens = [0] * len(request_output.outputs)
+            else:
+                # this is a subsequent response
+                prev_lens = [
+                    len(prev_output.token_ids)
+                    for prev_output in prev_request_output.outputs
+                ]
+            num_output_tokens = [
+                (len(output.token_ids) - prev_len)
+                for output, prev_len in zip(request_output.outputs, prev_lens)
+            ]
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "num_output_tokens", np.asarray(num_output_tokens, dtype=np.uint32)
+                )
+            )
+
+        return pb_utils.InferenceResponse(output_tensors=output_tensors)
 
     async def generate(self, request):
         """
@@ -390,51 +543,17 @@ class TritonPythonModel:
         decrement_ongoing_request_count = True
         try:
             request_id = random_uuid()
-            prompt = pb_utils.get_input_tensor_by_name(
-                request, "text_input"
-            ).as_numpy()[0]
-            if isinstance(prompt, bytes):
-                prompt = prompt.decode("utf-8")
-            stream = pb_utils.get_input_tensor_by_name(request, "stream")
-            if stream:
-                stream = stream.as_numpy()[0]
-            else:
-                stream = False
-            prepend_input = pb_utils.get_input_tensor_by_name(
-                request, "exclude_input_in_output"
-            )
-            if prepend_input:
-                # When `exclude_input_in_output` is False, we want to prepend
-                # input prompt to output, thus prepend_input should be True,
-                # and vice versa.
-                prepend_input = not prepend_input.as_numpy()[0]
-            elif prepend_input is None and stream:
-                prepend_input = False
-            else:
-                prepend_input = True
-
-            if prepend_input and stream:
-                raise ValueError(
-                    "When streaming, `exclude_input_in_output` = False is not allowed."
-                )
-
-            # Request parameters are not yet supported via
-            # BLS. Provide an optional mechanism to receive serialized
-            # parameters as an input tensor until support is added
-
-            parameters_input_tensor = pb_utils.get_input_tensor_by_name(
-                request, "sampling_parameters"
-            )
-            if parameters_input_tensor:
-                parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            else:
-                parameters = request.parameters()
+            (
+                prompt,
+                stream,
+                prepend_input,
+                parameters,
+                additional_outputs,
+            ) = self._get_input_tensors(request)
 
             sampling_params_dict = self.get_sampling_params_dict(parameters)
             lora_name = sampling_params_dict.pop("lora_name", None)
             sampling_params = SamplingParams(**sampling_params_dict)
-            last_output = None
-            prev_outputs = None
             lora_request = None
             if lora_name is not None:
                 lora_id = str(self.supported_loras.index(lora_name) + 1)
@@ -446,7 +565,11 @@ class TritonPythonModel:
                 request_id, prompt, sampling_params, lora_request=lora_request
             )
 
-            async for output in response_iterator:
+            prev_request_output = None
+            async for request_output in response_iterator:
+                # Cancellation state will be checked by the response loop and written to
+                # the response state if streaming. If not streaming, cancellation state
+                # needs to be checked here.
                 is_cancelled = response_state["is_cancelled"]
                 if not stream:
                     is_cancelled = response_sender.is_cancelled()
@@ -454,7 +577,9 @@ class TritonPythonModel:
                     self.logger.log_info("[vllm] Cancelling the request")
                     await self.llm_engine.abort(request_id)
                     self.logger.log_info("[vllm] Successfully cancelled the request")
+
                     if stream:
+                        # Add cancelled final response to response loop.
                         response_state["last_response_generated"] = True
                         response = pb_utils.InferenceResponse(
                             error=pb_utils.TritonError(
@@ -467,44 +592,52 @@ class TritonPythonModel:
                         self._response_queue.put_nowait(
                             (response_state, response, flags)
                         )
+
                     break
+
+                # Send each response if streaming.
                 if stream:
-                    prev_outputs_lengths = None
-                    if prev_outputs is not None:
-                        prev_outputs_lengths = [
-                            len(prev_output.text)
-                            for prev_output in prev_outputs.outputs
-                        ]
-                    response = self.create_stream_response(output, prev_outputs_lengths)
+                    response = self._create_response(
+                        prev_request_output,
+                        request_output,
+                        prepend_input=False,
+                        additional_outputs=additional_outputs,
+                    )
                     flags = 0
-                    if output.finished:
+                    if request_output.finished:
                         response_state["last_response_generated"] = True
                         flags = pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
                         decrement_ongoing_request_count = False
                     self._response_queue.put_nowait((response_state, response, flags))
-                prev_outputs = output
 
-            last_output = output
+                prev_request_output = request_output
 
+            # Send the last response which contains all the outputs if not streaming.
             if not stream:
                 response_sender.send(
-                    self.create_response(last_output, prepend_input),
+                    self._create_response(
+                        prev_request_output=None,
+                        request_output=request_output,
+                        prepend_input=prepend_input,
+                        additional_outputs=additional_outputs,
+                    ),
                     flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL,
                 )
 
         except Exception as e:
             self.logger.log_error(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
-            triton_output_tensor = pb_utils.Tensor(
+            text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
             )
             response = pb_utils.InferenceResponse(
-                output_tensors=[triton_output_tensor], error=error
+                output_tensors=[text_output_tensor], error=error
             )
             response_sender.send(
                 response, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL
             )
             raise e
+
         finally:
             if decrement_ongoing_request_count:
                 self.ongoing_request_count -= 1
