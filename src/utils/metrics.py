@@ -34,6 +34,7 @@ from vllm.engine.metrics import Stats as VllmStats
 from vllm.engine.metrics import SupportsMetricsInfo, build_1_2_5_buckets
 from vllm.version import __version__ as _VLLM_VERSION
 
+
 class TritonMetrics:
     def __init__(self, labels: List[str], max_model_len: int):
         # Initialize metric families
@@ -163,9 +164,11 @@ class TritonMetrics:
             )
         )
         if _VLLM_VERSION < "0.6.3":
-            self.histogram_best_of_request = self.histogram_best_of_request_family.Metric(
-                labels=labels,
-                buckets=[1, 2, 5, 10, 20],
+            self.histogram_best_of_request = (
+                self.histogram_best_of_request_family.Metric(
+                    labels=labels,
+                    buckets=[1, 2, 5, 10, 20],
+                )
             )
         self.histogram_n_request = self.histogram_n_request_family.Metric(
             labels=labels,
@@ -254,7 +257,9 @@ class VllmStatLogger(VllmStatLoggerBase):
             (self.metrics.histogram_n_request, stats.n_requests),
         ]
         if _VLLM_VERSION < "0.6.3":
-            histogram_metrics.append((self.metrics.histogram_best_of_request, stats.best_of_requests))
+            histogram_metrics.append(
+                (self.metrics.histogram_best_of_request, stats.best_of_requests)
+            )
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
         for metric, data in histogram_metrics:
