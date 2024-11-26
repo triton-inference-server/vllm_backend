@@ -236,7 +236,7 @@ class TritonPythonModel:
     def _get_bool_config_param(self, param_name: str) -> bool:
         return (param_name in self.model_config["parameters"]) and (
             self.model_config["parameters"][param_name]["string_value"].lower()
-            in ["yes", "true"]
+            == "true"
         )
 
     def setup_lora(self):

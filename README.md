@@ -307,11 +307,11 @@ or left empty (false by default) in [model.json](https://github.com/triton-infer
 *Note:* vLLM metrics are not reported to Triton metrics server by default
 due to potential performance slowdowns. To enable vLLM model's metrics
 reporting, please add following lines to its config.pbtxt as well.
-```bash
+```
 parameters: {
   key: "REPORT_CUSTOM_METRICS"
   value: {
-    string_value:"yes"
+    string_value: "true"
   }
 }
 ```
