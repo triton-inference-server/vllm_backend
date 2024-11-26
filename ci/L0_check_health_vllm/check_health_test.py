@@ -90,7 +90,15 @@ class TestCheckHealth:
 
     def _assert_model_ready(self, expected_readiness):
         with grpcclient.InferenceServerClient(self._grpc_url) as client:
+            # is_model_ready API
             assert client.is_model_ready(self._model_name) == expected_readiness
+            # get_model_repository_index API
+            model_state = None
+            for model_index in client.get_model_repository_index().models:
+                if model_index.name == self._model_name:
+                    assert model_state == None, "duplicate model index found"
+                    model_state = model_index.state == "READY"
+            assert model_state == expected_readiness
 
     def test_vllm_is_healthy(self):
         num_repeats = 3
