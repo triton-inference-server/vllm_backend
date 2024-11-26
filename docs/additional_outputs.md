@@ -46,7 +46,7 @@ for more details.
 To enable, set `return_finish_reason` input tensor to `True`. The reason will be
 sent as a string on the `finish_reason` output tensor.
 
-Supported since r24.11.
+Supported since r24.12.
 
 ### Cumulative Log Probabilities
 
@@ -57,7 +57,7 @@ for more details.
 To enable, set `return_cumulative_logprob` input tensor to `True`. The floating
 point value will be sent on the `cumulative_logprob` output tensor.
 
-Supported since r24.11.
+Supported since r24.12.
 
 ### Number of Output Tokens
 
@@ -71,7 +71,7 @@ for more details on the token IDs of the generated output text.
 To enable, set `return_num_output_tokens` input tensor to `True`. The unsigned
 integer value will be sent on the `num_output_tokens` output tensor.
 
-Supported since r24.11.
+Supported since r24.12.
 
 ## Examples
 
