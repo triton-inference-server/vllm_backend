@@ -316,31 +316,11 @@ parameters: {
 }
 ```
 
-## vLLM Health Check (BETA)
+## vLLM Engine Health Check (BETA)
 
-> [!NOTE]
-> The vLLM Health Check feature is currently in BETA. Its features and
-> functionality are subject to change as we collect feedback. We are excited to
-> hear any thoughts you have!
-
-The vLLM backend supports checking for
-[vLLM Engine Health](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/engine/async_llm_engine.py#L1177-L1185)
-when an inference request is received. If the health check fails, the entire
-model will be unloaded, so it becomes NOT Ready at the server.
-
-The Health Check is disabled by default. To enable it, set the following
-parameter on the model config to true
-```
-parameters: {
-  key: "ENABLE_VLLM_HEALTH_CHECK"
-  value: { string_value: "true" }
-}
-```
-and select
-[Model Control Mode EXPLICIT](https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_management.md#model-control-mode-explicit)
-when the server is started.
-
-Supported since r24.12.
+vLLM Engine Health Check may be enabled optionally, for more accurate model
+state reported by the server. See [this docs](docs/health_check.md) for more
+information.
 
 ## Referencing the Tutorial
 
