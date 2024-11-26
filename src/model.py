@@ -701,7 +701,7 @@ class TritonPythonModel:
                 request.get_response_sender().send(
                     pb_utils.InferenceResponse(
                         error=pb_utils.TritonError(
-                            message="vLLM engine is not healthy and model will be unloaded",
+                            message="Model is unavailable due to unhealthy vLLM engine",
                             code=pb_utils.TritonError.UNAVAILABLE,
                         )
                     ),

@@ -35,9 +35,8 @@
 
 The vLLM backend supports checking for
 [vLLM Engine Health](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/engine/async_llm_engine.py#L1177-L1185)
-upon receiving each inference request. If the health check fails, the entire
-model will be unloaded, so its state becomes NOT Ready at the server, which can
-be queried by the
+upon receiving each inference request. If the health check fails, the model
+state will becomes NOT Ready at the server, which can be queried by the
 [Repository Index](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#index)
 or
 [Model Ready](https://github.com/triton-inference-server/client/blob/main/src/c%2B%2B/library/http_client.h#L178-L192)
@@ -54,5 +53,3 @@ parameters: {
 and select
 [Model Control Mode EXPLICIT](https://github.com/triton-inference-server/server/blob/main/docs/user_guide/model_management.md#model-control-mode-explicit)
 when the server is started.
-
-Supported since r24.12.

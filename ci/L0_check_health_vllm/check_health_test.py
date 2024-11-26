@@ -117,7 +117,7 @@ class TestCheckHealth:
         # The 2nd infer should begin with health check failed
         self._llm_infer()
         self._assert_infer_exception(
-            "vLLM engine is not healthy and model will be unloaded"
+            "Model is unavailable due to unhealthy vLLM engine"
         )
         self._assert_model_ready(False)
         # The 3rd infer should have model not found
