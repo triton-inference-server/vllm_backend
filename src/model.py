@@ -105,6 +105,12 @@ class TritonPythonModel:
                 "optional": True,
             },
             {
+                "name": "return_num_input_tokens",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
                 "name": "return_num_output_tokens",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
@@ -125,6 +131,7 @@ class TritonPythonModel:
             {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "finish_reason", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "cumulative_logprob", "data_type": "TYPE_FP32", "dims": [-1]},
+            {"name": "num_input_tokens", "data_type": "TYPE_UINT32", "dims": [1]},
             {"name": "num_output_tokens", "data_type": "TYPE_UINT32", "dims": [-1]},
         ]
 
@@ -377,10 +384,11 @@ class TritonPythonModel:
         else:
             parameters = request.parameters()
 
-        # return_finish_reason, return_cumulative_logprob, return_num_output_tokens
+        # additional outputs
         additional_outputs = {
             "return_finish_reason": None,
             "return_cumulative_logprob": None,
+            "return_num_input_tokens": None,
             "return_num_output_tokens": None,
         }
         for tensor_name in additional_outputs.keys():
@@ -493,6 +501,15 @@ class TritonPythonModel:
                 pb_utils.Tensor(
                     "cumulative_logprob",
                     np.asarray(cumulative_logprob, dtype=np.float32),
+                )
+            )
+
+        # num_input_tokens
+        if additional_outputs["return_num_input_tokens"]:
+            num_input_tokens = len(request_output.prompt_token_ids)
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "num_input_tokens", np.asarray(num_input_tokens, dtype=np.uint32)
                 )
             )
 

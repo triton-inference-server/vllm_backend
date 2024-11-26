@@ -44,6 +44,7 @@ class TestAdditionalOutputs:
         sampling_parameters=None,
         return_finish_reason=None,
         return_cumulative_logprob=None,
+        return_num_input_tokens=None,
         return_num_output_tokens=None,
     ):
         inputs = []
@@ -74,6 +75,12 @@ class TestAdditionalOutputs:
             )
             inputs[-1].set_data_from_numpy(
                 np.array([return_cumulative_logprob], dtype=bool)
+            )
+
+        if return_num_input_tokens is not None:
+            inputs.append(grpcclient.InferInput("return_num_input_tokens", [1], "BOOL"))
+            inputs[-1].set_data_from_numpy(
+                np.array([return_num_input_tokens], dtype=bool)
             )
 
         if return_num_output_tokens is not None:
@@ -135,6 +142,18 @@ class TestAdditionalOutputs:
             assert cumulative_logprob != prev_cumulative_logprob
             prev_cumulative_logprob = cumulative_logprob
 
+    def _assert_num_input_tokens(self, return_num_input_tokens):
+        for response in self._responses:
+            result, error = response["result"], response["error"]
+            assert error is None
+            num_input_tokens_np = result.as_numpy(name="num_input_tokens")
+            if return_num_input_tokens is None or return_num_input_tokens == False:
+                assert num_input_tokens_np is None
+                continue
+            num_input_tokens = num_input_tokens_np.astype(int)
+            assert num_input_tokens > 0
+            assert num_input_tokens <= len(self._prompt)
+
     def _assert_num_output_tokens(self, return_num_output_tokens):
         for response in self._responses:
             result, error = response["result"], response["error"]
@@ -166,12 +185,14 @@ class TestAdditionalOutputs:
     @pytest.mark.parametrize("stream", [True, False])
     @pytest.mark.parametrize("return_finish_reason", [None, True, False])
     @pytest.mark.parametrize("return_cumulative_logprob", [None, True, False])
+    @pytest.mark.parametrize("return_num_input_tokens", [None, True, False])
     @pytest.mark.parametrize("return_num_output_tokens", [None, True, False])
     def test_additional_outputs(
         self,
         stream,
         return_finish_reason,
         return_cumulative_logprob,
+        return_num_input_tokens,
         return_num_output_tokens,
     ):
         inputs = self._get_inputs(
@@ -180,10 +201,12 @@ class TestAdditionalOutputs:
             sampling_parameters=self._sampling_parameters,
             return_finish_reason=return_finish_reason,
             return_cumulative_logprob=return_cumulative_logprob,
+            return_num_input_tokens=return_num_input_tokens,
             return_num_output_tokens=return_num_output_tokens,
         )
         self._llm_infer(inputs)
         self._assert_text_output_valid()
         self._assert_finish_reason(return_finish_reason)
         self._assert_cumulative_logprob(return_cumulative_logprob)
+        self._assert_num_input_tokens(return_num_input_tokens)
         self._assert_num_output_tokens(return_num_output_tokens)
