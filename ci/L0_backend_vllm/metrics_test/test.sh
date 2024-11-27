@@ -86,13 +86,13 @@ RET=0
 copy_model_repository
 run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
-# Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "no" in config.pbtxt
+# Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "false" in config.pbtxt
 copy_model_repository
 echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"no\"
+    string_value: \"false\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
