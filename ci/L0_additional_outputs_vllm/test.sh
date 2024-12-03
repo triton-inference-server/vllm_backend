@@ -40,7 +40,7 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/v
 RET=0
 
 # Test
-SERVER_LOG="vllm_opt.server.log"
+SERVER_LOG="additional_outputs_test.server.log"
 SERVER_ARGS="--model-repository=models"
 run_server
 if [ "$SERVER_PID" == "0" ]; then
