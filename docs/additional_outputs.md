@@ -46,8 +46,6 @@ for more details.
 To enable, set `return_finish_reason` input tensor to `True`. The reason will be
 sent as a string on the `finish_reason` output tensor.
 
-Supported since r24.12.
-
 ### Cumulative Log Probabilities
 
 The cumulative log probability of the generated output text. See
@@ -57,7 +55,26 @@ for more details.
 To enable, set `return_cumulative_logprob` input tensor to `True`. The floating
 point value will be sent on the `cumulative_logprob` output tensor.
 
-Supported since r24.12.
+### Log Probabilities
+
+The log probabilities of the top probability words at each position if the
+[logprobs](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/sampling_params.py#L146-L152)
+are requested. Only the log probabilities of the new tokens generated since the
+last response are returned on each new response. See
+[here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L24-L25)
+for more details on the log probabilities.
+
+To enable, set `return_logprobs` input tensor to `True`. The log probabilities
+will be sent on the `logprobs` output tensor as JSON.
+
+### Number of Input Tokens
+
+The number of token IDs of the prompt. See
+[here](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/outputs.py#L79-L81)
+for more details.
+
+To enable, set `return_num_input_tokens` input tensor to `True`. The unsigned
+integer value will be sent on the `num_input_tokens` output tensor.
 
 ### Number of Output Tokens
 
@@ -70,8 +87,6 @@ for more details on the token IDs of the generated output text.
 
 To enable, set `return_num_output_tokens` input tensor to `True`. The unsigned
 integer value will be sent on the `num_output_tokens` output tensor.
-
-Supported since r24.12.
 
 ## Examples
 
