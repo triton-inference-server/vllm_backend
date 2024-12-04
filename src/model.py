@@ -514,6 +514,7 @@ class TritonPythonModel:
             )
 
         # logprobs
+        # https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/sequence.py#L37-L58
         if additional_outputs["return_logprobs"]:
             if "prev_lens_logprobs" not in request_output_state:
                 request_output_state["prev_lens_logprobs"] = [0] * len(
