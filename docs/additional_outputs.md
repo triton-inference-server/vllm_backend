@@ -57,7 +57,7 @@ point value will be sent on the `cumulative_logprob` output tensor.
 
 ### Log Probabilities
 
-The log probabilities of the top probability words at each position if the
+The log probabilities of the top probability tokens at each position of the
 [logprobs](https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/sampling_params.py#L146-L152)
 are requested. Only the log probabilities of the new tokens generated since the
 last response are returned on each new response. See
@@ -65,7 +65,7 @@ last response are returned on each new response. See
 for more details on the log probabilities.
 
 To enable, set `return_logprobs` input tensor to `True`. The log probabilities
-will be sent on the `logprobs` output tensor as JSON.
+will be sent on the `logprobs` output tensor as a serialized JSON string.
 
 ### Number of Input Tokens
 
