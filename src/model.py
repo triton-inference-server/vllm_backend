@@ -43,7 +43,6 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-from vllm.version import __version__ as _VLLM_VERSION
 
 from utils.metrics import VllmStatLogger
 
@@ -74,6 +73,12 @@ class TritonPythonModel:
         # Inputs expected by the backend.
         inputs = [
             {"name": "text_input", "data_type": "TYPE_STRING", "dims": [1]},
+            {
+                "name": "image",
+                "data_type": "TYPE_STRING",
+                "dims": [-1],  # can be multiple images as separate elements
+                "optional": True,
+            },
             {
                 "name": "stream",
                 "data_type": "TYPE_BOOL",
@@ -123,15 +128,6 @@ class TritonPythonModel:
                 "optional": True,
             },
         ]
-        if _VLLM_VERSION >= "0.6.3.post1":
-            inputs.append(
-                {
-                    "name": "image",
-                    "data_type": "TYPE_STRING",
-                    "dims": [-1],  # can be multiple images as separate elements
-                    "optional": True,
-                }
-            )
         # Outputs expected by the backend.
         outputs = [
             {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
@@ -352,19 +348,18 @@ class TritonPythonModel:
             prompt = prompt.decode("utf-8")
 
         # image
-        if _VLLM_VERSION >= "0.6.3.post1":
-            images = pb_utils.get_input_tensor_by_name(request, "image")
-            if images:
-                images_vllm = []
-                for image_np in images.as_numpy():
-                    image_b = base64.b64decode(image_np.decode("utf-8"))
-                    image_rgb = Image.open(BytesIO(image_b)).convert("RGB")
-                    images_vllm.append(image_rgb)
-                if len(images_vllm) > 0:
-                    prompt = {
-                        "prompt": prompt,
-                        "multi_modal_data": {"image": images_vllm},
-                    }
+        images = pb_utils.get_input_tensor_by_name(request, "image")
+        if images:
+            images_vllm = []
+            for image_np in images.as_numpy():
+                image_b = base64.b64decode(image_np.decode("utf-8"))
+                image_rgb = Image.open(BytesIO(image_b)).convert("RGB")
+                images_vllm.append(image_rgb)
+            if len(images_vllm) > 0:
+                prompt = {
+                    "prompt": prompt,
+                    "multi_modal_data": {"image": images_vllm},
+                }
 
         # stream
         stream = pb_utils.get_input_tensor_by_name(request, "stream")
