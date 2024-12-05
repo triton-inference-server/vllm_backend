@@ -28,9 +28,12 @@ import asyncio
 import base64
 import gc
 import json
+import multiprocessing
 import os
 import queue
+import tempfile
 import threading
+import time
 from io import BytesIO
 from typing import Dict, List
 
@@ -40,9 +43,12 @@ import triton_python_backend_utils as pb_utils
 from PIL import Image
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.engine.multiprocessing.client import MQLLMEngineClient
+from vllm.engine.multiprocessing.engine import run_mp_engine
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams
-from vllm.utils import random_uuid
+from vllm.usage.usage_lib import UsageContext
+from vllm.utils import get_open_zmq_ipc_path, random_uuid
 from vllm.version import __version__ as _VLLM_VERSION
 
 from utils.metrics import VllmStatLogger
@@ -173,6 +179,8 @@ class TritonPythonModel:
         )
         self._shutdown_event = asyncio.Event()
         self._event_thread.start()
+        while self.llm_engine is None:
+            time.sleep(0.5)
 
     def init_engine(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
@@ -200,8 +208,8 @@ class TritonPythonModel:
         self.setup_lora()
 
         # Create an AsyncLLMEngine from the config from JSON
-        aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
-        self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
+        self._aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
+        self.llm_engine = None  # AsyncLLMEngine.from_engine_args(aync_engine_args)
 
         # Create vLLM custom metrics
         self.vllm_metrics = None
@@ -302,22 +310,147 @@ class TritonPythonModel:
         Primary coroutine running on the engine event loop. This coroutine is responsible for
         keeping the engine alive until a shutdown is requested.
         """
-        # first await the shutdown signal
-        while self._shutdown_event.is_set() is False:
-            await asyncio.sleep(5)
+        disable_frontend_multiprocessing = False
+        if (
+            MQLLMEngineClient.is_unsupported_config(self._aync_engine_args)
+            or disable_frontend_multiprocessing
+        ):
+            self.logger.log_warn("[vllm] Using Non-MQLLMEngine")
 
-        # Wait for the ongoing_requests
-        while self.ongoing_request_count > 0:
-            self.logger.log_info(
-                "[vllm] Awaiting remaining {} requests".format(
-                    self.ongoing_request_count
-                )
+            engine_config = self._aync_engine_args.create_engine_config()
+            uses_ray = getattr(
+                AsyncLLMEngine._get_executor_cls(engine_config), "uses_ray", False
             )
-            await asyncio.sleep(5)
 
-        for task in asyncio.all_tasks(loop=self._loop):
-            if task is not asyncio.current_task():
-                task.cancel()
+            build_engine = partial(
+                AsyncLLMEngine.from_engine_args,
+                engine_args=self._aync_engine_args,
+                engine_config=engine_config,
+                usage_context=UsageContext.OPENAI_API_SERVER,
+            )
+            if uses_ray:
+                # Must run in main thread with ray for its signal handlers to work
+                engine_client = build_engine()
+            else:
+                engine_client = await asyncio.get_running_loop().run_in_executor(
+                    None, build_engine
+                )
+
+            self.llm_engine = engine_client
+
+            # first await the shutdown signal
+            while self._shutdown_event.is_set() is False:
+                await asyncio.sleep(5)
+
+            # Wait for the ongoing_requests
+            while self.ongoing_request_count > 0:
+                self.logger.log_info(
+                    "[vllm] Awaiting remaining {} requests".format(
+                        self.ongoing_request_count
+                    )
+                )
+                await asyncio.sleep(5)
+
+            for task in asyncio.all_tasks(loop=self._loop):
+                if task is not asyncio.current_task():
+                    task.cancel()
+
+        # Otherwise, use the multiprocessing AsyncLLMEngine.
+        else:
+            self.logger.log_info("[vllm] Using MQLLMEngine")
+
+            if "PROMETHEUS_MULTIPROC_DIR" not in os.environ:
+                # Make TemporaryDirectory for prometheus multiprocessing
+                # Note: global TemporaryDirectory will be automatically
+                #   cleaned up upon exit.
+                global prometheus_multiproc_dir
+                prometheus_multiproc_dir = tempfile.TemporaryDirectory()
+                os.environ["PROMETHEUS_MULTIPROC_DIR"] = prometheus_multiproc_dir.name
+            else:
+                self.logger.log_warn(
+                    "Found PROMETHEUS_MULTIPROC_DIR was set by user. "
+                    "This directory must be wiped between vLLM runs or "
+                    "you will find inaccurate metrics. Unset the variable "
+                    "and vLLM will properly handle cleanup."
+                )
+
+            # Select random path for IPC.
+            ipc_path = get_open_zmq_ipc_path()
+            self.logger.log_info(
+                f"Multiprocessing frontend to use {ipc_path} for IPC Path."
+            )
+
+            # engine_config = self._aync_engine_args.create_engine_config()
+
+            # Start RPCServer in separate process (holds the LLMEngine).
+            # the current process might have CUDA context,
+            # so we need to spawn a new process
+            context = multiprocessing.get_context("spawn")
+
+            engine_process = context.Process(
+                target=run_mp_engine,
+                args=(self._aync_engine_args, UsageContext.OPENAI_API_SERVER, ipc_path),
+            )
+            engine_process.start()
+            self.logger.log_info(
+                f"Started engine process with PID {engine_process.pid}"
+            )
+
+            # Build RPCClient, which conforms to EngineClient Protocol.
+            # NOTE: Actually, this is not true yet. We still need to support
+            # embedding models via RPC (see TODO above)
+            engine_config = self._aync_engine_args.create_engine_config()
+            mp_engine_client = MQLLMEngineClient(ipc_path, engine_config)
+
+            try:
+                while True:
+                    try:
+                        await mp_engine_client.setup()
+                        break
+                    except TimeoutError:
+                        if not engine_process.is_alive():
+                            raise RuntimeError(
+                                "Engine process failed to start"
+                            ) from None
+
+                self.llm_engine = mp_engine_client  # type: ignore[misc]
+            finally:
+                # first await the shutdown signal
+                while self._shutdown_event.is_set() is False:
+                    await asyncio.sleep(5)
+
+                # Wait for the ongoing_requests
+                while self.ongoing_request_count > 0:
+                    self.logger.log_info(
+                        "[vllm] Awaiting remaining {} requests".format(
+                            self.ongoing_request_count
+                        )
+                    )
+                    await asyncio.sleep(5)
+
+                for task in asyncio.all_tasks(loop=self._loop):
+                    if task is not asyncio.current_task():
+                        task.cancel()
+
+                # Ensure rpc server process was terminated
+                engine_process.terminate()
+
+                # Close all open connections to the backend
+                mp_engine_client.close()
+
+                # Wait for engine process to join
+                engine_process.join(4)
+                if engine_process.exitcode is None:
+                    # Kill if taking longer than 5 seconds to stop
+                    engine_process.kill()
+
+                # Lazy import for prometheus multiprocessing.
+                # We need to set PROMETHEUS_MULTIPROC_DIR environment variable
+                # before prometheus_client is imported.
+                # See https://prometheus.github.io/client_python/multiprocess/
+                from prometheus_client import multiprocess
+
+                multiprocess.mark_process_dead(engine_process.pid)
 
         self.logger.log_info("[vllm] Shutdown complete")
 
@@ -551,8 +684,8 @@ class TritonPythonModel:
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
-            response_iterator = await self.llm_engine.add_request(
-                request_id, prompt, sampling_params, lora_request=lora_request
+            response_iterator = self.llm_engine.generate(
+                prompt, sampling_params, request_id, lora_request=lora_request
             )
 
             prev_request_output = None
