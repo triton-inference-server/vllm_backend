@@ -86,26 +86,26 @@ RET=0
 copy_model_repository
 run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
-# Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "no" in config.pbtxt
+# Test disabling vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "false" in config.pbtxt
 copy_model_repository
 echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"no\"
+    string_value: \"false\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
 run_test VLLMTritonMetricsTest.test_vllm_metrics_disabled
 
-# Test vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "yes" in config.pbtxt
+# Test vLLM metrics reporting with parameter "REPORT_CUSTOM_METRICS" set to "true" in config.pbtxt
 copy_model_repository
 cp ${SAMPLE_MODELS_REPO}/vllm_model/config.pbtxt models/vllm_opt
 echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"yes\"
+    string_value: \"true\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
@@ -120,7 +120,7 @@ echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"yes\"
+    string_value: \"true\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
@@ -134,7 +134,7 @@ echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"yes\"
+    string_value: \"true\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
@@ -146,7 +146,7 @@ echo -e "
 parameters: {
   key: \"REPORT_CUSTOM_METRICS\"
   value: {
-    string_value:\"yes\"
+    string_value: \"true\"
   }
 }
 " >> models/vllm_opt/config.pbtxt
