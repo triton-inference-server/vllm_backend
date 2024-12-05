@@ -105,6 +105,18 @@ class TritonPythonModel:
                 "optional": True,
             },
             {
+                "name": "return_logprobs",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
+                "name": "return_num_input_tokens",
+                "data_type": "TYPE_BOOL",
+                "dims": [1],
+                "optional": True,
+            },
+            {
                 "name": "return_num_output_tokens",
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
@@ -125,6 +137,8 @@ class TritonPythonModel:
             {"name": "text_output", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "finish_reason", "data_type": "TYPE_STRING", "dims": [-1]},
             {"name": "cumulative_logprob", "data_type": "TYPE_FP32", "dims": [-1]},
+            {"name": "logprobs", "data_type": "TYPE_STRING", "dims": [-1]},
+            {"name": "num_input_tokens", "data_type": "TYPE_UINT32", "dims": [1]},
             {"name": "num_output_tokens", "data_type": "TYPE_UINT32", "dims": [-1]},
         ]
 
@@ -387,10 +401,12 @@ class TritonPythonModel:
         else:
             parameters = request.parameters()
 
-        # return_finish_reason, return_cumulative_logprob, return_num_output_tokens
+        # additional outputs
         additional_outputs = {
             "return_finish_reason": None,
             "return_cumulative_logprob": None,
+            "return_logprobs": None,
+            "return_num_input_tokens": None,
             "return_num_output_tokens": None,
         }
         for tensor_name in additional_outputs.keys():
@@ -457,25 +473,26 @@ class TritonPythonModel:
                     self.ongoing_request_count -= 1
 
     def _create_response(
-        self, prev_request_output, request_output, prepend_input, additional_outputs
+        self, request_output_state, request_output, prepend_input, additional_outputs
     ):
         output_tensors = []
 
         # text_output
         prepend_prompt = ""
-        if prev_request_output is None:
+        if "prev_lens_text_output" not in request_output_state:
             # this is the first response
             if prepend_input:
                 prepend_prompt = request_output.prompt
-            prev_lens = [0] * len(request_output.outputs)
-        else:
-            # this is a subsequent response
-            prev_lens = [
-                len(prev_output.text) for prev_output in prev_request_output.outputs
-            ]
+            request_output_state["prev_lens_text_output"] = [0] * len(
+                request_output.outputs
+            )
+        prev_lens = request_output_state["prev_lens_text_output"]
         text_output = [
             (prepend_prompt + output.text[prev_len:]).encode("utf-8")
             for output, prev_len in zip(request_output.outputs, prev_lens)
+        ]
+        request_output_state["prev_lens_text_output"] = [
+            len(output.text) for output in request_output.outputs
         ]
         output_tensors.append(
             pb_utils.Tensor(
@@ -506,20 +523,58 @@ class TritonPythonModel:
                 )
             )
 
+        # logprobs
+        # https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/sequence.py#L37-L58
+        if additional_outputs["return_logprobs"]:
+            if "prev_lens_logprobs" not in request_output_state:
+                request_output_state["prev_lens_logprobs"] = [0] * len(
+                    request_output.outputs
+                )
+            logprobs = []
+            for i in range(len(request_output.outputs)):
+                output = request_output.outputs[i]
+                if output.logprobs is None:
+                    logprobs.append("null".encode("utf-8"))
+                    continue
+                prev_len = request_output_state["prev_lens_logprobs"][i]
+                request_output_state["prev_lens_logprobs"][i] = len(output.logprobs)
+                logprobs_py = []
+                for logprob_d_vllm in output.logprobs[prev_len:]:
+                    logprob_d_py = {}
+                    for token_id, logprob_vllm in logprob_d_vllm.items():
+                        logprob_d_py[token_id] = {
+                            "logprob": logprob_vllm.logprob,
+                            "rank": logprob_vllm.rank,
+                            "decoded_token": logprob_vllm.decoded_token,
+                        }
+                    logprobs_py.append(logprob_d_py)
+                logprobs.append(json.dumps(logprobs_py).encode("utf-8"))
+            output_tensors.append(
+                pb_utils.Tensor("logprobs", np.asarray(logprobs, dtype=np.object_))
+            )
+
+        # num_input_tokens
+        if additional_outputs["return_num_input_tokens"]:
+            num_input_tokens = len(request_output.prompt_token_ids)
+            output_tensors.append(
+                pb_utils.Tensor(
+                    "num_input_tokens", np.asarray(num_input_tokens, dtype=np.uint32)
+                )
+            )
+
         # num_output_tokens
         if additional_outputs["return_num_output_tokens"]:
-            if prev_request_output is None:
-                # this is the first response
-                prev_lens = [0] * len(request_output.outputs)
-            else:
-                # this is a subsequent response
-                prev_lens = [
-                    len(prev_output.token_ids)
-                    for prev_output in prev_request_output.outputs
-                ]
+            if "prev_lens_num_output_tokens" not in request_output_state:
+                request_output_state["prev_lens_num_output_tokens"] = [0] * len(
+                    request_output.outputs
+                )
+            prev_lens = request_output_state["prev_lens_num_output_tokens"]
             num_output_tokens = [
                 (len(output.token_ids) - prev_len)
                 for output, prev_len in zip(request_output.outputs, prev_lens)
+            ]
+            request_output_state["prev_lens_num_output_tokens"] = [
+                len(output.token_ids) for output in request_output.outputs
             ]
             output_tensors.append(
                 pb_utils.Tensor(
@@ -565,7 +620,7 @@ class TritonPythonModel:
                 request_id, prompt, sampling_params, lora_request=lora_request
             )
 
-            prev_request_output = None
+            request_output_state = {}
             async for request_output in response_iterator:
                 # Cancellation state will be checked by the response loop and written to
                 # the response state if streaming. If not streaming, cancellation state
@@ -598,7 +653,7 @@ class TritonPythonModel:
                 # Send each response if streaming.
                 if stream:
                     response = self._create_response(
-                        prev_request_output,
+                        request_output_state,
                         request_output,
                         prepend_input=False,
                         additional_outputs=additional_outputs,
@@ -610,13 +665,11 @@ class TritonPythonModel:
                         decrement_ongoing_request_count = False
                     self._response_queue.put_nowait((response_state, response, flags))
 
-                prev_request_output = request_output
-
             # Send the last response which contains all the outputs if not streaming.
             if not stream:
                 response_sender.send(
                     self._create_response(
-                        prev_request_output=None,
+                        request_output_state={},
                         request_output=request_output,
                         prepend_input=prepend_input,
                         additional_outputs=additional_outputs,
