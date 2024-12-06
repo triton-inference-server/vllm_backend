@@ -74,10 +74,12 @@ run_test() {
             RET=1
         fi
     fi
-    set -e
 
+    # TODO: Non-graceful shutdown when metrics are enabled.
     kill $SERVER_PID
     wait $SERVER_PID
+
+    set -e
 }
 
 RET=0

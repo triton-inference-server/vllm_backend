@@ -238,12 +238,19 @@ class TritonPythonModel:
         # Counter to keep track of ongoing request counts.
         self._ongoing_request_count = 0
 
+        # Check if metrics are enabled. The ZMQ process cannot be used when metrics are
+        # enabled.
+        self._enable_metrics = (
+            self._get_bool_config_param("REPORT_CUSTOM_METRICS")
+            and not self._aync_engine_args.disable_log_stats
+        )
+
         try:
             # Start the vLLM engine. The engine lives for the scope of this with
             # statement.
             async with build_async_engine_client_from_engine_args(
                 engine_args=self._aync_engine_args,
-                disable_frontend_multiprocessing=False,
+                disable_frontend_multiprocessing=self._enable_metrics,
             ) as engine:
                 # Capture the engine event loop and make it visible to other threads.
                 self._event_loop = asyncio.get_running_loop()
@@ -334,20 +341,20 @@ class TritonPythonModel:
                 )
 
     def _setup_metrics(self):
-        # Create vLLM custom metrics
         self._vllm_metrics = None
-        if (
-            self._get_bool_config_param("REPORT_CUSTOM_METRICS")
-            and not self._aync_engine_args.disable_log_stats
-        ):
+        # TODO: Do not read metrics directly from the vLLM engine, read from prometheus
+        #       client to allow the use of ZMQ process when metrics are enabled. See
+        #       https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/entrypoints/openai/api_server.py#L222-L245
+        if self._enable_metrics:
             try:
                 labels = {
                     "model": self.args["model_name"],
                     "version": self.args["model_version"],
                 }
                 # Add vLLM custom metrics
+                engine_config = self._llm_engine.engine.model_config
                 self._vllm_metrics = VllmStatLogger(
-                    labels, self._llm_engine.model_config.max_model_len, self.logger
+                    labels, engine_config.max_model_len, self.logger
                 )
                 self._llm_engine.add_logger("triton", self._vllm_metrics)
             except pb_utils.TritonModelException as e:
@@ -786,6 +793,12 @@ class TritonPythonModel:
 
     def finalize(self):
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
+        self._llm_engine_shutdown_event.set()
+
+        # Shutdown the event thread.
+        if self._event_thread is not None:
+            self._event_thread.join()
+            self._event_thread = None
 
         # Shutdown the response thread.
         self._response_queue.put(None)
@@ -796,12 +809,6 @@ class TritonPythonModel:
         # Shutdown the metrics thread.
         if self._vllm_metrics is not None:
             self._vllm_metrics.finalize()
-
-        # Shutdown the event thread and engine.
-        self._llm_engine_shutdown_event.set()
-        if self._event_thread is not None:
-            self._event_thread.join()
-            self._event_thread = None
 
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.
