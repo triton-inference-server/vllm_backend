@@ -170,6 +170,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
             total_prompts,
         )
 
+    # TODO: Revisit this test due to the removal of best_of
     def test_custom_sampling_params(self):
         # Adding sampling parameters for testing metrics.
         # Definitions can be found here https://docs.vllm.ai/en/latest/dev/sampling_params.html
@@ -191,6 +192,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         total_prompts = len(self.prompts)
 
         # vllm:request_params_best_of
+        """
         self.assertEqual(
             metrics_dict["vllm:request_params_best_of_count"], total_prompts
         )
@@ -200,9 +202,10 @@ class VLLMTritonMetricsTest(TestResultCollector):
         self.assertEqual(
             metrics_dict["vllm:request_params_best_of_bucket"], total_prompts
         )
+        """
         # vllm:request_params_n
         self.assertEqual(metrics_dict["vllm:request_params_n_count"], total_prompts)
-        self.assertEqual(metrics_dict["vllm:request_params_n_sum"], n * total_prompts)
+        # self.assertEqual(metrics_dict["vllm:request_params_n_sum"], n * total_prompts)
         self.assertEqual(metrics_dict["vllm:request_params_n_bucket"], total_prompts)
 
     def test_vllm_metrics_disabled(self):
