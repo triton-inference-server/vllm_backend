@@ -172,6 +172,13 @@ class TritonPythonModel:
         )
         self._is_healthy = True
 
+        # Check if metrics are enabled. The ZMQ process cannot be used when metrics are
+        # enabled.
+        self._enable_metrics = (
+            self._get_bool_config_param("REPORT_CUSTOM_METRICS")
+            and not self._aync_engine_args.disable_log_stats
+        )
+
         # Starting the vLLM engine and its event thread running the AsyncIO event loop.
         self._init_engine()
 
@@ -238,16 +245,10 @@ class TritonPythonModel:
         # Counter to keep track of ongoing request counts.
         self._ongoing_request_count = 0
 
-        # Check if metrics are enabled. The ZMQ process cannot be used when metrics are
-        # enabled.
-        self._enable_metrics = (
-            self._get_bool_config_param("REPORT_CUSTOM_METRICS")
-            and not self._aync_engine_args.disable_log_stats
-        )
-
         try:
             # Start the vLLM engine. The engine lives for the scope of this with
             # statement.
+            # TODO: Metrics should work with ZMQ enabled.
             async with build_async_engine_client_from_engine_args(
                 engine_args=self._aync_engine_args,
                 disable_frontend_multiprocessing=self._enable_metrics,
