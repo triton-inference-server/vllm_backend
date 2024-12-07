@@ -172,8 +172,13 @@ class TritonPythonModel:
         )
         self._is_healthy = True
 
+        # Initialize engine arguments
+        # TODO: Move this into _init_engine(), after moving check metrics enabled.
+        self._init_engine_args()
+
         # Check if metrics are enabled. The ZMQ process cannot be used when metrics are
         # enabled.
+        # TODO: Move the check into _setup_metrics().
         self._enable_metrics = (
             self._get_bool_config_param("REPORT_CUSTOM_METRICS")
             and not self._aync_engine_args.disable_log_stats
@@ -191,7 +196,7 @@ class TritonPythonModel:
         self._response_thread = threading.Thread(target=self._response_loop)
         self._response_thread.start()
 
-    def _init_engine(self):
+    def _init_engine_args(self):
         # Currently, Triton needs to use decoupled policy for asynchronously
         # forwarding requests to vLLM engine, so assert it.
         self.using_decoupled = pb_utils.using_decoupled_model_transaction_policy(
@@ -219,6 +224,7 @@ class TritonPythonModel:
         # Create an AsyncEngineArgs from the config from JSON
         self._aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
 
+    def _init_engine(self):
         # Run the engine in a separate thread running the AsyncIO event loop.
         self._llm_engine = None
         self._llm_engine_start_cv = threading.Condition()
