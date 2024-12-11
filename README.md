@@ -27,6 +27,9 @@
 -->
 
 [![License](https://img.shields.io/badge/License-BSD3-lightgrey.svg)](https://opensource.org/licenses/BSD-3-Clause)
+![Static Badge](https://img.shields.io/badge/Triton-24.10-8A2BE2)
+![Static Badge](https://img.shields.io/badge/vLLM-0.5.5-blue)
+![Static Badge](https://img.shields.io/badge/CI_Passing-V100%2CA100%2CH100-Green)
 
 # vLLM Backend
 
@@ -82,7 +85,18 @@ latest YY.MM (year.month) of [Triton release](https://github.com/triton-inferenc
 
 ```
 # YY.MM is the version of Triton.
-export TRITON_CONTAINER_VERSION=<YY.MM>
+# Get latest VLLM RELEASED VERSION from https://github.com/triton-inference-server/vllm_backend/releases
+TAG=$(curl https://api.github.com/repos/triton-inference-server/vllm_backend/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export TRITON_CONTAINER_VERSION=${TAG#v} # example: 24.06
+echo "TRITON_CONTAINER_VERSION = ${TRITON_CONTAINER_VERSION}"
+
+# Get latest VLLM RELEASED VERSION from https://github.com/vllm-project/vllm/releases
+TAG=$(curl https://api.github.com/repos/vllm-project/vllm/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+export VLLM_VERSION=${TAG#v} # example: 0.5.3.post1
+echo "VLLM_VERSION = ${VLLM_VERSION}"
+
+git clone -b r${TRITON_CONTAINER_VERSION} https://github.com/triton-inference-server/server.git
+cd server
 ./build.py -v  --enable-logging
                 --enable-stats
                 --enable-tracing
@@ -101,6 +115,11 @@ export TRITON_CONTAINER_VERSION=<YY.MM>
                 --backend=python:r${TRITON_CONTAINER_VERSION}
                 --backend=vllm:r${TRITON_CONTAINER_VERSION}
                 --backend=ensemble
+                --vllm-version=${VLLM_VERSION}
+# Build Triton Server
+cd build
+bash -x ./docker_build
+
 ```
 
 ### Option 3. Add the vLLM Backend to the Default Triton Container
