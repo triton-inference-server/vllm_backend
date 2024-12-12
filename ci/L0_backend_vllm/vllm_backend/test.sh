@@ -141,7 +141,7 @@ mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/${MODEL1}/
 cp -r models/${MODEL1} models/${MODEL2}
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/${MODEL1}/1/model.json
-sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.4/' models/${MODEL2}/1/model.json
+sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.9/' models/${MODEL2}/1/model.json
 
 run_server
 if [ "$SERVER_PID" == "0" ]; then
