@@ -219,6 +219,20 @@ class TritonPythonModel:
         # Check for LoRA config and set it up if enabled
         self.setup_lora()
 
+        # Resolve the model path relative to the config file
+        if self.vllm_engine_config.pop("resolve_model_relative_to_config_file", False):
+            new_path = os.path.abspath(
+                os.path.join(
+                    pb_utils.get_model_dir(), self.vllm_engine_config["model"]
+                )
+            )
+            # Check if the resolved path is subdirectory of the model directory
+            if not new_path.startswith(pb_utils.get_model_dir()):
+                raise ValueError(
+                    f"Resolved model path '{new_path}' is not a subdirectory of the model directory '{pb_utils.get_model_dir()}'"
+                )
+            self.vllm_engine_config["model"] = new_path
+
         # Create an AsyncLLMEngine from the config from JSON
         aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
         self.llm_engine = AsyncLLMEngine.from_engine_args(aync_engine_args)
