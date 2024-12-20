@@ -47,16 +47,24 @@ function enable_health_check {
     echo -e "}" >> models/vllm_opt/config.pbtxt
 }
 
+VLLM_INSTALL_PATH="/usr/local/lib/python3.12/dist-packages/vllm"
+
 function mock_vllm_async_llm_engine {
-    mv /opt/tritonserver/backends/vllm/model.py /opt/tritonserver/backends/vllm/.model.py.backup
-    cp /opt/tritonserver/backends/vllm/.model.py.backup /opt/tritonserver/backends/vllm/model.py
-    sed -i 's/from vllm.engine.async_llm_engine import AsyncLLMEngine/from mock_async_llm_engine import mock_AsyncLLMEngine as AsyncLLMEngine/' /opt/tritonserver/backends/vllm/model.py
-    cp mock_async_llm_engine.py /opt/tritonserver/backends/vllm
+    # backup original file
+    mv $VLLM_INSTALL_PATH/engine/multiprocessing/client.py $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup
+    cp $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    # overwrite the original check_health method
+    echo -e "" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    echo -e "    async def check_health(self, check_count=[0]):" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    echo -e "        check_count[0] += 1" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    echo -e "        if check_count[0] > 1:" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    echo -e "            raise RuntimeError(\"Simulated vLLM check_health() failure\")" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
 }
 
 function unmock_vllm_async_llm_engine {
-    rm -f /opt/tritonserver/backends/vllm/mock_async_llm_engine.py /opt/tritonserver/backends/vllm/model.py
-    mv /opt/tritonserver/backends/vllm/.model.py.backup /opt/tritonserver/backends/vllm/model.py
+    # restore from backup
+    rm -f $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    mv $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
 }
 
 function test_check_health {
