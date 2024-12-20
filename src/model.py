@@ -800,7 +800,7 @@ class TritonPythonModel:
 
     def finalize(self):
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
-        self._llm_engine_shutdown_event.set()
+        self._event_loop.call_soon_threadsafe(self._llm_engine_shutdown_event.set)
 
         # Shutdown the event thread.
         if self._event_thread is not None:
