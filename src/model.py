@@ -228,7 +228,7 @@ class TritonPythonModel:
         # Run the engine in a separate thread running the AsyncIO event loop.
         self._llm_engine = None
         self._llm_engine_start_cv = threading.Condition()
-        self._llm_engine_shutdown_event = threading.Event()
+        self._llm_engine_shutdown_event = asyncio.Event()
         self._event_thread = threading.Thread(
             target=asyncio.run, args=(self._run_llm_engine(),)
         )
@@ -268,8 +268,7 @@ class TritonPythonModel:
                     self._llm_engine_start_cv.notify_all()
 
                 # Wait for the engine shutdown signal.
-                while not self._llm_engine_shutdown_event.is_set():
-                    await asyncio.sleep(0.1)  # Prevent busy-waiting
+                await self._llm_engine_shutdown_event.wait()
 
                 # Wait for the ongoing requests to complete.
                 while self._ongoing_request_count > 0:
@@ -801,7 +800,7 @@ class TritonPythonModel:
 
     def finalize(self):
         self.logger.log_info("[vllm] Issuing finalize to vllm backend")
-        self._llm_engine_shutdown_event.set()
+        self._event_loop.call_soon_threadsafe(self._llm_engine_shutdown_event.set)
 
         # Shutdown the event thread.
         if self._event_thread is not None:
