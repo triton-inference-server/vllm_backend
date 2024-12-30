@@ -48,7 +48,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
             "The capital of France is",
             "The future of AI is",
         ]
-        self.sampling_parameters = {"temperature": "0", "top_p": "1"}
+        self.sampling_parameters = {"temperature": 0, "top_p": 1}
 
     def parse_vllm_metrics(self):
         """
