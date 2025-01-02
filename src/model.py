@@ -1,4 +1,4 @@
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,9 +32,8 @@ import os
 import queue
 import threading
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-import msgspec
 import numpy as np
 import torch
 import triton_python_backend_utils as pb_utils
@@ -44,21 +43,13 @@ from vllm.entrypoints.openai.api_server import (
     build_async_engine_client_from_engine_args,
 )
 from vllm.lora.request import LoRARequest
-from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
 from utils.metrics import VllmStatLogger
+from utils.vllm_backend_utils import TritonSamplingParams
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
-
-
-class TritonSamplingParams(SamplingParams):
-    lora_name: Optional[str] = None
-
-    def __repr__(self) -> str:
-        base = super().__repr__()
-        return f"{base}, lora_name={self.lora_name}"
 
 
 class TritonPythonModel:
@@ -439,12 +430,13 @@ class TritonPythonModel:
                 additional_outputs,
             ) = self._get_input_tensors(request)
 
-            sampling_params = self._get_sampling_params_dict(parameters)
+            sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
+            lora_name = sampling_params.lora_name
             lora_request = None
-            if sampling_params.lora_name is not None:
-                lora_id = str(self.supported_loras.index(sampling_params.lora_name) + 1)
+            if lora_name is not None:
+                lora_id = str(self.supported_loras.index(lora_name) + 1)
                 lora_int_id = int(lora_id)
-                lora_local_path = self.lora_repository[sampling_params.lora_name]
+                lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
             response_iterator = self._llm_engine.generate(
@@ -509,7 +501,6 @@ class TritonPythonModel:
                 )
 
         except Exception as e:
-            self.logger.log_error(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
@@ -711,35 +702,32 @@ class TritonPythonModel:
 
         return pb_utils.InferenceResponse(output_tensors=output_tensors)
 
-    def _get_sampling_params_dict(self, params_json) -> TritonSamplingParams:
-        return msgspec.json.decode(params_json, type=TritonSamplingParams)
-
     def _verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
         # response with `LoRA not found` information. In this way we may avoid
         # further processing.
         verified_request = None
         lora_error = None
+        lora_name = None
         parameters_input_tensor = pb_utils.get_input_tensor_by_name(
             request, "sampling_parameters"
         )
         if parameters_input_tensor:
             parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            sampling_params = self._get_sampling_params_dict(parameters)
+            sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
+            lora_name = sampling_params.lora_name
 
-        if sampling_params.lora_name is not None:
+        if lora_name is not None:
             if not self.enable_lora:
                 lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
                 self.logger.log_info(
                     "[vllm] LoRA is not enabled, please restart the backend with LoRA enabled."
                 )
-            elif sampling_params.lora_name not in self.supported_loras:
+            elif lora_name not in self.supported_loras:
                 lora_error = pb_utils.TritonError(
-                    f"LoRA {sampling_params.lora_name} is not supported, we currently support {self.supported_loras}"
+                    f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
                 )
-                self.logger.log_info(
-                    f"[vllm] LoRA {sampling_params.lora_name} not found."
-                )
+                self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
 
         if lora_error is not None:
             output_tensor = pb_utils.Tensor(
