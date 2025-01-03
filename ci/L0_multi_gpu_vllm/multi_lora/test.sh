@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -112,7 +112,7 @@ model_json=$(cat <<EOF
     "model":"./weights/backbone/gemma-2b",
     "disable_log_requests": true,
     "gpu_memory_utilization": 0.7,
-    "tensor_parallel_size": 1,
+    "tensor_parallel_size": 2,
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": true,
