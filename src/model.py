@@ -562,8 +562,8 @@ class TritonPythonModel:
             )
 
         # parameters / sampling_parameters
-        # An alternative mechanism to receive serialized parameters as an input tensor,
-        # because request parameters are not yet supported via BLS.
+        # An alternative mechanism to receive serialized parameters as an input
+        # tensor, because request parameters are not yet supported via BLS.
         sampling_parameters = pb_utils.get_input_tensor_by_name(
             request, "sampling_parameters"
         )
@@ -714,9 +714,10 @@ class TritonPythonModel:
         )
         if parameters_input_tensor:
             parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
-            lora_name = sampling_params.lora_name
+        else:
+            parameters = request.parameters()
 
+        lora_name = json.loads(parameters).pop("lora_name", None)
         if lora_name is not None:
             if not self.enable_lora:
                 lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
