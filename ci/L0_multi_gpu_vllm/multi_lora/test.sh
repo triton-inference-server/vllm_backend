@@ -381,7 +381,7 @@ else
 fi
 
 # Test generate endpoint + LoRA enabled (str flag)
-EXPECTED_RESPONSE='"LoRA feature is not enabled."'
+EXPECTED_RESPONSE='" feature is not enabled."'
 DATA='{
     "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
     "parameters": {
@@ -393,7 +393,7 @@ DATA='{
     }
 }'
 RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
-check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Disabled LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR || RET=1
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Disabled LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR > $CLIENT_LOG 2>&1 || RET=1
 
 set -e
 

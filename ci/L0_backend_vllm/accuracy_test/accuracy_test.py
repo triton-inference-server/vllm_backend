@@ -26,6 +26,7 @@
 
 import argparse
 import asyncio
+import json
 import pickle
 import sys
 import unittest
@@ -36,6 +37,7 @@ from tritonclient.utils import *
 from vllm import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.sampling_params import GuidedDecodingParams
 from vllm.utils import random_uuid
 
 sys.path.append("../../common")
@@ -53,14 +55,22 @@ PROMPTS = [
     "The future of AI is",
 ]
 
+GUIDED_PROMPTS = ["Classify intent of the sentence: Harry Potter is underrated. "]
+
 SAMPLING_PARAMETERS = {"temperature": 0, "top_p": 1}
 
 
-async def generate_python_vllm_output(prompt, llm_engine):
+async def generate_python_vllm_output(
+    prompt,
+    llm_engine,
+    sampling_params=SamplingParams(**SAMPLING_PARAMETERS),
+    guided_generation=None,
+):
     request_id = random_uuid()
-    sampling_params = SamplingParams(**SAMPLING_PARAMETERS)
     python_vllm_output = None
     last_output = None
+    if guided_generation:
+        sampling_params.guided_decoding = guided_generation
 
     async for vllm_output in llm_engine.generate(prompt, sampling_params, request_id):
         last_output = vllm_output
@@ -69,24 +79,28 @@ async def generate_python_vllm_output(prompt, llm_engine):
         python_vllm_output = [
             (prompt + output.text).encode("utf-8") for output in last_output.outputs
         ]
-
     return python_vllm_output
 
 
-def prepare_vllm_baseline_outputs():
+def prepare_vllm_baseline_outputs(
+    export_file="vllm_baseline_output.pkl", prompts=PROMPTS, guided_generation=None
+):
     """
     Helper function that starts async vLLM engine and generates output for each
-    prompt in `PROMPTS`. Saves resulted baselines in `vllm_baseline_output.pkl`
+    prompt in `prompts`. Saves resulted baselines in `vllm_baseline_output.pkl`
     for further use.
     """
     llm_engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**VLLM_ENGINE_CONFIG))
     python_vllm_output = []
-    for i in range(len(PROMPTS)):
+    for i in range(len(prompts)):
         python_vllm_output.extend(
-            asyncio.run(generate_python_vllm_output(PROMPTS[i], llm_engine))
+            asyncio.run(
+                generate_python_vllm_output(
+                    prompts[i], llm_engine, guided_generation=guided_generation
+                )
+            )
         )
-
-    with open("vllm_baseline_output.pkl", "wb") as f:
+    with open(export_file, "wb") as f:
         pickle.dump(python_vllm_output, f)
 
     return
@@ -96,6 +110,9 @@ class VLLMTritonAccuracyTest(TestResultCollector):
     def setUp(self):
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
         self.vllm_model_name = "vllm_opt"
+
+    def test_vllm_model(self):
+        # Reading and verifying baseline data
         self.python_vllm_output = []
         with open("vllm_baseline_output.pkl", "rb") as f:
             self.python_vllm_output = pickle.load(f)
@@ -116,11 +133,9 @@ class VLLMTritonAccuracyTest(TestResultCollector):
             ),
         )
 
-    def test_vllm_model(self):
         user_data = UserData()
         stream = False
         triton_vllm_output = []
-
         self.triton_client.start_stream(callback=partial(callback, user_data))
         for i in range(len(PROMPTS)):
             request_data = create_vllm_request(
@@ -131,10 +146,67 @@ class VLLMTritonAccuracyTest(TestResultCollector):
                 request_id=request_data["request_id"],
                 inputs=request_data["inputs"],
                 outputs=request_data["outputs"],
-                parameters=SAMPLING_PARAMETERS,
+                parameters=request_data["parameters"],
             )
 
         for i in range(len(PROMPTS)):
+            result = user_data._completed_requests.get()
+            self.assertIsNot(type(result), InferenceServerException, str(result))
+
+            output = result.as_numpy("text_output")
+            self.assertIsNotNone(output, "`text_output` should not be None")
+
+            triton_vllm_output.extend(output)
+
+        self.triton_client.stop_stream()
+        self.assertEqual(self.python_vllm_output.sort(), triton_vllm_output.sort())
+
+    def test_guided_decoding(self):
+        # Reading and verifying baseline data
+        self.python_vllm_output = []
+        with open("vllm_guided_baseline_output.pkl", "rb") as f:
+            self.python_vllm_output = pickle.load(f)
+
+        self.assertNotEqual(
+            self.python_vllm_output,
+            [],
+            "Loaded baseline outputs' list should not be empty",
+        )
+        self.assertIsNotNone(
+            self.python_vllm_output, "Loaded baseline outputs' list should not be None"
+        )
+        self.assertEqual(
+            len(self.python_vllm_output),
+            len(GUIDED_PROMPTS),
+            "Unexpected number of baseline outputs loaded, expected {}, but got {}".format(
+                len(GUIDED_PROMPTS), len(self.python_vllm_output)
+            ),
+        )
+
+        user_data = UserData()
+        stream = False
+        triton_vllm_output = []
+
+        self.triton_client.start_stream(callback=partial(callback, user_data))
+        sampling_params = SAMPLING_PARAMETERS
+        guided_decoding_params = {
+            "choice": ["Positive", "Negative"],
+            "backend": "outlines",
+        }
+        sampling_params["guided_decoding"] = json.dumps(guided_decoding_params)
+        for i in range(len(GUIDED_PROMPTS)):
+            request_data = create_vllm_request(
+                GUIDED_PROMPTS[i], i, stream, sampling_params, self.vllm_model_name
+            )
+            self.triton_client.async_stream_infer(
+                model_name=self.vllm_model_name,
+                request_id=request_data["request_id"],
+                inputs=request_data["inputs"],
+                outputs=request_data["outputs"],
+                parameters=request_data["parameters"],
+            )
+
+        for i in range(len(GUIDED_PROMPTS)):
             result = user_data._completed_requests.get()
             self.assertIsNot(type(result), InferenceServerException, str(result))
 
@@ -159,9 +231,29 @@ if __name__ == "__main__":
         default=False,
         help="Generates baseline output for accuracy tests",
     )
+    parser.add_argument(
+        "--generate-guided-baseline",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Generates baseline output for accuracy tests",
+    )
     FLAGS = parser.parse_args()
     if FLAGS.generate_baseline:
         prepare_vllm_baseline_outputs()
+        exit(0)
+
+    if FLAGS.generate_guided_baseline:
+        guided_decoding_params = {
+            "choice": ["Positive", "Negative"],
+            "backend": "outlines",
+        }
+        guided_generation = GuidedDecodingParams(**guided_decoding_params)
+        prepare_vllm_baseline_outputs(
+            export_file="vllm_guided_baseline_output.pkl",
+            prompts=GUIDED_PROMPTS,
+            guided_generation=guided_generation,
+        )
         exit(0)
 
     unittest.main()
