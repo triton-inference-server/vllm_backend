@@ -501,6 +501,7 @@ class TritonPythonModel:
                 )
 
         except Exception as e:
+            self.logger.log_error(f"[vllm] Error generating stream: {e}")
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
