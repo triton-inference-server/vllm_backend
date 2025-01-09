@@ -1,4 +1,4 @@
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -43,10 +43,10 @@ from vllm.entrypoints.openai.api_server import (
     build_async_engine_client_from_engine_args,
 )
 from vllm.lora.request import LoRARequest
-from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
 from utils.metrics import VllmStatLogger
+from utils.vllm_backend_utils import TritonSamplingParams
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
@@ -430,9 +430,8 @@ class TritonPythonModel:
                 additional_outputs,
             ) = self._get_input_tensors(request)
 
-            sampling_params_dict = self._get_sampling_params_dict(parameters)
-            lora_name = sampling_params_dict.pop("lora_name", None)
-            sampling_params = SamplingParams(**sampling_params_dict)
+            sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
+            lora_name = sampling_params.lora_name
             lora_request = None
             if lora_name is not None:
                 lora_id = str(self.supported_loras.index(lora_name) + 1)
@@ -564,8 +563,8 @@ class TritonPythonModel:
             )
 
         # parameters / sampling_parameters
-        # An alternative mechanism to receive serialized parameters as an input tensor,
-        # because request parameters are not yet supported via BLS.
+        # An alternative mechanism to receive serialized parameters as an input
+        # tensor, because request parameters are not yet supported via BLS.
         sampling_parameters = pb_utils.get_input_tensor_by_name(
             request, "sampling_parameters"
         )
@@ -704,33 +703,6 @@ class TritonPythonModel:
 
         return pb_utils.InferenceResponse(output_tensors=output_tensors)
 
-    def _get_sampling_params_dict(self, params_json):
-        params_dict = json.loads(params_json)
-
-        # Special parsing for the supported sampling parameters
-        bool_keys = ["ignore_eos", "skip_special_tokens", "use_beam_search"]
-        for k in bool_keys:
-            if k in params_dict:
-                params_dict[k] = bool(params_dict[k])
-
-        float_keys = [
-            "frequency_penalty",
-            "length_penalty",
-            "presence_penalty",
-            "temperature",
-            "top_p",
-        ]
-        for k in float_keys:
-            if k in params_dict:
-                params_dict[k] = float(params_dict[k])
-
-        int_keys = ["best_of", "max_tokens", "min_tokens", "n", "top_k"]
-        for k in int_keys:
-            if k in params_dict:
-                params_dict[k] = int(params_dict[k])
-
-        return params_dict
-
     def _verify_loras(self, request):
         # We will check if the requested lora exists here, if not we will send a
         # response with `LoRA not found` information. In this way we may avoid
@@ -743,9 +715,10 @@ class TritonPythonModel:
         )
         if parameters_input_tensor:
             parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
-            sampling_params_dict = self._get_sampling_params_dict(parameters)
-            lora_name = sampling_params_dict.pop("lora_name", None)
+        else:
+            parameters = request.parameters()
 
+        lora_name = json.loads(parameters).pop("lora_name", None)
         if lora_name is not None:
             if not self.enable_lora:
                 lora_error = pb_utils.TritonError("LoRA feature is not enabled.")

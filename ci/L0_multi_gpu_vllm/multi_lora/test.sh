@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -38,6 +38,60 @@ CLIENT_PY="./multi_lora_test.py"
 DOWNLOAD_PY="./download.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=2
+GENERATE_ENDPOINT="localhost:8000/v2/models/vllm_llama_multi_lora/generate"
+CHECK_FOR_ERROR=true
+
+make_api_call() {
+    local endpoint="$1"
+    local data="$2"
+    curl -X POST "$endpoint" --data-binary @- <<< "$data"
+}
+
+check_response() {
+    local response="$1"
+    local expected_response="$2"
+    local error_message="$3"
+    local check_error="${4:-false}"
+
+    if [ -z "$response" ]; then
+        echo -e "Expected a non-empty response from server"
+        echo -e "\n***\n*** $error_message \n***"
+        return 1
+    fi
+
+    local response_text=$(echo "$response" | jq '.text_output // empty')
+    local response_error=$(echo "$response" | jq '.error // empty')
+
+    if [ "$check_error" = true ]; then
+        if [[ -n "$response_text" ]]; then
+            echo -e "Server didn't return an error."
+            echo "$response"
+            echo -e "\n***\n*** $error_message \n***"
+            return 1
+        elif [[ "$expected_response" != "$response_error" ]]; then
+            echo -e "Expected error message doesn't match actual response."
+            echo "Expected: $expected_response."
+            echo "Received: $response_error"
+            echo -e "\n***\n*** $error_message\n***"
+            return 1
+        fi
+    else
+        if [[ ! -z "$response_error" ]]; then
+            echo -e "Received an error from server."
+            echo "$response"
+            echo -e "\n***\n*** $error_message \n***"
+            return 1
+        elif [[ "$expected_response" != "$response_text" ]]; then
+            echo "Expected response doesn't match actual"
+            echo "Expected: $expected_response."
+            echo "Received: $response_text"
+            echo -e "\n***\n*** $error_message \n***"
+            return 1
+        fi
+    fi
+
+    return 0
+}
 
 # first we download weights
 pip install -U huggingface_hub
@@ -106,6 +160,39 @@ else
         RET=1
     fi
 fi
+
+# Test generate endpoint + LoRA enabled (boolean flag)
+EXPECTED_RESPONSE='" I love soccer. I play soccer every day.\nInstruct: Tell me"'
+DATA='{
+    "text_input": "Instruct: Tell me more about soccer\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "sheep",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Valid LoRA + Generate Endpoint Test FAILED." || RET=1
+
+EXPECTED_RESPONSE="\"LoRA unavailable is not supported, we currently support ['doll', 'sheep']\""
+DATA='{
+    "text_input": "Instruct: Tell me more about soccer\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "unavailable",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Invalid LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR || RET=1
+
+unset EXPECTED_RESPONSE
+unset RESPONSE
+unset DATA
 set -e
 
 kill $SERVER_PID
@@ -151,6 +238,39 @@ else
         RET=1
     fi
 fi
+
+# Test generate endpoint + LoRA enabled (str flag)
+EXPECTED_RESPONSE='" I think it is a very interesting subject.\n\nInstruct: What do you"'
+DATA='{
+    "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "doll",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Valid LoRA + Generate Endpoint Test FAILED." || RET=1
+
+EXPECTED_RESPONSE="\"LoRA unavailable is not supported, we currently support ['doll', 'sheep']\""
+DATA='{
+    "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "unavailable",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Invalid LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR || RET=1
+
+unset EXPECTED_RESPONSE
+unset RESPONSE
+unset DATA
 set -e
 
 kill $SERVER_PID
@@ -197,6 +317,22 @@ else
         RET=1
     fi
 fi
+
+# Test generate endpoint + LoRA disabled (boolean flag)
+EXPECTED_RESPONSE='"LoRA feature is not enabled."'
+DATA='{
+    "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "doll",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Disabled LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR || RET=1
+
 set -e
 
 kill $SERVER_PID
@@ -243,6 +379,22 @@ else
         RET=1
     fi
 fi
+
+# Test generate endpoint + LoRA disabled (str flag)
+EXPECTED_RESPONSE='"LoRA feature is not enabled."'
+DATA='{
+    "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
+    "parameters": {
+        "stream": false,
+        "temperature": 0,
+        "top_p":1,
+        "lora_name": "doll",
+        "exclude_input_in_output": true
+    }
+}'
+RESPONSE=$(make_api_call "$GENERATE_ENDPOINT" "$DATA")
+check_response "$RESPONSE" "$EXPECTED_RESPONSE" "Disabled LoRA + Generate Endpoint Test FAILED." $CHECK_FOR_ERROR > $CLIENT_LOG 2>&1 || RET=1
+
 set -e
 
 kill $SERVER_PID

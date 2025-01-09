@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -37,7 +37,7 @@ TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./accuracy_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 VLLM_ENGINE_LOG="vllm_engine.log"
-EXPECTED_NUM_TESTS=1
+EXPECTED_NUM_TESTS=2
 
 rm -rf models && mkdir -p models
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_opt
@@ -50,6 +50,10 @@ set +e
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
 python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
+
+python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+wait $BASELINE_PID
+
 set -e
 
 run_server
