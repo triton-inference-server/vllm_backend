@@ -318,7 +318,7 @@ else
     fi
 fi
 
-# Test generate endpoint + LoRA enabled (boolean flag)
+# Test generate endpoint + LoRA disabled (boolean flag)
 EXPECTED_RESPONSE='"LoRA feature is not enabled."'
 DATA='{
     "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
@@ -380,7 +380,7 @@ else
     fi
 fi
 
-# Test generate endpoint + LoRA enabled (str flag)
+# Test generate endpoint + LoRA disabled (str flag)
 EXPECTED_RESPONSE='"LoRA feature is not enabled."'
 DATA='{
     "text_input": "Instruct: What do you think of Computer Science?\nOutput:",
