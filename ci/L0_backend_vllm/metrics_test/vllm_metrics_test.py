@@ -191,6 +191,7 @@ class VLLMTritonMetricsTest(TestResultCollector):
         metrics_dict = self.parse_vllm_metrics()
         # vllm:request_params_n
         self.assertIn("vllm:request_params_n_count", metrics_dict)
+        self.assertIn("vllm:request_params_n_sum", metrics_dict)
         self.assertIn("vllm:request_params_n_bucket", metrics_dict)
 
     def test_vllm_metrics_disabled(self):
