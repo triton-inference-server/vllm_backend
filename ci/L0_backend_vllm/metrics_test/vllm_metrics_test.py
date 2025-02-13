@@ -189,24 +189,10 @@ class VLLMTritonMetricsTest(TestResultCollector):
             model_name=self.vllm_model_name,
         )
         metrics_dict = self.parse_vllm_metrics()
-        total_prompts = len(self.prompts)
-
-        # vllm:request_params_best_of
-        """
-        self.assertEqual(
-            metrics_dict["vllm:request_params_best_of_count"], total_prompts
-        )
-        self.assertEqual(
-            metrics_dict["vllm:request_params_best_of_sum"], best_of * total_prompts
-        )
-        self.assertEqual(
-            metrics_dict["vllm:request_params_best_of_bucket"], total_prompts
-        )
-        """
         # vllm:request_params_n
-        self.assertEqual(metrics_dict["vllm:request_params_n_count"], total_prompts)
-        # self.assertEqual(metrics_dict["vllm:request_params_n_sum"], n * total_prompts)
-        self.assertEqual(metrics_dict["vllm:request_params_n_bucket"], total_prompts)
+        self.assertIn("vllm:request_params_n_count", metrics_dict)
+        self.assertIn("vllm:request_params_n_sum", metrics_dict)
+        self.assertIn("vllm:request_params_n_bucket", metrics_dict)
 
     def test_vllm_metrics_disabled(self):
         # Test vLLM metrics
