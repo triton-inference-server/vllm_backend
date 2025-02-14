@@ -284,13 +284,6 @@ vllm:request_generation_tokens_sum{model="vllm_model",version="1"} 16
 vllm:request_generation_tokens_bucket{model="vllm_model",version="1",le="1"} 0
 ...
 vllm:request_generation_tokens_bucket{model="vllm_model",version="1",le="+Inf"} 1
-# HELP vllm:request_params_best_of Histogram of the best_of request parameter.
-# TYPE vllm:request_params_best_of histogram
-vllm:request_params_best_of_count{model="vllm_model",version="1"} 1
-vllm:request_params_best_of_sum{model="vllm_model",version="1"} 1
-vllm:request_params_best_of_bucket{model="vllm_model",version="1",le="1"} 1
-...
-vllm:request_params_best_of_bucket{model="vllm_model",version="1",le="+Inf"} 1
 # HELP vllm:request_params_n Histogram of the n request parameter.
 # TYPE vllm:request_params_n histogram
 vllm:request_params_n_count{model="vllm_model",version="1"} 1
