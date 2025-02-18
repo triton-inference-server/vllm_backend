@@ -1,4 +1,4 @@
-# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@ import threading
 from typing import Dict, List, Union
 
 import triton_python_backend_utils as pb_utils
+from vllm.config import VllmConfig
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
 from vllm.engine.metrics import Stats as VllmStats
 from vllm.engine.metrics import SupportsMetricsInfo, build_1_2_5_buckets
@@ -163,11 +164,13 @@ class TritonMetrics:
 class VllmStatLogger(VllmStatLoggerBase):
     """StatLogger is used as an adapter between vLLM stats collector and Triton metrics provider."""
 
-    def __init__(self, labels: Dict, max_model_len: int, log_logger) -> None:
+    def __init__(self, labels: Dict, vllm_config: VllmConfig, log_logger) -> None:
         # Tracked stats over current local logging interval.
         # local_interval not used here. It's for vLLM logs to stdout.
-        super().__init__(local_interval=0)
-        self.metrics = TritonMetrics(labels, max_model_len)
+        super().__init__(local_interval=0, vllm_config=vllm_config)
+        self.metrics = TritonMetrics(
+            labels=labels, max_model_len=vllm_config.model_config.max_model_len
+        )
         self.log_logger = log_logger
 
         # Starting the metrics thread. It allows vLLM to keep making progress
