@@ -144,8 +144,8 @@ Once you have the model repository set up, it is time to launch the Triton serve
 We will use the [pre-built Triton container with vLLM backend](#option-1-use-the-pre-built-docker-container) from
 [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) in this example.
 
+Run the following command inside the vllm_backend directory:
 ```
-# cd into vllm_backend directory
 docker run --gpus all -it --net=host --rm -p 8001:8001 --shm-size=1G --ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/work -w /work nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3 tritonserver --model-repository ./samples/model_repository
 ```
 
