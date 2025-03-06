@@ -144,8 +144,9 @@ Once you have the model repository set up, it is time to launch the Triton serve
 We will use the [pre-built Triton container with vLLM backend](#option-1-use-the-pre-built-docker-container) from
 [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver) in this example.
 
+Run the following command inside the `vllm_backend` directory:
 ```
-docker run --gpus all -it --net=host --rm -p 8001:8001 --shm-size=1G --ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/work -w /work nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3 tritonserver --model-repository ./model_repository
+docker run --gpus all -it --net=host --rm -p 8001:8001 --shm-size=1G --ulimit memlock=-1 --ulimit stack=67108864 -v ${PWD}:/work -w /work nvcr.io/nvidia/tritonserver:<xx.yy>-vllm-python-py3 tritonserver --model-repository ./samples/model_repository
 ```
 
 Replace \<xx.yy\> with the version of Triton that you want to use.
@@ -171,10 +172,10 @@ with the
 you can quickly run your first inference request with the
 [generate endpoint](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_generate.md).
 
-Try out the command below.
+Try out the command below from another terminal:
 
 ```
-$ curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "What is Triton Inference Server?", "parameters": {"stream": false, "temperature": 0}}'
+curl -X POST localhost:8000/v2/models/vllm_model/generate -d '{"text_input": "What is Triton Inference Server?", "parameters": {"stream": false, "temperature": 0}}'
 ```
 
 Upon success, you should see a response from the server like this one:
