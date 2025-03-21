@@ -320,7 +320,7 @@ class TritonPythonModel:
                 f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
             )
             # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
-            torch.cuda.set_device(triton_device_id)
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(triton_device_id)
 
     def _setup_lora(self):
         self.enable_lora = False
