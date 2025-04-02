@@ -77,13 +77,28 @@ class VLLMMultiGPUTest(TestResultCollector):
 
         print("=============== After Loading vLLM Model ===============")
         vllm_model_used_gpus = 0
+        gpu_memory_utilizations = []
+
         for gpu_id in gpu_ids:
             memory_utilization = self.get_gpu_memory_utilization(gpu_id)
             print(f"GPU {gpu_id} Memory Utilization: {memory_utilization} bytes")
-            if memory_utilization > mem_util_before_loading_model[gpu_id]:
+            memory_delta = memory_utilization - mem_util_before_loading_model[gpu_id]
+            if memory_delta > 0:
                 vllm_model_used_gpus += 1
+                gpu_memory_utilizations.append(memory_delta)
 
         self.assertGreaterEqual(vllm_model_used_gpus, 2)
+
+        # Check if memory utilization is approximately equal across GPUs
+        if len(gpu_memory_utilizations) >= 2:
+            max_memory = max(gpu_memory_utilizations)
+            min_memory = min(gpu_memory_utilizations)
+            relative_diff = (max_memory - min_memory) / max_memory
+            self.assertLessEqual(
+                relative_diff,
+                0.1,
+                f"GPU memory utilization differs by {relative_diff:.2%} which exceeds the 10% threshold",
+            )
 
     def _test_vllm_model(self, model_name: str, send_parameters_as_tensor: bool = True):
         user_data = UserData()
