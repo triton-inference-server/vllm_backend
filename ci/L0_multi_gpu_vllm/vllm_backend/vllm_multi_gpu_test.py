@@ -29,12 +29,14 @@ import sys
 import unittest
 from functools import partial
 
-import pynvml
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
+from vllm.utils import import_pynvml
 
 sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
+
+pynvml = import_pynvml()
 
 
 class VLLMMultiGPUTest(TestResultCollector):
