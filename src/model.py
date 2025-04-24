@@ -444,6 +444,9 @@ class TritonPythonModel:
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
+            if not priority:
+                priority = 0
+
             response_iterator = self._llm_engine.generate(
                 prompt, sampling_params, request_id, lora_request=lora_request, priority=priority
             )
