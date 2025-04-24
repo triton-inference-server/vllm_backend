@@ -128,7 +128,7 @@ class TritonPythonModel:
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
                 "optional": True,
-            },            
+            },
             {
                 "name": "priority",
                 "data_type": "TYPE_INT32",
@@ -448,7 +448,11 @@ class TritonPythonModel:
                 priority = 0
 
             response_iterator = self._llm_engine.generate(
-                prompt, sampling_params, request_id, lora_request=lora_request, priority=priority
+                prompt,
+                sampling_params,
+                request_id,
+                lora_request=lora_request,
+                priority=priority,
             )
 
             request_output_state = {}
