@@ -208,6 +208,43 @@ for more information.
 Additional vLLM outputs may be requested optionally on a per-request basis. See
 [this docs](docs/additional_outputs.md) for more information.
 
+## Priority Requests
+
+The vLLM backend supports priority-based request scheduling when the engine is configured with a scheduler policy set to `priority`. This allows you to prioritize certain requests over others, with lower priority numbers being processed first.
+
+### Configuration
+
+To enable priority scheduling, set the `scheduler_policy` parameter to `priority` in your `model.json`:
+
+```json
+{
+    "scheduler_policy": "priority",
+    // ... other engine args ...
+}
+```
+
+### Usage
+
+You can specify the priority of a request using the optional `priority` input tensor:
+
+```python
+inputs = []
+inputs.append(grpcclient.InferInput("text_input", [1], "BYTES"))
+inputs[-1].set_data_from_numpy(np.array([prompt.encode("utf-8")], dtype=np.object_))
+
+# Add priority input (optional)
+inputs.append(grpcclient.InferInput("priority", [1], "INT32"))
+inputs[-1].set_data_from_numpy(np.array([priority_value], dtype=np.int32))
+```
+
+If the priority input is not provided, it defaults to 0. Lower priority numbers are processed first.
+
+### Example Use Cases
+
+- Prioritize real-time user requests over background tasks
+- Implement different service level agreements (SLAs)
+- Manage system resources by processing high-priority requests first
+
 ## Triton Metrics
 Starting with the 24.08 release of Triton, users can now obtain specific
 vLLM metrics by querying the Triton metrics endpoint (see complete vLLM metrics
