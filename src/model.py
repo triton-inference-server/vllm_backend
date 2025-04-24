@@ -128,6 +128,12 @@ class TritonPythonModel:
                 "data_type": "TYPE_BOOL",
                 "dims": [1],
                 "optional": True,
+            },            
+            {
+                "name": "priority",
+                "data_type": "TYPE_INT32",
+                "dims": [1],
+                "optional": True,
             },
         ]
         # Outputs expected by the backend.
@@ -426,6 +432,7 @@ class TritonPythonModel:
                 prepend_input,
                 parameters,
                 additional_outputs,
+                priority,
             ) = self._get_input_tensors(request)
 
             sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
@@ -438,7 +445,7 @@ class TritonPythonModel:
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
             response_iterator = self._llm_engine.generate(
-                prompt, sampling_params, request_id, lora_request=lora_request
+                prompt, sampling_params, request_id, lora_request=lora_request, priority=priority
             )
 
             request_output_state = {}
