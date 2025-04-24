@@ -444,9 +444,6 @@ class TritonPythonModel:
                 lora_local_path = self.lora_repository[lora_name]
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
-            if not priority:
-                priority = 0
-
             response_iterator = self._llm_engine.generate(
                 prompt,
                 sampling_params,
@@ -601,7 +598,14 @@ class TritonPythonModel:
                 tensor = False
             additional_outputs[tensor_name] = tensor
 
-        return prompt, stream, prepend_input, parameters, additional_outputs
+        # priority
+        priority = pb_utils.get_input_tensor_by_name(request, "priority")
+        if priority:
+            priority = int(priority.as_numpy()[0])
+        else:
+            priority = 0
+
+        return prompt, stream, prepend_input, parameters, additional_outputs, priority
 
     def _create_response(
         self, request_output_state, request_output, prepend_input, additional_outputs
