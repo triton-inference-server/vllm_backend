@@ -29,7 +29,6 @@ import threading
 from typing import Dict, List, Union
 
 import triton_python_backend_utils as pb_utils
-
 from vllm.config import VllmConfig
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
 from vllm.engine.metrics import Stats as VllmStats
@@ -437,5 +436,4 @@ class VllmStatLogger(VllmStatLoggerBase):
         self._logger_queue.put(None)
         if self._logger_thread is not None:
             self._logger_thread.join()
-            self._logger_thread = None
             self._logger_thread = None
