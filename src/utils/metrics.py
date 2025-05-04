@@ -29,6 +29,7 @@ import threading
 from typing import Dict, List, Union
 
 import triton_python_backend_utils as pb_utils
+
 from vllm.config import VllmConfig
 from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
 from vllm.engine.metrics import Stats as VllmStats
@@ -49,6 +50,16 @@ class TritonMetrics:
             description="Number of generation tokens processed.",
             kind=pb_utils.MetricFamily.COUNTER,
         )
+        self.counter_preemption_tokens_family = pb_utils.MetricFamily(
+            name="vllm:num_preemptions_total",
+            description="Number of preemption tokens processed.",
+            kind=pb_utils.MetricFamily.COUNTER,
+        )
+        self.histogram_iteration_tokens_total_family = pb_utils.MetricFamily(
+            name="vllm:iteration_tokens_total",
+            description="Histogram of number of tokens per engine_step.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
         self.histogram_time_to_first_token_family = pb_utils.MetricFamily(
             name="vllm:time_to_first_token_seconds",
             description="Histogram of time to first token in seconds.",
@@ -64,6 +75,26 @@ class TritonMetrics:
         self.histogram_e2e_time_request_family = pb_utils.MetricFamily(
             name="vllm:e2e_request_latency_seconds",
             description="Histogram of end to end request latency in seconds.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_queue_time_request_family = pb_utils.MetricFamily(
+            name="vllm:request_queue_time_seconds",
+            description="Histogram of time spent in WAITING phase for request.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_inference_time_request_family = pb_utils.MetricFamily(
+            name="vllm:request_inference_time_seconds",
+            description="Histogram of time spent in RUNNING phase for request.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_prefill_time_request_family = pb_utils.MetricFamily(
+            name="vllm:request_prefill_time_seconds",
+            description="Histogram of time spent in PREFILL phase for request.",
+            kind=pb_utils.MetricFamily.HISTOGRAM,
+        )
+        self.histogram_decode_time_request_family = pb_utils.MetricFamily(
+            name="vllm:request_decode_time_seconds",
+            description="Histogram of time spent in DECODE phase for request.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
         )
         #   Metadata
@@ -82,6 +113,45 @@ class TritonMetrics:
             description="Histogram of the n request parameter.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
         )
+        # System stats
+        #   Scheduler State
+        self.gauge_scheduler_running_family = pb_utils.MetricFamily(
+            name="vllm:num_requests_running",
+            description="Number of requests currently running on GPU.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        self.gauge_scheduler_waiting_family = pb_utils.MetricFamily(
+            name="vllm:num_requests_waiting",
+            description="Number of requests waiting to be processed.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        self.gauge_scheduler_swapped_family = pb_utils.MetricFamily(
+            name="vllm:num_requests_swapped",
+            description="Number of requests swapped to CPU.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        #   KV Cache Usage in %
+        self.gauge_gpu_cache_usage_family = pb_utils.MetricFamily(
+            name="vllm:gpu_cache_usage_perc",
+            description="GPU KV-cache usage. 1 means 100 percent usage.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        self.gauge_cpu_cache_usage_family = pb_utils.MetricFamily(
+            name="vllm:cpu_cache_usage_perc",
+            description="CPU KV-cache usage. 1 means 100 percent usage.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        #   Prefix caching block hit rate
+        self.gauge_cpu_prefix_cache_hit_rate_family = pb_utils.MetricFamily(
+            name="vllm:cpu_prefix_cache_hit_rate",
+            description="CPU prefix cache block hit rate.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
+        self.gauge_gpu_prefix_cache_hit_rate_family = pb_utils.MetricFamily(
+            name="vllm:gpu_prefix_cache_hit_rate",
+            description="GPU prefix cache block hit rate.",
+            kind=pb_utils.MetricFamily.GAUGE,
+        )
 
         # Initialize metrics
         # Iteration stats
@@ -91,8 +161,19 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
+        self.counter_preemption_tokens = self.counter_preemption_tokens_family.Metric(
+            labels=labels
+        )
+
         # Use the same bucket boundaries from vLLM sample metrics as an example.
         # https://github.com/vllm-project/vllm/blob/21313e09e3f9448817016290da20d0db1adf3664/vllm/engine/metrics.py#L81-L96
+        self.histogram_iteration_tokens_total = (
+            self.histogram_iteration_tokens_total_family.Metric(
+                labels=labels,
+                buckets=[1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8096],
+            )
+        )
+
         self.histogram_time_to_first_token = (
             self.histogram_time_to_first_token_family.Metric(
                 labels=labels,
@@ -142,6 +223,30 @@ class TritonMetrics:
             labels=labels,
             buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
         )
+        self.histogram_prefill_time_request = (
+            self.histogram_prefill_time_request_family.Metric(
+                labels=labels,
+                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+            )
+        )
+        self.histogram_decode_time_request = (
+            self.histogram_decode_time_request_family.Metric(
+                labels=labels,
+                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+            )
+        )
+        self.histogram_inference_time_request = (
+            self.histogram_inference_time_request_family.Metric(
+                labels=labels,
+                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+            )
+        )
+        self.histogram_queue_time_request = (
+            self.histogram_queue_time_request_family.Metric(
+                labels=labels,
+                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+            )
+        )
         #   Metadata
         self.histogram_num_prompt_tokens_request = (
             self.histogram_num_prompt_tokens_request_family.Metric(
@@ -158,6 +263,31 @@ class TritonMetrics:
         self.histogram_n_request = self.histogram_n_request_family.Metric(
             labels=labels,
             buckets=[1, 2, 5, 10, 20],
+        )
+        # System stats
+        #   Scheduler State
+        self.gauge_num_requests_running = self.gauge_scheduler_running_family.Metric(
+            labels=labels
+        )
+        self.gauge_num_requests_waiting = self.gauge_scheduler_waiting_family.Metric(
+            labels=labels
+        )
+        self.gauge_num_requests_swapped = self.gauge_scheduler_swapped_family.Metric(
+            labels=labels
+        )
+        #   KV Cache Usage in %
+        self.gauge_gpu_cache_usage = self.gauge_gpu_cache_usage_family.Metric(
+            labels=labels
+        )
+        self.gauge_cpu_cache_usage = self.gauge_cpu_cache_usage_family.Metric(
+            labels=labels
+        )
+        #   Prefix caching block hit rate
+        self.gauge_cpu_prefix_cache_hit_rate = (
+            self.gauge_cpu_prefix_cache_hit_rate_family.Metric(labels=labels)
+        )
+        self.gauge_gpu_prefix_cache_hit_rate = (
+            self.gauge_gpu_prefix_cache_hit_rate_family.Metric(labels=labels)
         )
 
 
@@ -181,6 +311,18 @@ class VllmStatLogger(VllmStatLoggerBase):
 
     def info(self, type: str, obj: SupportsMetricsInfo) -> None:
         pass
+
+    def _log_gauge(self, gauge, data: Union[int, float]) -> None:
+        """Convenience function for logging to gauge.
+
+        Args:
+            gauge: A gauge metric instance.
+            data: An int or float to set as the current gauge value.
+
+        Returns:
+            None
+        """
+        self._logger_queue.put_nowait((gauge, "set", data))
 
     def _log_counter(self, counter, data: Union[int, float]) -> None:
         """Convenience function for logging to counter.
@@ -222,8 +364,10 @@ class VllmStatLogger(VllmStatLoggerBase):
         counter_metrics = [
             (self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter),
             (self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter),
+            (self.metrics.counter_preemption_tokens, stats.num_preemption_iter),
         ]
         histogram_metrics = [
+            (self.metrics.histogram_iteration_tokens_total, [stats.num_tokens_iter]),
             (
                 self.metrics.histogram_time_to_first_token,
                 stats.time_to_first_tokens_iter,
@@ -233,6 +377,13 @@ class VllmStatLogger(VllmStatLoggerBase):
                 stats.time_per_output_tokens_iter,
             ),
             (self.metrics.histogram_e2e_time_request, stats.time_e2e_requests),
+            (self.metrics.histogram_prefill_time_request, stats.time_prefill_requests),
+            (self.metrics.histogram_decode_time_request, stats.time_decode_requests),
+            (
+                self.metrics.histogram_inference_time_request,
+                stats.time_inference_requests,
+            ),
+            (self.metrics.histogram_queue_time_request, stats.time_queue_requests),
             (
                 self.metrics.histogram_num_prompt_tokens_request,
                 stats.num_prompt_tokens_requests,
@@ -243,10 +394,27 @@ class VllmStatLogger(VllmStatLoggerBase):
             ),
             (self.metrics.histogram_n_request, stats.n_requests),
         ]
+        gauge_metrics = [
+            (self.metrics.gauge_num_requests_running, stats.num_running_sys),
+            (self.metrics.gauge_num_requests_waiting, stats.num_waiting_sys),
+            (self.metrics.gauge_num_requests_swapped, stats.num_swapped_sys),
+            (self.metrics.gauge_gpu_cache_usage, stats.gpu_cache_usage_sys),
+            (self.metrics.gauge_cpu_cache_usage, stats.cpu_cache_usage_sys),
+            (
+                self.metrics.gauge_cpu_prefix_cache_hit_rate,
+                stats.cpu_prefix_cache_hit_rate,
+            ),
+            (
+                self.metrics.gauge_gpu_prefix_cache_hit_rate,
+                stats.gpu_prefix_cache_hit_rate,
+            ),
+        ]
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
         for metric, data in histogram_metrics:
             self._log_histogram(metric, data)
+        for metric, data in gauge_metrics:
+            self._log_gauge(metric, data)
 
     def logger_loop(self):
         while True:
@@ -259,6 +427,8 @@ class VllmStatLogger(VllmStatLoggerBase):
                 metric.increment(data)
             elif command == "observe":
                 metric.observe(data)
+            elif command == "set":
+                metric.set(data)
             else:
                 self.log_logger.log_error(f"Undefined command name: {command}")
 
@@ -267,4 +437,5 @@ class VllmStatLogger(VllmStatLoggerBase):
         self._logger_queue.put(None)
         if self._logger_thread is not None:
             self._logger_thread.join()
+            self._logger_thread = None
             self._logger_thread = None
