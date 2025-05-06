@@ -46,7 +46,11 @@ from vllm.lora.request import LoRARequest
 from vllm.utils import random_uuid
 
 from utils.metrics import VllmStatLogger
-from utils.vllm_backend_utils import TritonSamplingParams
+from utils.vllm_backend_utils import (
+    TritonSamplingParams,
+    _get_llama3_prompt,
+    _get_qwen_v2_5_prompt,
+)
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
@@ -531,11 +535,15 @@ class TritonPythonModel:
                 image_rgb = Image.open(BytesIO(image_b)).convert("RGB")
                 images_vllm.append(image_rgb)
             if len(images_vllm) > 0:
-                prompt = {
-                    "prompt": prompt,
-                    "multi_modal_data": {"image": images_vllm},
-                }
-
+                if "llama-3" in self.args["model_name"].lower():
+                    prompt = _get_llama3_prompt(question=prompt, images=images_vllm)
+                if "qwen2.5" in self.args["model_name"].lower():
+                    prompt = _get_qwen_v2_5_prompt(question=prompt, images=images_vllm)
+                else:
+                    self.logger.log_warning(
+                        "This model does not support multi-modal input. The image will not be used.\n"
+                        "Supported models: llama-3, qwen2.5"
+                    )
         # stream
         stream = pb_utils.get_input_tensor_by_name(request, "stream")
         if stream:
