@@ -48,11 +48,16 @@ RET=0
 set +e
 # Need to generate baseline first, since running 2 vLLM engines causes
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
-VLLM_USE_V1=0 VLLM_WORKER_MULTIPROC_METHOD=spawn python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+export VLLM_USE_V1=0
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 
-VLLM_USE_V1=0 VLLM_WORKER_MULTIPROC_METHOD=spawn python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
+
+unset VLLM_USE_V1
+unset VLLM_WORKER_MULTIPROC_METHOD
 
 set -e
 
