@@ -45,15 +45,13 @@ sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/v
 [ -f vllm_baseline_output.pkl ] && rm vllm_baseline_output.pkl
 RET=0
 
-export VLLM_USE_V1=0
-
 set +e
 # Need to generate baseline first, since running 2 vLLM engines causes
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
-python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+VLLM_USE_V1=0 python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 
-python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+VLLM_USE_V1=0 python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 
 set -e
@@ -85,48 +83,11 @@ set -e
 kill $SERVER_PID
 wait $SERVER_PID
 
-# Remove old baseline files if they exist
-[ -f vllm_baseline_output.pkl ] && rm vllm_baseline_output.pkl
-[ -f vllm_guided_baseline_output.pkl ] && rm vllm_guided_baseline_output.pkl
-
-# Run tests for VLLM v1, but omit guided decoding, as it's development in progress as of 0.8.1
-export VLLM_USE_V1=1
-EXPECTED_NUM_TESTS=1
-
-set +e
-# Need to generate baseline first, since running 2 vLLM engines causes
-# memory issues: https://github.com/vllm-project/vllm/issues/2248
-python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
-wait $BASELINE_PID
-
-set -e
-
-run_server
-if [ "$SERVER_PID" == "0" ]; then
-    cat $SERVER_LOG
-    echo -e "\n***\n*** Failed to start $SERVER\n***"
-    exit 1
-fi
-
-set +e
-python3 -m unittest accuracy_test.VLLMTritonAccuracyTest.test_vllm_model > $CLIENT_LOG 2>&1
-
-if [ $? -ne 0 ]; then
-    cat $CLIENT_LOG
-    echo -e "\n***\n*** Running $CLIENT_PY FAILED. \n***"
+# Check that warning about V1 Engine appears in log - this warning is expected
+if ! grep -q "Engine in background thread is experimental on VLLM_USE_V1=1. Falling back to V0 Engine." $SERVER_LOG; then
+    echo -e "\n***\n*** ERROR: Expected warning about vLLM falling back to V0 Engine not found in logs.\n***"
     RET=1
-else
-    check_test_results $TEST_RESULT_FILE $EXPECTED_NUM_TESTS
-    if [ $? -ne 0 ]; then
-        cat $CLIENT_LOG
-        echo -e "\n***\n*** Test Result Verification FAILED.\n***"
-        RET=1
-    fi
 fi
-set -e
-
-kill $SERVER_PID
-wait $SERVER_PID
 
 rm -rf models/
 
@@ -137,8 +98,6 @@ if [ $RET -eq 1 ]; then
 else
     echo -e "\n***\n*** Accuracy test PASSED. \n***"
 fi
-
-unset VLLM_USE_V1
 
 collect_artifacts_from_subdir
 
