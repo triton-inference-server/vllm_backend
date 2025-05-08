@@ -109,7 +109,7 @@ if [ "$SERVER_PID" == "0" ]; then
 fi
 
 set +e
-python3 $CLIENT_PY VLLMTritonAccuracyTest.test_vllm_model > $CLIENT_LOG 2>&1
+python3 -m unittest accuracy_test.VLLMTritonAccuracyTest.test_vllm_model > $CLIENT_LOG 2>&1
 
 if [ $? -ne 0 ]; then
     cat $CLIENT_LOG
