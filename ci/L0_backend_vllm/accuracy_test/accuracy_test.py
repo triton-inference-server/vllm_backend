@@ -82,7 +82,7 @@ async def generate_python_vllm_output(
     return python_vllm_output
 
 
-def prepare_vllm_baseline_outputs(
+async def prepare_vllm_baseline_outputs(
     export_file="vllm_baseline_output.pkl", prompts=PROMPTS, guided_generation=None
 ):
     """
@@ -93,13 +93,12 @@ def prepare_vllm_baseline_outputs(
     llm_engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**VLLM_ENGINE_CONFIG))
     python_vllm_output = []
     for i in range(len(prompts)):
-        python_vllm_output.extend(
-            asyncio.run(
-                generate_python_vllm_output(
-                    prompts[i], llm_engine, guided_generation=guided_generation
-                )
-            )
+        output = await generate_python_vllm_output(
+            prompts[i], llm_engine, guided_generation=guided_generation
         )
+        if output:
+            python_vllm_output.extend(output)
+
     with open(export_file, "wb") as f:
         pickle.dump(python_vllm_output, f)
 
@@ -240,7 +239,7 @@ if __name__ == "__main__":
     )
     FLAGS = parser.parse_args()
     if FLAGS.generate_baseline:
-        prepare_vllm_baseline_outputs()
+        asyncio.run(prepare_vllm_baseline_outputs())
         exit(0)
 
     if FLAGS.generate_guided_baseline:
@@ -249,10 +248,12 @@ if __name__ == "__main__":
             "backend": "outlines",
         }
         guided_generation = GuidedDecodingParams(**guided_decoding_params)
-        prepare_vllm_baseline_outputs(
-            export_file="vllm_guided_baseline_output.pkl",
-            prompts=GUIDED_PROMPTS,
-            guided_generation=guided_generation,
+        asyncio.run(
+            prepare_vllm_baseline_outputs(
+                export_file="vllm_guided_baseline_output.pkl",
+                prompts=GUIDED_PROMPTS,
+                guided_generation=guided_generation,
+            )
         )
         exit(0)
 
