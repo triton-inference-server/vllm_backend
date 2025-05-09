@@ -27,6 +27,7 @@
 import json
 from typing import Optional
 
+from PIL import Image
 from vllm.sampling_params import GuidedDecodingParams, SamplingParams
 
 
@@ -98,3 +99,25 @@ class TritonSamplingParams(SamplingParams):
                 f"[vllm] Was trying to create `TritonSamplingParams`, but got exception: {e}"
             )
             return None
+
+
+def _get_llama3_prompt(question, images: list[Image.Image]) -> dict:
+    prompt = {
+        "prompt": question,
+        "multi_modal_data": {"image": images},
+    }
+    return prompt
+
+
+def _get_qwen_v2_5_prompt(question, images: list[Image.Image]) -> dict:
+    placeholder = "<|image_pad|>"
+    prompt = {
+        "prompt": (
+            "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+            f"<|im_start|>user\n<|vision_start|>{placeholder}<|vision_end|>"
+            f"{question}<|im_end|>\n"
+            "<|im_start|>assistant\n"
+        ),
+        "multi_modal_data": {"image": images},
+    }
+    return prompt
