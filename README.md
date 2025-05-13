@@ -227,12 +227,24 @@ VLLM stats are reported by the metrics endpoint in fields that are prefixed with
 counter_prompt_tokens
 # Number of generation tokens processed.
 counter_generation_tokens
+# Number of preemption tokens processed.
+counter_preemption_tokens
+# Histogram of number of tokens per engine_step.
+histogram_iteration_tokens
 # Histogram of time to first token in seconds.
 histogram_time_to_first_token
 # Histogram of time per output token in seconds.
 histogram_time_per_output_token
 # Histogram of end to end request latency in seconds.
 histogram_e2e_time_request
+# Histogram of time spent in WAITING phase for request.
+histogram_queue_time_request
+# Histogram of time spent in RUNNING phase for request.
+histogram_inference_time_request
+# Histogram of time spent in PREFILL phase for request.
+histogram_prefill_time_request
+# Histogram of time spent in DECODE phase for request.
+histogram_decode_time_request
 # Number of prefill tokens processed.
 histogram_num_prompt_tokens_request
 # Number of generation tokens processed.
@@ -241,6 +253,20 @@ histogram_num_generation_tokens_request
 histogram_best_of_request
 # Histogram of the n request parameter.
 histogram_n_request
+# Number of requests currently running on GPU.
+gauge_scheduler_running
+# Number of requests waiting to be processed.
+gauge_scheduler_waiting
+# Number of requests swapped to CPU.
+gauge_scheduler_swapped
+# GPU KV-cache usage. 1 means 100 percent usage.
+gauge_gpu_cache_usage
+# CPU KV-cache usage. 1 means 100 percent usage.
+gauge_cpu_cache_usage
+# CPU prefix cache block hit rate.
+gauge_cpu_prefix_cache_hit_rate
+# GPU prefix cache block hit rate.
+gauge_gpu_prefix_cache_hit_rate
 ```
 Your output for these fields should look similar to the following:
 ```bash
@@ -250,6 +276,37 @@ vllm:prompt_tokens_total{model="vllm_model",version="1"} 10
 # HELP vllm:generation_tokens_total Number of generation tokens processed.
 # TYPE vllm:generation_tokens_total counter
 vllm:generation_tokens_total{model="vllm_model",version="1"} 16
+# HELP vllm:num_preemptions_total Number of preemption tokens processed.
+# TYPE vllm:num_preemptions_total counter
+vllm:num_preemptions_total{model="vllm_model",version="1"} 0
+# HELP vllm:num_requests_running Number of requests currently running on GPU.
+# TYPE vllm:num_requests_running gauge
+vllm:num_requests_running{model="vllm_model",version="1"} 0
+# HELP vllm:num_requests_waiting Number of requests waiting to be processed.
+# TYPE vllm:num_requests_waiting gauge
+vllm:num_requests_waiting{model="vllm_model",version="1"} 0
+# HELP vllm:num_requests_swapped Number of requests swapped to CPU.
+# TYPE vllm:num_requests_swapped gauge
+vllm:num_requests_swapped{model="vllm_model",version="1"} 0
+# HELP vllm:gpu_cache_usage_perc Gauga of gpu cache usage. 1 means 100 percent usage.
+# TYPE vllm:gpu_cache_usage_perc gauge
+vllm:gpu_cache_usage_perc{model="vllm_model",version="1"} 0
+# HELP vllm:cpu_cache_usage_perc Gauga of cpu cache usage. 1 means 100 percent usage.
+# TYPE vllm:cpu_cache_usage_perc gauge
+vllm:cpu_cache_usage_perc{model="vllm_model",version="1"} 0
+# HELP vllm:cpu_prefix_cache_hit_rate CPU prefix cache block hit rate.
+# TYPE vllm:cpu_prefix_cache_hit_rate gauge
+vllm:cpu_prefix_cache_hit_rate{model="vllm_model",version="1"} -1
+# HELP vllm:gpu_prefix_cache_hit_rate GPU prefix cache block hit rate.
+# TYPE vllm:gpu_prefix_cache_hit_rate gauge
+vllm:gpu_prefix_cache_hit_rate{model="vllm_model",version="1"} -1
+# HELP vllm:iteration_tokens_total Histogram of number of tokens per engine_step.
+# TYPE vllm:iteration_tokens_total histogram
+vllm:iteration_tokens_total_count{model="vllm_model",version="1"} 10
+vllm:iteration_tokens_total_sum{model="vllm_model",version="1"} 12
+vllm:iteration_tokens_total_bucket{model="vllm_model",version="1",le="1"} 9
+...
+vllm:iteration_tokens_total_bucket{model="vllm_model",version="1",le="+Inf"} 10
 # HELP vllm:time_to_first_token_seconds Histogram of time to first token in seconds.
 # TYPE vllm:time_to_first_token_seconds histogram
 vllm:time_to_first_token_seconds_count{model="vllm_model",version="1"} 1
@@ -271,6 +328,34 @@ vllm:e2e_request_latency_seconds_sum{model="vllm_model",version="1"} 0.086861848
 vllm:e2e_request_latency_seconds_bucket{model="vllm_model",version="1",le="1"} 1
 ...
 vllm:e2e_request_latency_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_queue_time_seconds Histogram of time spent in WAITING phase for request.
+# TYPE vllm:request_queue_time_seconds histogram
+vllm:request_queue_time_seconds_count{model="vllm_model",version="1"} 1
+vllm:request_queue_time_seconds_sum{model="vllm_model",version="1"} 0.0045166015625
+vllm:request_queue_time_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_queue_time_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_inference_time_seconds Histogram of time spent in RUNNING phase for request
+# TYPE vllm:request_inference_time_seconds histogram
+vllm:request_inference_time_seconds_count{model="vllm_model",version="1"} 1
+vllm:request_inference_time_seconds_sum{model="vllm_model",version="1"} 0.1418392658233643
+vllm:request_inference_time_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_inference_time_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_prefill_time_seconds Histogram of time spent in PREFILL phase for request.
+# TYPE vllm:request_prefill_time_seconds histogram
+vllm:request_prefill_time_seconds_count{model="vllm_model",version="1"} 1
+vllm:request_prefill_time_seconds_sum{model="vllm_model",version="1"} 0.05302977561950684
+vllm:request_prefill_time_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_prefill_time_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
+# HELP vllm:request_decode_time_seconds Histogram of time spent in DECODE phase for request.
+# TYPE vllm:request_decode_time_seconds histogram
+vllm:request_decode_time_seconds_count{model="vllm_model",version="1"} 1
+vllm:request_decode_time_seconds_sum{model="vllm_model",version="1"} 0.08880949020385742
+vllm:request_decode_time_seconds_bucket{model="vllm_model",version="1",le="1"} 1
+...
+vllm:request_decode_time_seconds_bucket{model="vllm_model",version="1",le="+Inf"} 1
 # HELP vllm:request_prompt_tokens Number of prefill tokens processed.
 # TYPE vllm:request_prompt_tokens histogram
 vllm:request_prompt_tokens_count{model="vllm_model",version="1"} 1
