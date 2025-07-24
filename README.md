@@ -223,6 +223,20 @@ curl localhost:8002/metrics
 VLLM stats are reported by the metrics endpoint in fields that are prefixed with
 `vllm:`. Triton currently supports reporting of the following metrics from vLLM.
 ```bash
+# Number of requests currently running on GPU.
+gauge_scheduler_running
+# Number of requests waiting to be processed.
+gauge_scheduler_waiting
+# Number of requests swapped to CPU.
+gauge_scheduler_swapped
+# GPU KV-cache usage. 1 means 100 percent usage.
+gauge_gpu_cache_usage
+# CPU KV-cache usage. 1 means 100 percent usage.
+gauge_cpu_cache_usage
+# CPU prefix cache block hit rate.
+gauge_cpu_prefix_cache_hit_rate
+# GPU prefix cache block hit rate.
+gauge_gpu_prefix_cache_hit_rate
 # Number of prefill tokens processed.
 counter_prompt_tokens
 # Number of generation tokens processed.
@@ -253,20 +267,6 @@ histogram_num_generation_tokens_request
 histogram_best_of_request
 # Histogram of the n request parameter.
 histogram_n_request
-# Number of requests currently running on GPU.
-gauge_scheduler_running
-# Number of requests waiting to be processed.
-gauge_scheduler_waiting
-# Number of requests swapped to CPU.
-gauge_scheduler_swapped
-# GPU KV-cache usage. 1 means 100 percent usage.
-gauge_gpu_cache_usage
-# CPU KV-cache usage. 1 means 100 percent usage.
-gauge_cpu_cache_usage
-# CPU prefix cache block hit rate.
-gauge_cpu_prefix_cache_hit_rate
-# GPU prefix cache block hit rate.
-gauge_gpu_prefix_cache_hit_rate
 ```
 Your output for these fields should look similar to the following:
 ```bash
