@@ -169,7 +169,7 @@ class TritonMetrics:
         self.histogram_iteration_tokens_total = (
             self.histogram_iteration_tokens_total_family.Metric(
                 labels=labels,
-                buckets=[1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8096],
+                buckets=[1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384],
             )
         )
 
