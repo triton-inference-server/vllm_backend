@@ -227,7 +227,7 @@ VLLM stats are reported by the metrics endpoint in fields that are prefixed with
 counter_prompt_tokens
 # Number of generation tokens processed.
 counter_generation_tokens
-# Number of preemption tokens processed.
+# Cumulative number of preemption from the engine.
 counter_preemption_tokens
 # Histogram of number of tokens per engine_step.
 histogram_iteration_tokens
