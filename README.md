@@ -227,16 +227,8 @@ VLLM stats are reported by the metrics endpoint in fields that are prefixed with
 gauge_scheduler_running
 # Number of requests waiting to be processed.
 gauge_scheduler_waiting
-# Number of requests swapped to CPU.
-gauge_scheduler_swapped
 # GPU KV-cache usage. 1 means 100 percent usage.
 gauge_gpu_cache_usage
-# CPU KV-cache usage. 1 means 100 percent usage.
-gauge_cpu_cache_usage
-# CPU prefix cache block hit rate.
-gauge_cpu_prefix_cache_hit_rate
-# GPU prefix cache block hit rate.
-gauge_gpu_prefix_cache_hit_rate
 # Number of prefill tokens processed.
 counter_prompt_tokens
 # Number of generation tokens processed.
@@ -285,21 +277,9 @@ vllm:num_requests_running{model="vllm_model",version="1"} 0
 # HELP vllm:num_requests_waiting Number of requests waiting to be processed.
 # TYPE vllm:num_requests_waiting gauge
 vllm:num_requests_waiting{model="vllm_model",version="1"} 0
-# HELP vllm:num_requests_swapped Number of requests swapped to CPU.
-# TYPE vllm:num_requests_swapped gauge
-vllm:num_requests_swapped{model="vllm_model",version="1"} 0
 # HELP vllm:gpu_cache_usage_perc Gauga of gpu cache usage. 1 means 100 percent usage.
 # TYPE vllm:gpu_cache_usage_perc gauge
 vllm:gpu_cache_usage_perc{model="vllm_model",version="1"} 0
-# HELP vllm:cpu_cache_usage_perc Gauga of cpu cache usage. 1 means 100 percent usage.
-# TYPE vllm:cpu_cache_usage_perc gauge
-vllm:cpu_cache_usage_perc{model="vllm_model",version="1"} 0
-# HELP vllm:cpu_prefix_cache_hit_rate CPU prefix cache block hit rate.
-# TYPE vllm:cpu_prefix_cache_hit_rate gauge
-vllm:cpu_prefix_cache_hit_rate{model="vllm_model",version="1"} -1
-# HELP vllm:gpu_prefix_cache_hit_rate GPU prefix cache block hit rate.
-# TYPE vllm:gpu_prefix_cache_hit_rate gauge
-vllm:gpu_prefix_cache_hit_rate{model="vllm_model",version="1"} -1
 # HELP vllm:iteration_tokens_total Histogram of number of tokens per engine_step.
 # TYPE vllm:iteration_tokens_total histogram
 vllm:iteration_tokens_total_count{model="vllm_model",version="1"} 10

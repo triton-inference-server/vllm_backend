@@ -49,12 +49,12 @@ class TritonMetrics:
             description="Number of generation tokens processed.",
             kind=pb_utils.MetricFamily.COUNTER,
         )
-        self.counter_preemption_tokens_family = pb_utils.MetricFamily(
+        self.counter_num_preemption_family = pb_utils.MetricFamily(
             name="vllm:num_preemptions_total",
             description="Number of preemption tokens processed.",
             kind=pb_utils.MetricFamily.COUNTER,
         )
-        self.histogram_iteration_tokens_total_family = pb_utils.MetricFamily(
+        self.histogram_iteration_tokens_family = pb_utils.MetricFamily(
             name="vllm:iteration_tokens_total",
             description="Histogram of number of tokens per engine_step.",
             kind=pb_utils.MetricFamily.HISTOGRAM,
@@ -124,31 +124,10 @@ class TritonMetrics:
             description="Number of requests waiting to be processed.",
             kind=pb_utils.MetricFamily.GAUGE,
         )
-        self.gauge_scheduler_swapped_family = pb_utils.MetricFamily(
-            name="vllm:num_requests_swapped",
-            description="Number of requests swapped to CPU.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
         #   KV Cache Usage in %
         self.gauge_gpu_cache_usage_family = pb_utils.MetricFamily(
             name="vllm:gpu_cache_usage_perc",
             description="GPU KV-cache usage. 1 means 100 percent usage.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        self.gauge_cpu_cache_usage_family = pb_utils.MetricFamily(
-            name="vllm:cpu_cache_usage_perc",
-            description="CPU KV-cache usage. 1 means 100 percent usage.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        #   Prefix caching block hit rate
-        self.gauge_cpu_prefix_cache_hit_rate_family = pb_utils.MetricFamily(
-            name="vllm:cpu_prefix_cache_hit_rate",
-            description="CPU prefix cache block hit rate.",
-            kind=pb_utils.MetricFamily.GAUGE,
-        )
-        self.gauge_gpu_prefix_cache_hit_rate_family = pb_utils.MetricFamily(
-            name="vllm:gpu_prefix_cache_hit_rate",
-            description="GPU prefix cache block hit rate.",
             kind=pb_utils.MetricFamily.GAUGE,
         )
 
@@ -160,17 +139,15 @@ class TritonMetrics:
         self.counter_generation_tokens = self.counter_generation_tokens_family.Metric(
             labels=labels
         )
-        self.counter_preemption_tokens = self.counter_preemption_tokens_family.Metric(
+        self.counter_num_preemption = self.counter_num_preemption_family.Metric(
             labels=labels
         )
 
         # Use the same bucket boundaries from vLLM sample metrics as an example.
         # https://github.com/vllm-project/vllm/blob/21313e09e3f9448817016290da20d0db1adf3664/vllm/engine/metrics.py#L81-L96
-        self.histogram_iteration_tokens_total = (
-            self.histogram_iteration_tokens_total_family.Metric(
-                labels=labels,
-                buckets=[1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384],
-            )
+        self.histogram_iteration_tokens = self.histogram_iteration_tokens_family.Metric(
+            labels=labels,
+            buckets=[1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384],
         )
 
         self.histogram_time_to_first_token = (
@@ -218,32 +195,55 @@ class TritonMetrics:
         )
         # Request stats
         #   Latency
+        request_latency_buckets = [
+            0.3,
+            0.5,
+            0.8,
+            1.0,
+            1.5,
+            2.0,
+            2.5,
+            5.0,
+            10.0,
+            15.0,
+            20.0,
+            30.0,
+            40.0,
+            50.0,
+            60.0,
+            120.0,
+            240.0,
+            480.0,
+            960.0,
+            1920.0,
+            7680.0,
+        ]
         self.histogram_e2e_time_request = self.histogram_e2e_time_request_family.Metric(
             labels=labels,
-            buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+            buckets=request_latency_buckets,
         )
         self.histogram_prefill_time_request = (
             self.histogram_prefill_time_request_family.Metric(
                 labels=labels,
-                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+                buckets=request_latency_buckets,
             )
         )
         self.histogram_decode_time_request = (
             self.histogram_decode_time_request_family.Metric(
                 labels=labels,
-                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+                buckets=request_latency_buckets,
             )
         )
         self.histogram_inference_time_request = (
             self.histogram_inference_time_request_family.Metric(
                 labels=labels,
-                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+                buckets=request_latency_buckets,
             )
         )
         self.histogram_queue_time_request = (
             self.histogram_queue_time_request_family.Metric(
                 labels=labels,
-                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+                buckets=request_latency_buckets,
             )
         )
         #   Metadata
@@ -265,28 +265,15 @@ class TritonMetrics:
         )
         # System stats
         #   Scheduler State
-        self.gauge_num_requests_running = self.gauge_scheduler_running_family.Metric(
+        self.gauge_scheduler_running = self.gauge_scheduler_running_family.Metric(
             labels=labels
         )
-        self.gauge_num_requests_waiting = self.gauge_scheduler_waiting_family.Metric(
-            labels=labels
-        )
-        self.gauge_num_requests_swapped = self.gauge_scheduler_swapped_family.Metric(
+        self.gauge_scheduler_waiting = self.gauge_scheduler_waiting_family.Metric(
             labels=labels
         )
         #   KV Cache Usage in %
         self.gauge_gpu_cache_usage = self.gauge_gpu_cache_usage_family.Metric(
             labels=labels
-        )
-        self.gauge_cpu_cache_usage = self.gauge_cpu_cache_usage_family.Metric(
-            labels=labels
-        )
-        #   Prefix caching block hit rate
-        self.gauge_cpu_prefix_cache_hit_rate = (
-            self.gauge_cpu_prefix_cache_hit_rate_family.Metric(labels=labels)
-        )
-        self.gauge_gpu_prefix_cache_hit_rate = (
-            self.gauge_gpu_prefix_cache_hit_rate_family.Metric(labels=labels)
         )
 
 
@@ -394,19 +381,9 @@ class VllmStatLogger(VllmStatLoggerBase):
             (self.metrics.histogram_n_request, stats.n_requests),
         ]
         gauge_metrics = [
-            (self.metrics.gauge_num_requests_running, stats.num_running_sys),
-            (self.metrics.gauge_num_requests_waiting, stats.num_waiting_sys),
-            (self.metrics.gauge_num_requests_swapped, stats.num_swapped_sys),
+            (self.metrics.gauge_scheduler_running, stats.num_running_sys),
+            (self.metrics.gauge_scheduler_waiting, stats.num_waiting_sys),
             (self.metrics.gauge_gpu_cache_usage, stats.gpu_cache_usage_sys),
-            (self.metrics.gauge_cpu_cache_usage, stats.cpu_cache_usage_sys),
-            (
-                self.metrics.gauge_cpu_prefix_cache_hit_rate,
-                stats.cpu_prefix_cache_hit_rate,
-            ),
-            (
-                self.metrics.gauge_gpu_prefix_cache_hit_rate,
-                stats.gpu_prefix_cache_hit_rate,
-            ),
         ]
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
