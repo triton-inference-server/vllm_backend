@@ -228,7 +228,7 @@ counter_prompt_tokens
 # Number of generation tokens processed.
 counter_generation_tokens
 # Cumulative number of preemption from the engine.
-counter_preemption_tokens
+counter_num_preemption
 # Histogram of number of tokens per engine_step.
 histogram_iteration_tokens
 # Histogram of time to first token in seconds.
