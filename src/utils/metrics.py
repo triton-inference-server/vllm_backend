@@ -366,7 +366,7 @@ class VllmStatLogger(VllmStatLoggerBase):
             (self.metrics.counter_preemption_tokens, stats.num_preemption_iter),
         ]
         histogram_metrics = [
-            (self.metrics.histogram_iteration_tokens_total, [stats.num_tokens_iter]),
+            (self.metrics.histogram_iteration_tokens, [stats.num_tokens_iter]),
             (
                 self.metrics.histogram_time_to_first_token,
                 stats.time_to_first_tokens_iter,
