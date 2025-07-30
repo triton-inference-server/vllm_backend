@@ -28,7 +28,8 @@
 RET=0
 SUBTESTS="vllm_backend multi_lora"
 
-python3 -m pip install tritonclient[grpc] transformers==4.53.3
+python3 -m pip install tritonclient[grpc]
+python3 -m pip install "transformers<=4.53.3" # TODO:DLIS-8441 remove this dependency
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)

@@ -30,7 +30,7 @@ source ../common/util.sh
 
 pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
-pip3 install transformers==4.53.3
+pip3 install "transformers<=4.53.3" # TODO:DLIS-8441 remove this dependency
 
 # Prepare Model
 rm -rf models vllm_baseline_output.pkl && mkdir -p models
