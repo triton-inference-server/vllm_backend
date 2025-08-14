@@ -1,4 +1,5 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#!/bin/bash
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,15 +25,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-name: pre-commit
+while getopts t: flag
+do
+    case "${flag}" in
+        u) PROD_CONTAINER=${OPTARG};;
+    esac
+done
 
-on:
-  pull_request:
-
-jobs:
-  pre-commit:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v3
-    - uses: pre-commit/action@v3.0.0
+echo "Pulling container image ${PROD_CONTAINER}"
+docker pull ${PROD_CONTAINER}
