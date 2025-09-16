@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -64,7 +64,7 @@ wget -P models/add_sub https://raw.githubusercontent.com/triton-inference-server
 
 # Invalid model attribute
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_1/
-sed -i 's/"disable_log_requests"/"invalid_attribute"/' models/vllm_invalid_1/1/model.json
+sed -i 's/"enforce_eager"/"invalid_attribute"/' models/vllm_invalid_1/1/model.json
 
 # Invalid model name
 cp -r ${SAMPLE_MODELS_REPO}/vllm_model models/vllm_invalid_2/
