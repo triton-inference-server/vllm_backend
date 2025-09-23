@@ -110,7 +110,6 @@ export SERVER_ENABLE_LORA=true
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
-    "disable_log_requests": true,
     "gpu_memory_utilization": 0.7,
     "tensor_parallel_size": 2,
     "block_size": 16,
@@ -202,7 +201,6 @@ wait $SERVER_PID
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
-    "disable_log_requests": true,
     "gpu_memory_utilization": 0.7,
     "tensor_parallel_size": 2,
     "block_size": 16,
@@ -282,7 +280,6 @@ export SERVER_ENABLE_LORA=false
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
-    "disable_log_requests": true,
     "gpu_memory_utilization": 0.8,
     "tensor_parallel_size": 2,
     "block_size": 16,
@@ -344,7 +341,6 @@ export SERVER_ENABLE_LORA=false
 model_json=$(cat <<EOF
 {
     "model":"./weights/backbone/gemma-2b",
-    "disable_log_requests": true,
     "gpu_memory_utilization": 0.8,
     "tensor_parallel_size": 2,
     "block_size": 16,
