@@ -1,5 +1,5 @@
 <!--
-# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -146,7 +146,6 @@ For this tutorial we will use the following set of parameters, specified in the 
 ```json
 {
     "model":"/vllm_workspace/weights/backbone/llama-7b-hf",
-    "disable_log_requests": "true",
     "gpu_memory_utilization": 0.8,
     "tensor_parallel_size": 2,
     "block_size": 16,
@@ -157,7 +156,6 @@ For this tutorial we will use the following set of parameters, specified in the 
 ```
 
 + `model`: The path to your model repository
-+ `disable_log_requests`: To show logs when launch vllm or not.
 + `gpu_memory_utilization`: The gpu memory allocated for the model weights and vllm *PagedAttention* kv cache manager.
 + `tensor_parallel_size`: The vllm now support the tensor paralism, so you can decide how many gpus you want to use for serving.
 + `block_size`: vLLM kv cache block size.
