@@ -29,7 +29,6 @@ RET=0
 SUBTESTS="vllm_backend multi_lora"
 
 python3 -m pip install tritonclient[grpc]
-python3 -m pip install transformers
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)

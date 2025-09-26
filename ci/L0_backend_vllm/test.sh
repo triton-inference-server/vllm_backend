@@ -29,7 +29,6 @@ RET=0
 SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend metrics_test"
 
 python3 -m pip install tritonclient[grpc]
-python3 -m pip install transformers
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)

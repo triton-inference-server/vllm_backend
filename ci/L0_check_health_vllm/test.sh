@@ -30,7 +30,6 @@ source ../common/util.sh
 
 pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
-pip3 install transformers
 
 RET=0
 
