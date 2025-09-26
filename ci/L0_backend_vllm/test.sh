@@ -29,7 +29,7 @@ RET=0
 SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend metrics_test"
 
 python3 -m pip install tritonclient[grpc]
-python3 -m pip install "transformers<=4.53.3" # TODO:DLIS-8441 remove this dependency
+python3 -m pip install transformers
 
 for TEST in ${SUBTESTS}; do
     (cd ${TEST} && bash -ex test.sh && cd ..)
