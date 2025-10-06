@@ -36,6 +36,9 @@ CLIENT_PY="./vllm_multi_gpu_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
 EXPECTED_NUM_TESTS=1
 
+export C_INCLUDE_PATH=/usr/local/cuda/include:$C_INCLUDE_PATH
+export TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+
 ### Helpers
 function validate_file_contains() {
     local KEY="${1}"
