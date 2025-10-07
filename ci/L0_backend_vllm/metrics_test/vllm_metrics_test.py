@@ -131,6 +131,8 @@ class VLLMTritonMetricsTest(TestResultCollector):
         # (5, 812, 9, 5, 1515, 3497, 4, 50118, 50118, 133, 812, 9, 1470, 16, 5, 812)
         # (11, 5, 1420, 9, 5, 82, 4, 50118, 50118, 133, 499, 9, 4687, 16, 11, 5)
         self.assertEqual(metrics_dict["vllm:generation_tokens_total"], 48)
+        # vllm:num_preemptions_total
+        self.assertEqual(metrics_dict["vllm:num_preemptions_total"], 0)
         # vllm:time_to_first_token_seconds
         self.assertEqual(
             metrics_dict["vllm:time_to_first_token_seconds_count"], total_prompts
@@ -139,6 +141,10 @@ class VLLMTritonMetricsTest(TestResultCollector):
         self.assertEqual(
             metrics_dict["vllm:time_to_first_token_seconds_bucket"], total_prompts
         )
+        # vllm:iteration_tokens_total
+        self.assertEqual(metrics_dict["vllm:iteration_tokens_total_count"], 18)
+        self.assertGreater(metrics_dict["vllm:iteration_tokens_total_sum"], 0)
+        self.assertEqual(metrics_dict["vllm:iteration_tokens_total_bucket"], 18)
         # vllm:time_per_output_token_seconds
         self.assertEqual(metrics_dict["vllm:time_per_output_token_seconds_count"], 45)
         self.assertGreater(metrics_dict["vllm:time_per_output_token_seconds_sum"], 0)
@@ -151,6 +157,16 @@ class VLLMTritonMetricsTest(TestResultCollector):
         self.assertEqual(
             metrics_dict["vllm:e2e_request_latency_seconds_bucket"], total_prompts
         )
+        request_time_metrics_list = [
+            "request_queue_time_seconds",
+            "request_inference_time_seconds",
+            "request_prefill_time_seconds",
+            "request_decode_time_seconds",
+        ]
+        for metric_name in request_time_metrics_list:
+            self.assertEqual(metrics_dict[f"{metric_name}_count"], total_prompts)
+            self.assertGreater(metrics_dict[f"{metric_name}_sum"], 0)
+            self.assertEqual(metrics_dict[f"{metric_name}_bucket"], total_prompts)
         # vllm:request_prompt_tokens
         self.assertEqual(
             metrics_dict["vllm:request_prompt_tokens_count"], total_prompts
