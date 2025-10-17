@@ -48,23 +48,24 @@ function enable_health_check {
 }
 
 VLLM_INSTALL_PATH="/usr/local/lib/python3.12/dist-packages/vllm"
+VLLM_V1_ENGINE_PATH="$VLLM_INSTALL_PATH/v1/engine"
 
 function mock_vllm_async_llm_engine {
     # backup original file
-    mv $VLLM_INSTALL_PATH/engine/multiprocessing/client.py $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup
-    cp $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    mv $VLLM_V1_ENGINE_PATH/async_llm.py $VLLM_V1_ENGINE_PATH/async_llm.py.backup
+    cp $VLLM_V1_ENGINE_PATH/async_llm.py.backup $VLLM_V1_ENGINE_PATH/async_llm.py
     # overwrite the original check_health method
-    echo -e "" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
-    echo -e "    async def check_health(self, check_count=[0]):" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
-    echo -e "        check_count[0] += 1" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
-    echo -e "        if check_count[0] > 1:" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
-    echo -e "            raise RuntimeError(\"Simulated vLLM check_health() failure\")" >> $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    echo -e "" >> $VLLM_V1_ENGINE_PATH/async_llm.py
+    echo -e "    async def check_health(self, check_count=[0]):" >> $VLLM_V1_ENGINE_PATH/async_llm.py
+    echo -e "        check_count[0] += 1" >> $VLLM_V1_ENGINE_PATH/async_llm.py
+    echo -e "        if check_count[0] > 1:" >> $VLLM_V1_ENGINE_PATH/async_llm.py
+    echo -e "            raise RuntimeError(\"Simulated vLLM check_health() failure\")" >> $VLLM_V1_ENGINE_PATH/async_llm.py
 }
 
 function unmock_vllm_async_llm_engine {
     # restore from backup
-    rm -f $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
-    mv $VLLM_INSTALL_PATH/engine/multiprocessing/client.py.backup $VLLM_INSTALL_PATH/engine/multiprocessing/client.py
+    rm -f $VLLM_V1_ENGINE_PATH/async_llm.py
+    mv $VLLM_V1_ENGINE_PATH/async_llm.py.backup $VLLM_V1_ENGINE_PATH/async_llm.py
 }
 
 function test_check_health {
