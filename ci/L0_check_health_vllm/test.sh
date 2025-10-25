@@ -35,7 +35,8 @@ RET=0
 
 function setup_model_repository {
     local sample_model_repo_path="../../samples/model_repository"
-    mkdir -p models && cp -r $sample_model_repo_path/vllm_model models/vllm_opt
+    rm -rf models && mkdir -p models
+    cp -r $sample_model_repo_path/vllm_model models/vllm_opt
 }
 
 function enable_health_check {
