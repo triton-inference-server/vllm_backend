@@ -31,6 +31,7 @@ source ../common/util.sh
 pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
 
+rm -f *.log *.report.xml
 RET=0
 
 function setup_model_repository {
