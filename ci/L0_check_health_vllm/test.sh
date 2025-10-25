@@ -34,7 +34,7 @@ pip3 install tritonclient[grpc]
 RET=0
 
 function setup_model_repository {
-    local sample_model_repo_path=${1:-"../../samples/model_repository"}
+    local sample_model_repo_path="../../samples/model_repository"
     mkdir -p models && cp -r $sample_model_repo_path/vllm_model models/vllm_opt
 }
 
@@ -92,20 +92,21 @@ function test_check_health {
     wait $SERVER_PID
 }
 
-setup_model_repository
-
 # Test health check unspecified
 # Cold start on SBSA device can take longer than default 120 seconds
 PREV_SERVER_TIMEOUT=$SERVER_TIMEOUT
 SERVER_TIMEOUT=240
+setup_model_repository
 test_check_health "health_check_unspecified" "test_vllm_is_healthy"
 SERVER_TIMEOUT=$PREV_SERVER_TIMEOUT
 
 # Test health check disabled
+setup_model_repository
 enable_health_check "false"
 test_check_health "health_check_disabled" "test_vllm_is_healthy"
 
 # Test health check enabled
+setup_model_repository
 enable_health_check "true"
 test_check_health "health_check_enabled" "test_vllm_is_healthy"
 
@@ -113,13 +114,16 @@ test_check_health "health_check_enabled" "test_vllm_is_healthy"
 mock_vllm_async_llm_engine
 
 # Test health check unspecified with mocked vLLM check_health() failure
+setup_model_repository
 test_check_health "health_check_unspecified_mocked_failure" "test_vllm_is_healthy"
 
 # Test health check disabled with mocked vLLM check_health() failure
+setup_model_repository
 enable_health_check "false"
 test_check_health "health_check_disabled_mocked_failure" "test_vllm_is_healthy"
 
 # Test health check enabled with mocked vLLM check_health() failure
+setup_model_repository
 enable_health_check "true"
 test_check_health "health_check_enabled_mocked_failure" "test_vllm_not_healthy"
 
