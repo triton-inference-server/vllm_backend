@@ -31,11 +31,12 @@ source ../common/util.sh
 pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
 
+rm -f *.log *.report.xml
 RET=0
 
 function setup_model_repository {
-    local sample_model_repo_path=${1:-"../../samples/model_repository"}
-    rm -rf models vllm_baseline_output.pkl && mkdir -p models
+    local sample_model_repo_path="../../samples/model_repository"
+    rm -rf models && mkdir -p models
     cp -r $sample_model_repo_path/vllm_model models/vllm_opt
 }
 
@@ -94,8 +95,12 @@ function test_check_health {
 }
 
 # Test health check unspecified
+# Cold start on SBSA device can take longer than default 120 seconds
+PREV_SERVER_TIMEOUT=$SERVER_TIMEOUT
+SERVER_TIMEOUT=240
 setup_model_repository
 test_check_health "health_check_unspecified" "test_vllm_is_healthy"
+SERVER_TIMEOUT=$PREV_SERVER_TIMEOUT
 
 # Test health check disabled
 setup_model_repository
