@@ -1,5 +1,5 @@
 {
     "model":"facebook/opt-125m",
-    "gpu_memory_utilization": 0.5,
+    "gpu_memory_utilization": 0.1,
     "enforce_eager": true
 }
