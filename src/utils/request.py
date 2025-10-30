@@ -28,12 +28,19 @@ import base64
 import json
 from abc import abstractmethod
 from io import BytesIO
+from typing import Callable
 
 import numpy as np
 import triton_python_backend_utils as pb_utils
 from PIL import Image
 from vllm.inputs.data import TokensPrompt
 from vllm.lora.request import LoRARequest
+from vllm.outputs import (
+    EmbeddingOutput,
+    EmbeddingRequestOutput,
+    PoolingRequestOutput,
+    RequestOutput,
+)
 from vllm.pooling_params import PoolingParams
 from vllm.utils import random_uuid
 
@@ -41,10 +48,13 @@ from utils.vllm_backend_utils import TritonSamplingParams
 
 
 class RequestBase:
-    def __init__(self, request, executor_callback, output_dtype):
+    def __init__(
+        self, request, executor_callback: Callable, output_dtype: np.dtype, logger
+    ):
         self.request = request
         self.executor_callback = executor_callback
         self.output_dtype = output_dtype
+        self.logger = logger
         self.id = random_uuid()
         self.stream = False
         self.prepend_input = False
@@ -58,13 +68,15 @@ class RequestBase:
         raise NotImplementedError
 
     @abstractmethod
-    def create_response(self, *args, **kwargs):
+    def create_response(self, request_output, *args, **kwargs):
         raise NotImplementedError
 
 
 class GenerateRequest(RequestBase):
-    def __init__(self, request, executor_callback, output_dtype):
-        super().__init__(request, executor_callback, output_dtype)
+    def __init__(
+        self, request, executor_callback: Callable, output_dtype: np.dtype, logger
+    ):
+        super().__init__(request, executor_callback, output_dtype, logger)
 
     def _get_input_tensors(self):
         # prompt
@@ -166,7 +178,12 @@ class GenerateRequest(RequestBase):
         async for response in response_iterator:
             yield response
 
-    def create_response(self, request_output_state, request_output, prepend_input):
+    def create_response(
+        self,
+        request_output: RequestOutput,
+        request_output_state: dict,
+        prepend_input: bool,
+    ):
         output_tensors = []
 
         # text_output
@@ -278,8 +295,10 @@ class GenerateRequest(RequestBase):
 
 
 class EmbedRequest(RequestBase):
-    def __init__(self, request, executor_callback, output_dtype):
-        super().__init__(request, executor_callback, output_dtype)
+    def __init__(
+        self, request, executor_callback: Callable, output_dtype: np.dtype, logger
+    ):
+        super().__init__(request, executor_callback, output_dtype, logger)
 
     def _get_input_tensors(self):
         embedding_request = pb_utils.get_input_tensor_by_name(
@@ -338,32 +357,16 @@ class EmbedRequest(RequestBase):
             pooling_params = PoolingParams(dimensions=dims, task="embed")
         return pooling_params
 
-    def create_response(self, request_output):
+    def create_response(self, request_output: PoolingRequestOutput[EmbeddingOutput]):
         output_tensors = []
+        request_output = EmbeddingRequestOutput.from_base(request_output)
 
-        # Extract embedding vector from output
-        # PoolingRequestOutput.outputs is a PoolingOutput with .data (torch.Tensor)
-        pooling_data = request_output.outputs.data
-
-        # Convert torch tensor to numpy array then to list for JSON serialization
-        if hasattr(pooling_data, "cpu"):
-            # It's a torch tensor - move to CPU and convert to numpy
-            embedding_array = pooling_data.cpu().numpy()
-        else:
-            # Already numpy or list
-            embedding_array = np.array(pooling_data, dtype=np.float32)
-
-        # Create response tensor - for embeddings, we use text_output to return the vector
-        # (This is a simplification - you may want to define a proper embedding output tensor)
-        embedding_list = (
-            embedding_array.tolist()
-            if hasattr(embedding_array, "tolist")
-            else list(embedding_array)
-        )
-        embedding_str = json.dumps(embedding_list)
+        # Extract embedding list from output
+        embedding: list[float] = request_output.outputs.embedding
         output_tensors.append(
             pb_utils.Tensor(
-                "text_output", np.asarray([embedding_str], dtype=self.output_dtype)
+                "text_output",
+                np.asarray([json.dumps(embedding)], dtype=self.output_dtype),
             )
         )
 

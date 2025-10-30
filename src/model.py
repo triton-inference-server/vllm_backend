@@ -40,7 +40,7 @@ from vllm.entrypoints.openai.api_server import (
 )
 
 from utils.metrics import VllmStatLoggerFactory
-from utils.vllm_backend_utils import TritonSamplingParams
+from utils.request import EmbedRequest, GenerateRequest
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
@@ -249,6 +249,11 @@ class TritonPythonModel:
                 self._event_thread = None
             raise e
 
+        # Get supported tasks from the engine running in another thread
+        self.supported_tasks = asyncio.run_coroutine_threadsafe(
+            self._llm_engine.get_supported_tasks(), self._event_loop
+        ).result()
+
     async def _run_llm_engine(self):
         # Counter to keep track of ongoing request counts.
         self._ongoing_request_count = 0
@@ -453,11 +458,11 @@ class TritonPythonModel:
             request_task_name = self._validate_request_task_name(request)
             if request_task_name == "generate":
                 request = GenerateRequest(
-                    request, self._llm_engine.generate, self.output_dtype
+                    request, self._llm_engine.generate, self.output_dtype, self.logger
                 )
             elif request_task_name == "embed":
                 request = EmbedRequest(
-                    request, self._llm_engine.encode, self.output_dtype
+                    request, self._llm_engine.encode, self.output_dtype, self.logger
                 )
             else:
                 raise ValueError(
@@ -499,10 +504,9 @@ class TritonPythonModel:
                 # Send each response if streaming.
                 if request.stream:
                     response = request.create_response(
-                        request_output_state,
                         request_output,
+                        request_output_state,
                         prepend_input=False,
-                        additional_outputs=request.additional_outputs,
                     )
                     flags = 0
                     if request_output.finished:
@@ -515,10 +519,9 @@ class TritonPythonModel:
             if not request.stream:
                 if request_task_name == "generate":
                     response = request.create_response(
-                        request_output_state={},
                         request_output=request_output,
+                        request_output_state={},
                         prepend_input=request.prepend_input,
-                        additional_outputs=request.additional_outputs,
                     )
                 else:
                     response = request.create_response(
