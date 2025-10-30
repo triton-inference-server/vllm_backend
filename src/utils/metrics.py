@@ -26,13 +26,12 @@
 
 import queue
 import threading
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import triton_python_backend_utils as pb_utils
 from vllm.config import VllmConfig
-from vllm.engine.metrics import StatLoggerBase as VllmStatLoggerBase
-from vllm.engine.metrics import Stats as VllmStats
-from vllm.engine.metrics import SupportsMetricsInfo, build_1_2_5_buckets
+from vllm.v1.metrics.loggers import StatLoggerBase, build_1_2_5_buckets
+from vllm.v1.metrics.stats import IterationStats, SchedulerStats
 
 
 class TritonMetrics:
@@ -161,13 +160,35 @@ class TritonMetrics:
         )
 
 
-class VllmStatLogger(VllmStatLoggerBase):
+# Create a partially initialized callable that adapts VllmStatLogger to StatLoggerFactory interface
+class VllmStatLoggerFactory:
+    def __init__(self, labels, log_logger):
+        self._labels = labels
+        self._log_logger = log_logger
+        self._instances_list = []
+
+    def __call__(self, vllm_config, engine_index):
+        stat_logger = VllmStatLogger(
+            self._labels, self._log_logger, vllm_config, engine_index
+        )
+        self._instances_list.append(stat_logger)
+        return stat_logger
+
+    def finalize(self):
+        for stat_logger in self._instances_list:
+            if stat_logger is not None:
+                stat_logger.finalize()
+
+
+class VllmStatLogger(StatLoggerBase):
     """StatLogger is used as an adapter between vLLM stats collector and Triton metrics provider."""
 
-    def __init__(self, labels: Dict, vllm_config: VllmConfig, log_logger) -> None:
+    def __init__(
+        self, labels: Dict, log_logger, vllm_config: VllmConfig, engine_index: int
+    ) -> None:
         # Tracked stats over current local logging interval.
         # local_interval not used here. It's for vLLM logs to stdout.
-        super().__init__(local_interval=0, vllm_config=vllm_config)
+        super().__init__(vllm_config=vllm_config, engine_index=engine_index)
         self.metrics = TritonMetrics(
             labels=labels, max_model_len=vllm_config.model_config.max_model_len
         )
@@ -176,11 +197,8 @@ class VllmStatLogger(VllmStatLoggerBase):
         # Starting the metrics thread. It allows vLLM to keep making progress
         # while reporting metrics to triton metrics service.
         self._logger_queue = queue.Queue()
-        self._logger_thread = threading.Thread(target=self.logger_loop)
+        self._logger_thread = threading.Thread(target=self._logger_loop)
         self._logger_thread.start()
-
-    def info(self, type: str, obj: SupportsMetricsInfo) -> None:
-        pass
 
     def _log_counter(self, counter, data: Union[int, float]) -> None:
         """Convenience function for logging to counter.
@@ -208,7 +226,12 @@ class VllmStatLogger(VllmStatLoggerBase):
         for datum in data:
             self._logger_queue.put_nowait((histogram, "observe", datum))
 
-    def log(self, stats: VllmStats) -> None:
+    def record(
+        self,
+        scheduler_stats: Optional[SchedulerStats],
+        iteration_stats: Optional[IterationStats],
+        engine_idx: int = 0,
+    ) -> None:
         """Report stats to Triton metrics server.
 
         Args:
@@ -217,38 +240,54 @@ class VllmStatLogger(VllmStatLoggerBase):
         Returns:
             None
         """
+
+        # Parse finished request stats into lists
+        e2e_latency: List[float] = []
+        num_prompt_tokens: List[int] = []
+        num_generation_tokens: List[int] = []
+        for finished_req in iteration_stats.finished_requests:
+            e2e_latency.append(finished_req.e2e_latency)
+            num_prompt_tokens.append(finished_req.num_prompt_tokens)
+            num_generation_tokens.append(finished_req.num_generation_tokens)
+
         # The list of vLLM metrics reporting to Triton is also documented here.
         # https://github.com/triton-inference-server/vllm_backend/blob/main/README.md#triton-metrics
         counter_metrics = [
-            (self.metrics.counter_prompt_tokens, stats.num_prompt_tokens_iter),
-            (self.metrics.counter_generation_tokens, stats.num_generation_tokens_iter),
+            (self.metrics.counter_prompt_tokens, iteration_stats.num_prompt_tokens),
+            (
+                self.metrics.counter_generation_tokens,
+                iteration_stats.num_generation_tokens,
+            ),
         ]
         histogram_metrics = [
             (
                 self.metrics.histogram_time_to_first_token,
-                stats.time_to_first_tokens_iter,
+                iteration_stats.time_to_first_tokens_iter,
             ),
             (
                 self.metrics.histogram_time_per_output_token,
-                stats.time_per_output_tokens_iter,
+                iteration_stats.inter_token_latencies_iter,
             ),
-            (self.metrics.histogram_e2e_time_request, stats.time_e2e_requests),
+            (self.metrics.histogram_e2e_time_request, e2e_latency),
             (
                 self.metrics.histogram_num_prompt_tokens_request,
-                stats.num_prompt_tokens_requests,
+                num_prompt_tokens,
             ),
             (
                 self.metrics.histogram_num_generation_tokens_request,
-                stats.num_generation_tokens_requests,
+                num_generation_tokens,
             ),
-            (self.metrics.histogram_n_request, stats.n_requests),
+            (self.metrics.histogram_n_request, iteration_stats.n_params_iter),
         ]
         for metric, data in counter_metrics:
             self._log_counter(metric, data)
         for metric, data in histogram_metrics:
             self._log_histogram(metric, data)
 
-    def logger_loop(self):
+    def log_engine_initialized(self) -> None:
+        pass
+
+    def _logger_loop(self):
         while True:
             item = self._logger_queue.get()
             # To signal shutdown a None item will be added to the queue.
