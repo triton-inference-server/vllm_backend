@@ -240,6 +240,8 @@ class VllmStatLogger(StatLoggerBase):
         Returns:
             None
         """
+        if iteration_stats is None:
+            return
 
         # Parse finished request stats into lists
         e2e_latency: List[float] = []
