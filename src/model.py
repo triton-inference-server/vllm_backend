@@ -124,7 +124,8 @@ class TritonPythonModel:
                 "dims": [1],
                 "optional": True,
             },
-            # Tentative input reserved for embedding requests in OpenAI frontend. May change in the future.
+            # Tentative input reserved for embedding requests in OpenAI-compatible frontend. Subject to change in the future.
+            # WARN: Triton client should never set this input. It is reserved for embedding requests in OpenAI-compatible frontend.
             {
                 "name": "embedding_request",
                 "data_type": "TYPE_STRING",
