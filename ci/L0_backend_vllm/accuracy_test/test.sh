@@ -48,17 +48,11 @@ RET=0
 set +e
 # Need to generate baseline first, since running 2 vLLM engines causes
 # memory issues: https://github.com/vllm-project/vllm/issues/2248
-export VLLM_USE_V1=0
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
 python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 
 python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
-
-unset VLLM_USE_V1
-unset VLLM_WORKER_MULTIPROC_METHOD
-
 set -e
 
 run_server
@@ -87,12 +81,6 @@ set -e
 
 kill $SERVER_PID
 wait $SERVER_PID
-
-# Check that warning about V1 Engine appears in log - this warning is expected
-if ! grep -q "Engine in background thread is experimental on VLLM_USE_V1=1. Falling back to V0 Engine." $SERVER_LOG; then
-    echo -e "\n***\n*** ERROR: Expected warning about vLLM falling back to V0 Engine not found in logs.\n***"
-    RET=1
-fi
 
 rm -rf models/
 

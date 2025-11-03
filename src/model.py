@@ -35,7 +35,6 @@ from io import BytesIO
 from typing import Dict, List
 
 import numpy as np
-import torch
 import triton_python_backend_utils as pb_utils
 from PIL import Image
 from vllm.engine.arg_utils import AsyncEngineArgs
@@ -45,7 +44,7 @@ from vllm.entrypoints.openai.api_server import (
 from vllm.lora.request import LoRARequest
 from vllm.utils import random_uuid
 
-from utils.metrics import VllmStatLogger
+from utils.metrics import VllmStatLoggerFactory
 from utils.vllm_backend_utils import TritonSamplingParams
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
@@ -184,11 +183,11 @@ class TritonPythonModel:
             and not self._aync_engine_args.disable_log_stats
         )
 
-        # Starting the vLLM engine and its event thread running the AsyncIO event loop.
-        self._init_engine()
-
         # Setup vLLM metrics
         self._setup_metrics()
+
+        # Starting the vLLM engine and its event thread running the AsyncIO event loop.
+        self._init_engine()
 
         # Starting the response thread. It allows vLLM to keep making progress while
         # response sender(s) are sending responses to server frontend.
@@ -258,6 +257,7 @@ class TritonPythonModel:
             async with build_async_engine_client_from_engine_args(
                 engine_args=self._aync_engine_args,
                 disable_frontend_multiprocessing=self._enable_metrics,
+                stat_loggers=self._vllm_metrics,
             ) as engine:
                 # Capture the engine event loop and make it visible to other threads.
                 self._event_loop = asyncio.get_running_loop()
@@ -348,7 +348,7 @@ class TritonPythonModel:
                 )
 
     def _setup_metrics(self):
-        self._vllm_metrics = None
+        self._vllm_metrics = []
         # TODO: Do not read metrics directly from the vLLM engine, read from prometheus
         #       client to allow the use of ZMQ process when metrics are enabled. See
         #       https://github.com/vllm-project/vllm/blob/v0.6.3.post1/vllm/entrypoints/openai/api_server.py#L222-L245
@@ -359,9 +359,8 @@ class TritonPythonModel:
                     "version": self.args["model_version"],
                 }
                 # Add vLLM custom metrics
-                vllm_config = self._llm_engine.engine.vllm_config
-                self._vllm_metrics = VllmStatLogger(labels, vllm_config, self.logger)
-                self._llm_engine.add_logger("triton", self._vllm_metrics)
+                factory = VllmStatLoggerFactory(labels, self.logger)
+                self._vllm_metrics.append(factory)
             except pb_utils.TritonModelException as e:
                 if "metrics not supported" in str(e):
                     # Metrics are disabled at the server
@@ -785,8 +784,8 @@ class TritonPythonModel:
             self._response_thread = None
 
         # Shutdown the metrics thread.
-        if self._vllm_metrics is not None:
-            self._vllm_metrics.finalize()
+        for stat_logger_factory in self._vllm_metrics:
+            stat_logger_factory.finalize()
 
         # When using parallel tensors, the stub process may not shutdown due to
         # unreleased references, so manually run the garbage collector once.

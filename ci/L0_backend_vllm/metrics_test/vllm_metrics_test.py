@@ -173,13 +173,11 @@ class VLLMTritonMetricsTest(TestResultCollector):
     # TODO: Revisit this test due to the removal of best_of
     def test_custom_sampling_params(self):
         # Adding sampling parameters for testing metrics.
-        # Definitions can be found here https://docs.vllm.ai/en/latest/dev/sampling_params.html
-        n, best_of = 2, 4
+        # Definitions can be found here https://docs.vllm.ai/en/latest/api/vllm/sampling_params.html
+        n, temperature = 2, 1
         custom_sampling_parameters = self.sampling_parameters.copy()
-        # Changing "temperature" because "best_of" must be 1 when using greedy
-        # sampling, i.e. "temperature": "0".
         custom_sampling_parameters.update(
-            {"n": str(n), "best_of": str(best_of), "temperature": "1"}
+            {"n": str(n), "temperature": str(temperature)}
         )
 
         # Test vLLM metrics

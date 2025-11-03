@@ -190,7 +190,6 @@ class VLLMTritonAccuracyTest(TestResultCollector):
         sampling_params = SAMPLING_PARAMETERS
         guided_decoding_params = {
             "choice": ["Positive", "Negative"],
-            "backend": "outlines",
         }
         sampling_params["guided_decoding"] = json.dumps(guided_decoding_params)
         for i in range(len(GUIDED_PROMPTS)):
@@ -245,7 +244,6 @@ if __name__ == "__main__":
     if FLAGS.generate_guided_baseline:
         guided_decoding_params = {
             "choice": ["Positive", "Negative"],
-            "backend": "outlines",
         }
         guided_generation = GuidedDecodingParams(**guided_decoding_params)
         asyncio.run(
