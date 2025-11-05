@@ -128,6 +128,12 @@ class TritonPythonModel:
                 "dims": [1],
                 "optional": True,
             },
+            {
+                "name": "priority",
+                "data_type": "TYPE_INT32",
+                "dims": [1],
+                "optional": True,
+            },
         ]
         # Outputs expected by the backend.
         outputs = [
@@ -425,6 +431,7 @@ class TritonPythonModel:
                 prepend_input,
                 parameters,
                 additional_outputs,
+                priority,
             ) = self._get_input_tensors(request)
 
             sampling_params = TritonSamplingParams.from_dict(parameters, self.logger)
@@ -437,7 +444,11 @@ class TritonPythonModel:
                 lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
             response_iterator = self._llm_engine.generate(
-                prompt, sampling_params, request_id, lora_request=lora_request
+                prompt,
+                sampling_params,
+                request_id,
+                lora_request=lora_request,
+                priority=priority,
             )
 
             request_output_state = {}
@@ -586,7 +597,14 @@ class TritonPythonModel:
                 tensor = False
             additional_outputs[tensor_name] = tensor
 
-        return prompt, stream, prepend_input, parameters, additional_outputs
+        # priority
+        priority = pb_utils.get_input_tensor_by_name(request, "priority")
+        if priority:
+            priority = int(priority.as_numpy()[0])
+        else:
+            priority = 0
+
+        return prompt, stream, prepend_input, parameters, additional_outputs, priority
 
     def _create_response(
         self, request_output_state, request_output, prepend_input, additional_outputs
