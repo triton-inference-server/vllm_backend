@@ -27,7 +27,7 @@
 import json
 from typing import Optional
 
-from vllm.sampling_params import GuidedDecodingParams, SamplingParams
+from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 
 
 class TritonSamplingParams(SamplingParams):
@@ -84,8 +84,8 @@ class TritonSamplingParams(SamplingParams):
                 Optional[int]: int,
             }
             for key, value in params_dict.items():
-                if key == "guided_decoding":
-                    params_dict[key] = GuidedDecodingParams(**json.loads(value))
+                if key == "structured_outputs":
+                    params_dict[key] = StructuredOutputsParams(**json.loads(value))
                 elif key in vllm_params_dict:
                     vllm_type = vllm_params_dict[key]
                     if vllm_type in type_mapping:
