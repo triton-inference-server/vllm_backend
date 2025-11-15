@@ -352,7 +352,6 @@ class TritonPythonModel:
                     lora_repository: Dict[str, str] = json.load(lora_file)
                 self.lora_repository = lora_repository
                 self.supported_loras: List[str] = list(self.lora_repository.keys())
-                self.supported_loras_len = len(self.supported_loras)
                 self.enable_lora = True
             except FileNotFoundError:
                 raise FileNotFoundError(
@@ -461,9 +460,22 @@ class TritonPythonModel:
         try:
             request_task_name = self._validate_request_task_name(request)
             if request_task_name == "generate":
-                request = GenerateRequest(
-                    request, self._llm_engine.generate, self.output_dtype, self.logger
-                )
+                if self.enable_lora:
+                    request = GenerateRequest(
+                        request,
+                        self._llm_engine.generate,
+                        self.output_dtype,
+                        self.logger,
+                        self.lora_repository,
+                        self.supported_loras,
+                    )
+                else:
+                    request = GenerateRequest(
+                        request,
+                        self._llm_engine.generate,
+                        self.output_dtype,
+                        self.logger,
+                    )
             elif request_task_name == "embed":
                 request = EmbedRequest(
                     request, self._llm_engine.encode, self.output_dtype, self.logger
