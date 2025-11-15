@@ -30,6 +30,7 @@ import json
 import os
 import queue
 import threading
+import traceback
 from typing import Dict, List
 
 import numpy as np
@@ -244,7 +245,9 @@ class TritonPythonModel:
         # failed to start, so the exception is passed back via the engine variable.
         if isinstance(self._llm_engine, Exception):
             e = self._llm_engine
-            self.logger.log_error(f"[vllm] Failed to start engine: {e}")
+            self.logger.log_error(
+                f"[vllm] Failed to start engine: {traceback.format_exc()}"
+            )
             if self._event_thread is not None:
                 self._event_thread.join()
                 self._event_thread = None
@@ -398,7 +401,7 @@ class TritonPythonModel:
                     response_state["is_cancelled"] = response_sender.is_cancelled()
             except Exception as e:
                 self.logger.log_error(
-                    f"An error occurred while sending a response: {e}"
+                    f"An error occurred while sending a response: {traceback.format_exc()}"
                 )
             finally:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
@@ -533,7 +536,9 @@ class TritonPythonModel:
                 )
 
         except Exception as e:
-            self.logger.log_error(f"[vllm] Error generating stream: {e}")
+            self.logger.log_error(
+                f"[vllm] Error generating stream: {traceback.format_exc()}"
+            )
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
@@ -591,7 +596,7 @@ class TritonPythonModel:
             future.result()
         except Exception as e:
             self.logger.log_error(
-                f"[vllm] Engine is not healthy and model will be unloaded: {e}"
+                f"[vllm] Engine is not healthy and model will be unloaded: {traceback.format_exc()}"
             )
             pb_utils.unload_model(self.model_config["name"])  # non-blocking
             self._is_healthy = False
