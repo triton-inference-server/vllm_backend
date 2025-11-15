@@ -97,8 +97,6 @@ check_response() {
 }
 
 # first we download weights
-pip install -U huggingface_hub
-
 rm -rf weights && mkdir -p weights/loras/GemmaDoll && mkdir -p weights/loras/GemmaSheep
 mkdir -p weights/backbone/gemma-2b
 
