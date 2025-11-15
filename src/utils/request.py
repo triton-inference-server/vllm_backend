@@ -28,7 +28,7 @@ import base64
 import json
 from abc import abstractmethod
 from io import BytesIO
-from typing import Callable
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import triton_python_backend_utils as pb_utils
@@ -51,7 +51,7 @@ class RequestBase:
     def __init__(
         self, request, executor_callback: Callable, output_dtype: np.dtype, logger
     ):
-        self.request = request
+        self.triton_request = request
         self.executor_callback = executor_callback
         self.output_dtype = output_dtype
         self.logger = logger
@@ -74,20 +74,31 @@ class RequestBase:
 
 class GenerateRequest(RequestBase):
     def __init__(
-        self, request, executor_callback: Callable, output_dtype: np.dtype, logger
+        self,
+        request,
+        executor_callback: Callable,
+        output_dtype: np.dtype,
+        logger,
+        lora_repository: Optional[Dict[str, str]] = None,
+        supported_loras: Optional[List[str]] = None,
     ):
         super().__init__(request, executor_callback, output_dtype, logger)
+        # Attributes for generate requests
+        if lora_repository is not None:
+            self.lora_repository = lora_repository
+        if supported_loras is not None:
+            self.supported_loras = supported_loras
 
     def _get_input_tensors(self):
         # prompt
         prompt = pb_utils.get_input_tensor_by_name(
-            self.request, "text_input"
+            self.triton_request, "text_input"
         ).as_numpy()[0]
         if isinstance(prompt, bytes):
             prompt = prompt.decode("utf-8")
 
         # image
-        images = pb_utils.get_input_tensor_by_name(self.request, "image")
+        images = pb_utils.get_input_tensor_by_name(self.triton_request, "image")
         if images:
             images_vllm = []
             for image_np in images.as_numpy():
@@ -101,7 +112,7 @@ class GenerateRequest(RequestBase):
                 }
 
         # stream
-        stream = pb_utils.get_input_tensor_by_name(self.request, "stream")
+        stream = pb_utils.get_input_tensor_by_name(self.triton_request, "stream")
         if stream:
             stream = stream.as_numpy()[0]
         else:
@@ -109,7 +120,7 @@ class GenerateRequest(RequestBase):
 
         # prepend_input / exclude_input_in_output
         prepend_input = pb_utils.get_input_tensor_by_name(
-            self.request, "exclude_input_in_output"
+            self.triton_request, "exclude_input_in_output"
         )
         if prepend_input:
             # When `exclude_input_in_output` is False, we want to prepend input prompt
@@ -128,12 +139,12 @@ class GenerateRequest(RequestBase):
         # An alternative mechanism to receive serialized parameters as an input
         # tensor, because request parameters are not yet supported via BLS.
         sampling_parameters = pb_utils.get_input_tensor_by_name(
-            self.request, "sampling_parameters"
+            self.triton_request, "sampling_parameters"
         )
         if sampling_parameters:
             parameters = sampling_parameters.as_numpy()[0].decode("utf-8")
         else:
-            parameters = self.request.parameters()
+            parameters = self.triton_request.parameters()
 
         # additional outputs
         additional_outputs = {
@@ -144,7 +155,7 @@ class GenerateRequest(RequestBase):
             "return_num_output_tokens": None,
         }
         for tensor_name in additional_outputs.keys():
-            tensor = pb_utils.get_input_tensor_by_name(self.request, tensor_name)
+            tensor = pb_utils.get_input_tensor_by_name(self.triton_request, tensor_name)
             if tensor:
                 tensor = bool(tensor.as_numpy()[0])
             else:
@@ -302,7 +313,7 @@ class EmbedRequest(RequestBase):
 
     def _get_input_tensors(self):
         embedding_request = pb_utils.get_input_tensor_by_name(
-            self.request, "embedding_request"
+            self.triton_request, "embedding_request"
         ).as_numpy()[0]
         embedding_request = json.loads(embedding_request.decode("utf-8"))
         # prompt
@@ -324,7 +335,7 @@ class EmbedRequest(RequestBase):
             "return_num_output_tokens": None,
         }
         for tensor_name in additional_outputs.keys():
-            tensor = pb_utils.get_input_tensor_by_name(self.request, tensor_name)
+            tensor = pb_utils.get_input_tensor_by_name(self.triton_request, tensor_name)
             if tensor:
                 tensor = bool(tensor.as_numpy()[0])
             else:
