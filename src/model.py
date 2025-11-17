@@ -30,6 +30,7 @@ import json
 import os
 import queue
 import threading
+import traceback
 from typing import Dict, List
 
 import numpy as np
@@ -244,7 +245,9 @@ class TritonPythonModel:
         # failed to start, so the exception is passed back via the engine variable.
         if isinstance(self._llm_engine, Exception):
             e = self._llm_engine
-            self.logger.log_error(f"[vllm] Failed to start engine: {e}")
+            self.logger.log_error(
+                f"[vllm] Failed to start engine: {traceback.format_exc()}"
+            )
             if self._event_thread is not None:
                 self._event_thread.join()
                 self._event_thread = None
@@ -349,7 +352,6 @@ class TritonPythonModel:
                     lora_repository: Dict[str, str] = json.load(lora_file)
                 self.lora_repository = lora_repository
                 self.supported_loras: List[str] = list(self.lora_repository.keys())
-                self.supported_loras_len = len(self.supported_loras)
                 self.enable_lora = True
             except FileNotFoundError:
                 raise FileNotFoundError(
@@ -398,7 +400,7 @@ class TritonPythonModel:
                     response_state["is_cancelled"] = response_sender.is_cancelled()
             except Exception as e:
                 self.logger.log_error(
-                    f"An error occurred while sending a response: {e}"
+                    f"An error occurred while sending a response: {traceback.format_exc()}"
                 )
             finally:
                 if response_flag == pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL:
@@ -458,9 +460,22 @@ class TritonPythonModel:
         try:
             request_task_name = self._validate_request_task_name(request)
             if request_task_name == "generate":
-                request = GenerateRequest(
-                    request, self._llm_engine.generate, self.output_dtype, self.logger
-                )
+                if self.enable_lora:
+                    request = GenerateRequest(
+                        request,
+                        self._llm_engine.generate,
+                        self.output_dtype,
+                        self.logger,
+                        self.lora_repository,
+                        self.supported_loras,
+                    )
+                else:
+                    request = GenerateRequest(
+                        request,
+                        self._llm_engine.generate,
+                        self.output_dtype,
+                        self.logger,
+                    )
             elif request_task_name == "embed":
                 request = EmbedRequest(
                     request, self._llm_engine.encode, self.output_dtype, self.logger
@@ -533,7 +548,9 @@ class TritonPythonModel:
                 )
 
         except Exception as e:
-            self.logger.log_error(f"[vllm] Error generating stream: {e}")
+            self.logger.log_error(
+                f"[vllm] Error generating stream: {traceback.format_exc()}"
+            )
             error = pb_utils.TritonError(f"Error generating stream: {e}")
             text_output_tensor = pb_utils.Tensor(
                 "text_output", np.asarray(["N/A"], dtype=self.output_dtype)
@@ -591,7 +608,7 @@ class TritonPythonModel:
             future.result()
         except Exception as e:
             self.logger.log_error(
-                f"[vllm] Engine is not healthy and model will be unloaded: {e}"
+                f"[vllm] Engine is not healthy and model will be unloaded: {traceback.format_exc()}"
             )
             pb_utils.unload_model(self.model_config["name"])  # non-blocking
             self._is_healthy = False
