@@ -138,6 +138,8 @@ done
 
 ### Results
 if [ $RET -eq 1 ]; then
+    cat $CLIENT_LOG
+    cat $SERVER_LOG
     echo -e "\n***\n*** Multi GPU Utilization test FAILED. \n***"
 else
     echo -e "\n***\n*** Multi GPU Utilization test PASSED. \n***"
