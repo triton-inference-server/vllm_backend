@@ -135,6 +135,7 @@ unmock_vllm_async_llm_engine
 if [ $RET -eq 0 ]; then
     echo -e "\n***\n*** Test Passed\n***"
 else
+    cat $SERVER_LOG
     echo -e "\n***\n*** Test FAILED\n***"
 fi
 exit $RET

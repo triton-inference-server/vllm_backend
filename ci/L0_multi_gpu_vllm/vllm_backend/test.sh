@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -138,6 +138,8 @@ done
 
 ### Results
 if [ $RET -eq 1 ]; then
+    cat $CLIENT_LOG
+    cat $SERVER_LOG
     echo -e "\n***\n*** Multi GPU Utilization test FAILED. \n***"
 else
     echo -e "\n***\n*** Multi GPU Utilization test PASSED. \n***"
