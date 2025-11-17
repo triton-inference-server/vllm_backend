@@ -97,8 +97,6 @@ check_response() {
 }
 
 # first we download weights
-pip install -U huggingface_hub
-
 rm -rf weights && mkdir -p weights/loras/GemmaDoll && mkdir -p weights/loras/GemmaSheep
 mkdir -p weights/backbone/gemma-2b
 
@@ -119,7 +117,6 @@ model_json=$(cat <<EOF
     "enforce_eager": true,
     "enable_lora": true,
     "max_lora_rank": 32,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -210,7 +207,6 @@ model_json=$(cat <<EOF
     "enforce_eager": true,
     "enable_lora": "true",
     "max_lora_rank": 32,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -288,7 +284,6 @@ model_json=$(cat <<EOF
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": false,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -349,7 +344,6 @@ model_json=$(cat <<EOF
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": "false",
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
