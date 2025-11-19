@@ -28,9 +28,6 @@
 RET=0
 SUBTESTS="accuracy_test request_cancellation enabled_stream vllm_backend metrics_test"
 
-export C_INCLUDE_PATH=/usr/local/cuda/include:$C_INCLUDE_PATH
-export TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
-
 python3 -m pip install tritonclient[grpc]
 
 for TEST in ${SUBTESTS}; do
