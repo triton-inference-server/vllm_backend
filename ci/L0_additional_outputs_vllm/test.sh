@@ -32,7 +32,7 @@ pip3 install pytest==8.1.1
 pip3 install tritonclient[grpc]
 
 # Prepare Model
-rm -rf models vllm_baseline_output.pkl && mkdir -p models
+rm -rf models && mkdir -p models
 SAMPLE_MODELS_REPO="../../samples/model_repository"
 cp -r $SAMPLE_MODELS_REPO/vllm_model models/vllm_opt
 sed -i 's/"gpu_memory_utilization": 0.5/"gpu_memory_utilization": 0.3/' models/vllm_opt/1/model.json
@@ -42,7 +42,11 @@ RET=0
 # Test
 SERVER_LOG="additional_outputs_test.server.log"
 SERVER_ARGS="--model-repository=models"
+# Cold start on SBSA device can take longer than default 120 seconds
+PREV_SERVER_TIMEOUT=$SERVER_TIMEOUT
+SERVER_TIMEOUT=240
 run_server
+SERVER_TIMEOUT=$PREV_SERVER_TIMEOUT
 if [ "$SERVER_PID" == "0" ]; then
     echo -e "\n***\n*** Failed to start $SERVER\n***"
     cat $SERVER_LOG
@@ -61,6 +65,7 @@ wait $SERVER_PID
 if [ $RET -eq 0 ]; then
     echo -e "\n***\n*** Test Passed\n***"
 else
+    cat $SERVER_LOG
     echo -e "\n***\n*** Test FAILED\n***"
 fi
 exit $RET

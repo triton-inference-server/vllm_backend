@@ -41,9 +41,6 @@ EXPECTED_NUM_TESTS=2
 GENERATE_ENDPOINT="localhost:8000/v2/models/vllm_llama_multi_lora/generate"
 CHECK_FOR_ERROR=true
 
-export C_INCLUDE_PATH=/usr/local/cuda/include:$C_INCLUDE_PATH
-export TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
-
 make_api_call() {
     local endpoint="$1"
     local data="$2"
@@ -97,8 +94,6 @@ check_response() {
 }
 
 # first we download weights
-pip install -U huggingface_hub
-
 rm -rf weights && mkdir -p weights/loras/GemmaDoll && mkdir -p weights/loras/GemmaSheep
 mkdir -p weights/backbone/gemma-2b
 
@@ -119,7 +114,6 @@ model_json=$(cat <<EOF
     "enforce_eager": true,
     "enable_lora": true,
     "max_lora_rank": 32,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -210,7 +204,6 @@ model_json=$(cat <<EOF
     "enforce_eager": true,
     "enable_lora": "true",
     "max_lora_rank": 32,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -288,7 +281,6 @@ model_json=$(cat <<EOF
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": false,
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF
@@ -349,7 +341,6 @@ model_json=$(cat <<EOF
     "block_size": 16,
     "enforce_eager": true,
     "enable_lora": "false",
-    "lora_extra_vocab_size": 256,
     "distributed_executor_backend":"ray"
 }
 EOF

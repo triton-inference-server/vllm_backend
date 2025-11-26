@@ -51,7 +51,7 @@ set +e
 python3 $CLIENT_PY --generate-baseline >> $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 
-python3 $CLIENT_PY --generate-guided-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
+python3 $CLIENT_PY --generate-structured-baseline > $VLLM_ENGINE_LOG 2>&1 & BASELINE_PID=$!
 wait $BASELINE_PID
 set -e
 
