@@ -31,7 +31,7 @@ from typing import Dict, List, Optional, Union
 import triton_python_backend_utils as pb_utils
 from vllm.config import VllmConfig
 from vllm.v1.metrics.loggers import StatLoggerBase, build_1_2_5_buckets
-from vllm.v1.metrics.stats import IterationStats, SchedulerStats
+from vllm.v1.metrics.stats import IterationStats, MultiModalCacheStats, SchedulerStats
 
 
 class TritonMetrics:
@@ -228,8 +228,9 @@ class VllmStatLogger(StatLoggerBase):
 
     def record(
         self,
-        scheduler_stats: Optional[SchedulerStats],
-        iteration_stats: Optional[IterationStats],
+        scheduler_stats: SchedulerStats | None,
+        iteration_stats: IterationStats | None,
+        mm_cache_stats: MultiModalCacheStats | None = None,
         engine_idx: int = 0,
     ) -> None:
         """Report stats to Triton metrics server.
