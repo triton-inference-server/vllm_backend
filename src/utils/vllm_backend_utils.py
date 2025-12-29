@@ -32,7 +32,7 @@ try:
 except ImportError:
     parse_pattern = None
 
-from vllm.sampling_params import GuidedDecodingParams, SamplingParams, StructuredOutputsParams
+from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 
 
 class TritonSamplingParams(SamplingParams):
@@ -98,8 +98,28 @@ class TritonSamplingParams(SamplingParams):
                 elif key == "guided_decoding":
                     if isinstance(value, str):
                         value = json.loads(value)
-                    params_dict[key] = GuidedDecodingParams(**value)
-                elif key in vllm_params_dict:
+                    # Map guided_decoding to structured_outputs
+                    # Remove backend if present as it is not supported in StructuredOutputsParams constructor
+                    if "backend" in value:
+                        backend = value.pop("backend")
+                        if backend not in ["xgrammar", "xgrammar:no-fallback", "auto", "xgrammar:_auto"]:
+                             raise ValueError(f"guided_decoding.backend is no longer supported request-level. Provided: {backend}")
+                    
+                    # If structured_outputs is not already set, use guided_decoding params
+                    if "structured_outputs" not in params_dict:
+                        params_dict["structured_outputs"] = StructuredOutputsParams(**value)
+                    
+                    # Remove guided_decoding key as it is not in SamplingParams
+                    # We will remove it after the loop or just ignore it if we modify params_dict in place?
+                    # We are iterating over items(), so modifying keys is risky if we don't copy.
+                    # But here we are modifying values mostly.
+                    # We should remove 'guided_decoding' key.
+            
+            if "guided_decoding" in params_dict:
+                del params_dict["guided_decoding"]
+
+            for key, value in params_dict.items():
+                if key in vllm_params_dict:
                     vllm_type = vllm_params_dict[key]
                     if vllm_type in type_mapping:
                         params_dict[key] = type_mapping[vllm_type](params_dict[key])
@@ -115,46 +135,42 @@ class TritonSamplingParams(SamplingParams):
     def __post_init__(self):
         super().__post_init__()
 
-        # Validate the guided decoding parameters.
-        if self.guided_decoding:
-            if not isinstance(self.guided_decoding, GuidedDecodingParams):
+        # Validate the structured outputs parameters.
+        if self.structured_outputs:
+            if not isinstance(self.structured_outputs, StructuredOutputsParams):
                 raise ValueError(
-                    "guided_decoding must be of type GuidedDecodingParams"
+                    "structured_outputs must be of type StructuredOutputsParams"
                 )
-            TritonSamplingParams._validate_guided_params(self.guided_decoding)
+            TritonSamplingParams._validate_guided_params(self.structured_outputs)
 
     @staticmethod
-    def _validate_guided_params(params: GuidedDecodingParams):
+    def _validate_guided_params(params: StructuredOutputsParams):
         """
-        Validates the guided decoding parameters.
+        Validates the structured outputs parameters.
         Raises an exception if the parameters are invalid.
         """
         if not params:
             return
 
-        if not isinstance(params, GuidedDecodingParams):
-            raise ValueError("guided_decoding must be of type GuidedDecodingParams")
+        if not isinstance(params, StructuredOutputsParams):
+            raise ValueError("structured_outputs must be of type StructuredOutputsParams")
 
         # Validate regex constraint if provided.
         if params.regex:
             if not isinstance(params.regex, str):
-                raise ValueError("guided_decoding.regex must be a string")
+                raise ValueError("structured_outputs.regex must be a string")
             if parse_pattern:
                 try:
                     parse_pattern(params.regex)
                 except Exception as e:
-                    raise ValueError(f"Invalid regex constraint for guided decoding: {e}") from e
+                    raise ValueError(f"Invalid regex constraint for structured outputs: {e}") from e
             
-        if params.backend:
-            if not isinstance(params.backend, str):
-                raise ValueError("guided_decoding.backend must be a string")
-            if params.backend not in ["xgrammar", "xgrammar:no-fallback", "auto", "xgrammar:_auto"]:
-                # if non-default backend is requested, do not schedule
-                raise ValueError(f"guided_decoding.backend is no longer supported request-level. Provided: {params.backend}")
+        # backend validation is removed as it is not exposed in StructuredOutputsParams
+        # and handled during construction/mapping.
 
         if params.grammar:
             if not isinstance(params.grammar, str):
-                raise ValueError("guided_decoding.grammar must be a string, describing a BNF grammar")
+                raise ValueError("structured_outputs.grammar must be a string, describing a BNF grammar")
            
             try:
                 from xgrammar import \
@@ -165,22 +181,22 @@ class TritonSamplingParams(SamplingParams):
             except ImportError:
                 pass
             except RuntimeError as e:
-                raise ValueError(f"Invalid BNF grammar for guided decoding: {e}") from e
+                raise ValueError(f"Invalid BNF grammar for structured outputs: {e}") from e
 
         # Validate choice constraint.
         if params.choice:
             if not isinstance(params.choice, list):
-                raise ValueError("guided_decoding.choice must be a list")
+                raise ValueError("structured_outputs.choice must be a list")
             for item in params.choice:
                 if not isinstance(item, str):
-                    raise ValueError("Each element in guided_decoding.choice must be a string")
+                    raise ValueError("Each element in structured_outputs.choice must be a string")
 
         # Validate JSON constraint.
         if params.json:
             if not isinstance(params.json, dict):
-                raise ValueError("guided_decoding.json must be a JSON schema dictionary")
+                raise ValueError("structured_outputs.json must be a JSON schema dictionary")
 
         # Validate whitespace_pattern constraint.
         if params.whitespace_pattern:
             if not isinstance(params.whitespace_pattern, str):
-                raise ValueError("guided_decoding.whitespace_pattern must be a string")
+                raise ValueError("structured_outputs.whitespace_pattern must be a string")
