@@ -92,12 +92,13 @@ class TritonSamplingParams(SamplingParams):
             # Remove None values to let vLLM use defaults
             params_dict = {k: v for k, v in params_dict.items() if v is not None}
 
-            for key, value in params_dict.items():
+            for key, value in list(params_dict.items()):
                 if key == "structured_outputs":
                     params_dict[key] = StructuredOutputsParams(**json.loads(value))
                 elif key == "guided_decoding":
                     if isinstance(value, str):
                         value = json.loads(value)
+                    
                     # Map guided_decoding to structured_outputs
                     # Remove backend if present as it is not supported in StructuredOutputsParams constructor
                     if "backend" in value:
@@ -109,12 +110,6 @@ class TritonSamplingParams(SamplingParams):
                     if "structured_outputs" not in params_dict:
                         params_dict["structured_outputs"] = StructuredOutputsParams(**value)
                     
-                    # Remove guided_decoding key as it is not in SamplingParams
-                    # We will remove it after the loop or just ignore it if we modify params_dict in place?
-                    # We are iterating over items(), so modifying keys is risky if we don't copy.
-                    # But here we are modifying values mostly.
-                    # We should remove 'guided_decoding' key.
-            
             if "guided_decoding" in params_dict:
                 del params_dict["guided_decoding"]
 
@@ -163,14 +158,14 @@ class TritonSamplingParams(SamplingParams):
                 try:
                     parse_pattern(params.regex)
                 except Exception as e:
-                    raise ValueError(f"Invalid regex constraint for structured outputs: {e}") from e
+                    raise ValueError(f"Invalid regex constraint: {e}") from e
             
         # backend validation is removed as it is not exposed in StructuredOutputsParams
         # and handled during construction/mapping.
 
         if params.grammar:
             if not isinstance(params.grammar, str):
-                raise ValueError("structured_outputs.grammar must be a string, describing a BNF grammar")
+                raise ValueError("grammar must be a string, describing a BNF grammar")
            
             try:
                 from xgrammar import \
@@ -181,22 +176,22 @@ class TritonSamplingParams(SamplingParams):
             except ImportError:
                 pass
             except RuntimeError as e:
-                raise ValueError(f"Invalid BNF grammar for structured outputs: {e}") from e
+                raise ValueError(f"Invalid BNF grammar: {e}") from e
 
         # Validate choice constraint.
         if params.choice:
             if not isinstance(params.choice, list):
-                raise ValueError("structured_outputs.choice must be a list")
+                raise ValueError("choice must be a list")
             for item in params.choice:
                 if not isinstance(item, str):
-                    raise ValueError("Each element in structured_outputs.choice must be a string")
+                    raise ValueError("Each element in choice must be a string")
 
         # Validate JSON constraint.
         if params.json:
             if not isinstance(params.json, dict):
-                raise ValueError("structured_outputs.json must be a JSON schema dictionary")
+                raise ValueError("json must be a JSON schema dictionary")
 
         # Validate whitespace_pattern constraint.
         if params.whitespace_pattern:
             if not isinstance(params.whitespace_pattern, str):
-                raise ValueError("structured_outputs.whitespace_pattern must be a string")
+                raise ValueError("whitespace_pattern must be a string")
