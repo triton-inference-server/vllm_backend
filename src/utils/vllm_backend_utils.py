@@ -25,9 +25,14 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-from typing import Optional
+from typing import Optional, Union
 
-from vllm.sampling_params import SamplingParams, StructuredOutputsParams
+try:
+    from interegular.patterns import parse_pattern
+except ImportError:
+    parse_pattern = None
+
+from vllm.sampling_params import GuidedDecodingParams, SamplingParams, StructuredOutputsParams
 
 
 class TritonSamplingParams(SamplingParams):
@@ -83,9 +88,17 @@ class TritonSamplingParams(SamplingParams):
                 str: str,
                 Optional[int]: int,
             }
+            
+            # Remove None values to let vLLM use defaults
+            params_dict = {k: v for k, v in params_dict.items() if v is not None}
+
             for key, value in params_dict.items():
                 if key == "structured_outputs":
                     params_dict[key] = StructuredOutputsParams(**json.loads(value))
+                elif key == "guided_decoding":
+                    if isinstance(value, str):
+                        value = json.loads(value)
+                    params_dict[key] = GuidedDecodingParams(**value)
                 elif key in vllm_params_dict:
                     vllm_type = vllm_params_dict[key]
                     if vllm_type in type_mapping:
@@ -98,3 +111,76 @@ class TritonSamplingParams(SamplingParams):
                 f"[vllm] Was trying to create `TritonSamplingParams`, but got exception: {e}"
             )
             return None
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Validate the guided decoding parameters.
+        if self.guided_decoding:
+            if not isinstance(self.guided_decoding, GuidedDecodingParams):
+                raise ValueError(
+                    "guided_decoding must be of type GuidedDecodingParams"
+                )
+            TritonSamplingParams._validate_guided_params(self.guided_decoding)
+
+    @staticmethod
+    def _validate_guided_params(params: GuidedDecodingParams):
+        """
+        Validates the guided decoding parameters.
+        Raises an exception if the parameters are invalid.
+        """
+        if not params:
+            return
+
+        if not isinstance(params, GuidedDecodingParams):
+            raise ValueError("guided_decoding must be of type GuidedDecodingParams")
+
+        # Validate regex constraint if provided.
+        if params.regex:
+            if not isinstance(params.regex, str):
+                raise ValueError("guided_decoding.regex must be a string")
+            if parse_pattern:
+                try:
+                    parse_pattern(params.regex)
+                except Exception as e:
+                    raise ValueError(f"Invalid regex constraint for guided decoding: {e}") from e
+            
+        if params.backend:
+            if not isinstance(params.backend, str):
+                raise ValueError("guided_decoding.backend must be a string")
+            if params.backend not in ["xgrammar", "xgrammar:no-fallback", "auto", "xgrammar:_auto"]:
+                # if non-default backend is requested, do not schedule
+                raise ValueError(f"guided_decoding.backend is no longer supported request-level. Provided: {params.backend}")
+
+        if params.grammar:
+            if not isinstance(params.grammar, str):
+                raise ValueError("guided_decoding.grammar must be a string, describing a BNF grammar")
+           
+            try:
+                from xgrammar import \
+                    Grammar  # type: ignore[import]: do NOT move up to avoid premature CUDA init
+
+                # Try to parse the converted grammar, to fail this request early
+                Grammar.from_ebnf(params.grammar)
+            except ImportError:
+                pass
+            except RuntimeError as e:
+                raise ValueError(f"Invalid BNF grammar for guided decoding: {e}") from e
+
+        # Validate choice constraint.
+        if params.choice:
+            if not isinstance(params.choice, list):
+                raise ValueError("guided_decoding.choice must be a list")
+            for item in params.choice:
+                if not isinstance(item, str):
+                    raise ValueError("Each element in guided_decoding.choice must be a string")
+
+        # Validate JSON constraint.
+        if params.json:
+            if not isinstance(params.json, dict):
+                raise ValueError("guided_decoding.json must be a JSON schema dictionary")
+
+        # Validate whitespace_pattern constraint.
+        if params.whitespace_pattern:
+            if not isinstance(params.whitespace_pattern, str):
+                raise ValueError("guided_decoding.whitespace_pattern must be a string")
