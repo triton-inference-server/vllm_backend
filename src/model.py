@@ -1,4 +1,4 @@
-# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -319,7 +319,8 @@ class TritonPythonModel:
         # of the devices made available to it.
         # NOTE: Consider other parameters that would indicate multi-GPU in the future.
         tp_size = int(self.vllm_engine_config.get("tensor_parallel_size", 1))
-        if tp_size > 1 and triton_kind == "GPU":
+        pp_size = int(self.vllm_engine_config.get("pipeline_parallel_size", 1))
+        if (tp_size * pp_size) > 1 and triton_kind == "GPU":
             raise ValueError(
                 "KIND_GPU is currently for single-GPU models, please specify KIND_MODEL "
                 "in the model's config.pbtxt for multi-GPU models"
