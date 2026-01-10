@@ -1,4 +1,4 @@
-# Copyright 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Optional, Union
 
 try:
@@ -32,7 +34,11 @@ try:
 except ImportError:
     parse_pattern = None
 
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.engine.protocol import EngineClient
 from vllm.sampling_params import SamplingParams, StructuredOutputsParams
+from vllm.usage.usage_lib import UsageContext
+from vllm.v1.metrics.loggers import StatLoggerFactory
 
 
 class TritonSamplingParams(SamplingParams):
@@ -195,3 +201,50 @@ class TritonSamplingParams(SamplingParams):
         if params.whitespace_pattern:
             if not isinstance(params.whitespace_pattern, str):
                 raise ValueError("whitespace_pattern must be a string")
+
+# Copy from vllm/vllm/entrypoints/openai/api_server.py with custom stat_loggers
+@asynccontextmanager
+async def build_async_engine_client_from_engine_args(
+    engine_args: AsyncEngineArgs,
+    logger: "pb_utils.Logger",
+    *,
+    usage_context: UsageContext = UsageContext.OPENAI_API_SERVER,
+    disable_frontend_multiprocessing: bool = False,
+    stat_loggers: Optional[list[StatLoggerFactory]] = None,
+) -> AsyncIterator[EngineClient]:
+    """
+    Create EngineClient, either:
+        - in-process using the AsyncLLMEngine Directly
+        - multiprocess using AsyncLLMEngine RPC
+
+    Returns the Client or None if the creation failed.
+    """
+
+    # Create the EngineConfig
+    vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+
+    if disable_frontend_multiprocessing:
+        logger.log_warn("V1 is enabled, but got --disable-frontend-multiprocessing.")
+
+    from vllm.v1.engine.async_llm import AsyncLLM
+
+    async_llm: AsyncLLM | None = None
+
+    try:
+        async_llm = AsyncLLM.from_vllm_config(
+            vllm_config=vllm_config,
+            usage_context=usage_context,
+            stat_loggers=stat_loggers,
+            enable_log_requests=engine_args.enable_log_requests,
+            aggregate_engine_logging=engine_args.aggregate_engine_logging,
+            disable_log_stats=engine_args.disable_log_stats,
+        )
+
+        # Don't keep the dummy data in memory
+        assert async_llm is not None
+        await async_llm.reset_mm_cache()
+
+        yield async_llm
+    finally:
+        if async_llm:
+            async_llm.shutdown()

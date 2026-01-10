@@ -36,12 +36,10 @@ from typing import Dict, List
 import numpy as np
 import triton_python_backend_utils as pb_utils
 from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.entrypoints.openai.api_server import (
-    build_async_engine_client_from_engine_args,
-)
 
 from utils.metrics import VllmStatLoggerFactory
 from utils.request import EmbedRequest, GenerateRequest
+from utils.vllm_backend_utils import build_async_engine_client_from_engine_args
 
 _VLLM_ENGINE_ARGS_FILENAME = "model.json"
 _MULTI_LORA_ARGS_FILENAME = "multi_lora.json"
@@ -268,6 +266,7 @@ class TritonPythonModel:
             # TODO: Metrics should work with ZMQ enabled.
             async with build_async_engine_client_from_engine_args(
                 engine_args=self._aync_engine_args,
+                logger=self.logger,
                 disable_frontend_multiprocessing=self._enable_metrics,
                 stat_loggers=self._vllm_metrics,
             ) as engine:
