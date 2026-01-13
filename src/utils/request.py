@@ -365,7 +365,9 @@ class EmbedRequest(RequestBase):
         dims = None
         if "dimensions" in pooling_params_dict:
             dims = pooling_params_dict["dimensions"][0]
-            pooling_params = PoolingParams(dimensions=dims, task="embed")
+            pooling_params = PoolingParams(
+                dimensions=dims, task="embed", skip_reading_prefix_cache=False
+            )
         return pooling_params
 
     def create_response(self, request_output: PoolingRequestOutput[EmbeddingOutput]):
