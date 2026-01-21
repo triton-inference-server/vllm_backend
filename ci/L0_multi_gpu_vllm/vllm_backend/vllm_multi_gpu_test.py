@@ -1,4 +1,4 @@
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@ from functools import partial
 
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
-from vllm.utils import import_pynvml
+from vllm.utils.import_utils import import_pynvml
 
 sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
