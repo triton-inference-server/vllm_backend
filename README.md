@@ -223,24 +223,24 @@ curl localhost:8002/metrics
 VLLM stats are reported by the metrics endpoint in fields that are prefixed with
 `vllm:`. Triton currently supports reporting of the following metrics from vLLM.
 ```bash
-# Number of prefill tokens processed.
-counter_prompt_tokens
-# Number of generation tokens processed.
-counter_generation_tokens
+# Counter of prefill tokens processed.
+vllm:prompt_tokens_total
+# Counter of generation tokens processed.
+vllm:generation_tokens_total
 # Histogram of time to first token in seconds.
-histogram_time_to_first_token
+vllm:time_to_first_token_seconds
 # Histogram of time per output token in seconds.
-histogram_time_per_output_token
+vllm:time_per_output_token_seconds
 # Histogram of end to end request latency in seconds.
-histogram_e2e_time_request
-# Number of prefill tokens processed.
-histogram_num_prompt_tokens_request
-# Number of generation tokens processed.
-histogram_num_generation_tokens_request
+vllm:e2e_request_latency_seconds
+# Histogram of prefill tokens processed.
+vllm:request_prompt_tokens
+# Histogram of generation tokens processed.
+vllm:request_generation_tokens
 # Histogram of the best_of request parameter.
-histogram_best_of_request
+vllm:request_params_best_of
 # Histogram of the n request parameter.
-histogram_n_request
+vllm:request_params_n
 ```
 Your output for these fields should look similar to the following:
 ```bash
