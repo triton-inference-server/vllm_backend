@@ -1,5 +1,5 @@
 <!--
-# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -212,7 +212,7 @@ Additional vLLM outputs may be requested optionally on a per-request basis. See
 ## Triton Metrics
 Starting with the 24.08 release of Triton, users can now obtain specific
 vLLM metrics by querying the Triton metrics endpoint (see complete vLLM metrics
-[here](https://docs.vllm.ai/en/latest/serving/metrics.html)). This can be
+[here](https://docs.vllm.ai/en/latest/design/metrics/)). This can be
 accomplished by launching a Triton server in any of the ways described above
 (ensuring the build code / container is 24.08 or later) and querying the server.
 Upon receiving a successful response, you can query the metrics endpoint by entering
