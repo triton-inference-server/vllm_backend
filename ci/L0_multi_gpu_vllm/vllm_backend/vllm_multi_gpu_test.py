@@ -31,16 +31,22 @@ from functools import partial
 
 import tritonclient.grpc as grpcclient
 from tritonclient.utils import *
-from vllm.utils import import_pynvml
+
+try:
+    import pynvml
+except ImportError:
+    pynvml = None
 
 sys.path.append("../../common")
 from test_util import TestResultCollector, UserData, callback, create_vllm_request
 
-pynvml = import_pynvml()
-
 
 class VLLMMultiGPUTest(TestResultCollector):
     def setUp(self):
+        if pynvml is None:
+            raise ImportError(
+                "pynvml is required for this test. Install with: pip install nvidia-ml-py"
+            )
         pynvml.nvmlInit()
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
 
