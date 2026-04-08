@@ -1,4 +1,4 @@
-# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 import argparse
 import asyncio
 import json
-import pickle
 import sys
 import unittest
 from functools import partial
@@ -77,7 +76,7 @@ async def generate_python_vllm_output(
 
     if last_output:
         python_vllm_output = [
-            (prompt + output.text).encode("utf-8") for output in last_output.outputs
+            (prompt + output.text) for output in last_output.outputs
         ]
     return python_vllm_output
 
@@ -99,8 +98,8 @@ async def prepare_vllm_baseline_outputs(
         if output:
             python_vllm_output.extend(output)
 
-    with open(export_file, "wb") as f:
-        pickle.dump(python_vllm_output, f)
+    with open(export_file, "w") as f:
+        json.dump(python_vllm_output, f)
 
     return
 
@@ -113,8 +112,8 @@ class VLLMTritonAccuracyTest(TestResultCollector):
     def test_vllm_model(self):
         # Reading and verifying baseline data
         self.python_vllm_output = []
-        with open("vllm_baseline_output.pkl", "rb") as f:
-            self.python_vllm_output = pickle.load(f)
+        with open("vllm_baseline_output.pkl", "r") as f:
+            self.python_vllm_output = json.load(f)
 
         self.assertNotEqual(
             self.python_vllm_output,
@@ -163,8 +162,8 @@ class VLLMTritonAccuracyTest(TestResultCollector):
     def test_structured_outputs(self):
         # Reading and verifying baseline data
         self.python_vllm_output = []
-        with open("vllm_structured_baseline_output.pkl", "rb") as f:
-            self.python_vllm_output = pickle.load(f)
+        with open("vllm_structured_baseline_output.pkl", "r") as f:
+            self.python_vllm_output = json.load(f)
 
         self.assertNotEqual(
             self.python_vllm_output,
