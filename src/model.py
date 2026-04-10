@@ -312,27 +312,72 @@ class TritonPythonModel:
         triton_device_id = int(self.args["model_instance_device_id"])
         triton_instance = f"{self.args['model_name']}_{triton_device_id}"
 
-        # Triton's current definition of KIND_GPU makes assumptions that
-        # models only use a single GPU. For multi-GPU models, the recommendation
-        # is to specify KIND_MODEL to acknowledge that the model will take control
-        # of the devices made available to it.
-        # NOTE: Consider other parameters that would indicate multi-GPU in the future.
         tp_size = int(self.vllm_engine_config.get("tensor_parallel_size", 1))
         pp_size = int(self.vllm_engine_config.get("pipeline_parallel_size", 1))
-        if (tp_size * pp_size) > 1 and triton_kind == "GPU":
-            raise ValueError(
-                "KIND_GPU is currently for single-GPU models, please specify KIND_MODEL "
-                "in the model's config.pbtxt for multi-GPU models"
-            )
+        world_size = tp_size * pp_size
 
-        # If KIND_GPU is specified, specify the device ID assigned by Triton to ensure that
-        # multiple model instances do not oversubscribe the same default device.
-        if triton_kind == "GPU" and triton_device_id >= 0:
-            self.logger.log_info(
-                f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
-            )
-            # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(triton_device_id)
+        if triton_kind == "GPU":
+            # Triton's current definition of KIND_GPU makes assumptions that
+            # models only use a single GPU. For multi-GPU models, the recommendation
+            # is to specify KIND_MODEL to acknowledge that the model will take control
+            # of the devices made available to it.
+            if world_size > 1:
+                raise ValueError(
+                    "KIND_GPU is currently for single-GPU models, please specify KIND_MODEL "
+                    "in the model's config.pbtxt for multi-GPU models"
+                )
+
+            # If KIND_GPU is specified, specify the device ID assigned by Triton to ensure that
+            # multiple model instances do not oversubscribe the same default device.
+            if triton_device_id >= 0:
+                self.logger.log_info(
+                    f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
+                )
+                # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
+                os.environ["CUDA_VISIBLE_DEVICES"] = str(triton_device_id)
+
+        elif triton_kind == "MODEL":
+            # KIND_MODEL defers device placement to the backend/engine.
+            # If the user provides a GPU_DEVICE_IDS parameter, pin this
+            # instance to those specific GPUs via CUDA_VISIBLE_DEVICES.
+            gpu_device_ids = self._get_string_config_param("GPU_DEVICE_IDS")
+            if gpu_device_ids:
+                try:
+                    gpu_ids = [int(x.strip()) for x in gpu_device_ids.split(",")]
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid value for GPU_DEVICE_IDS: '{gpu_device_ids}'. "
+                        f"Expected a comma-separated list of integer GPU IDs (e.g., '0,1,2')."
+                    )
+
+                negative_ids = [gpu_id for gpu_id in gpu_ids if gpu_id < 0]
+                if negative_ids:
+                    raise ValueError(
+                        f"GPU_DEVICE_IDS contains invalid GPU ID(s): {negative_ids}. "
+                        f"GPU IDs must be non-negative integers."
+                    )
+
+                duplicates = [gpu_id for gpu_id in gpu_ids if gpu_ids.count(gpu_id) > 1]
+                if duplicates:
+                    raise ValueError(
+                        f"GPU_DEVICE_IDS contains duplicate GPU ID(s): {sorted(set(duplicates))}. "
+                        f"Each GPU ID must be unique."
+                    )
+
+                if world_size > 1 and len(gpu_ids) != world_size:
+                    raise ValueError(
+                        f"The number of GPU IDs specified in GPU_DEVICE_IDS "
+                        f"parameter must match the total parallelism world size "
+                        f"(tensor_parallel_size({tp_size}) * pipeline_parallel_size({pp_size}) "
+                        f"= {tp_size * pp_size})."
+                    )
+
+                cuda_visible = ",".join(str(gpu_id) for gpu_id in gpu_ids)
+                self.logger.log_info(
+                    f"Detected KIND_MODEL instance with GPU_DEVICE_IDS specified. "
+                    f"Setting CUDA_VISIBLE_DEVICES={cuda_visible} for {triton_instance}."
+                )
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible
 
     def _setup_lora(self):
         self.enable_lora = False
@@ -384,6 +429,12 @@ class TritonPythonModel:
             self.model_config["parameters"][param_name]["string_value"].lower()
             == "true"
         )
+
+    def _get_string_config_param(self, param_name: str) -> str:
+        params = self.model_config.get("parameters", {})
+        if param_name in params:
+            return params[param_name].get("string_value", "")
+        return ""
 
     def _response_loop(self):
         while True:
