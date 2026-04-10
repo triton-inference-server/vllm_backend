@@ -75,9 +75,7 @@ async def generate_python_vllm_output(
         last_output = vllm_output
 
     if last_output:
-        python_vllm_output = [
-            (prompt + output.text) for output in last_output.outputs
-        ]
+        python_vllm_output = [(prompt + output.text) for output in last_output.outputs]
     return python_vllm_output
 
 
