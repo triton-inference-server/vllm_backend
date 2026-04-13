@@ -175,25 +175,25 @@ function run_gpu_device_ids_validation_tests() {
     # Clear env vars from other tests
     unset TEST_MODEL GPU_DEVICE_IDS KIND TENSOR_PARALLELISM INSTANCE_COUNT
 
-    local BAD_FORMAT="vllm_gpu_device_ids_bad_format"
-    local BAD_WHITESPACE="vllm_gpu_device_ids_bad_whitespace"
-    local BAD_NEGATIVE="vllm_gpu_device_ids_bad_negative"
-    local BAD_DUPLICATE="vllm_gpu_device_ids_bad_duplicate"
-    local BAD_COUNT="vllm_gpu_device_ids_bad_count"
+    local INVALID_FORMAT="vllm_invalid_format_gpu_device_ids"
+    local INVALID_WHITESPACE="vllm_invalid_whitespace_gpu_device_ids"
+    local INVALID_NEGATIVE="vllm_invalid_negative_gpu_device_ids"
+    local INVALID_DUPLICATE="vllm_invalid_duplicate_gpu_device_ids"
+    local INVALID_COUNT="vllm_invalid_count_gpu_device_ids"
 
     rm -rf models && mkdir -p models
     # Non-integer string: triggers parse ValueError
-    create_gpu_device_ids_model "${BAD_FORMAT}" "abc" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
-    # Whitespace-only: same parse ValueError path as bad_format
-    create_gpu_device_ids_model "${BAD_WHITESPACE}" " " "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+    create_gpu_device_ids_model "${INVALID_FORMAT}" "abc" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+    # Whitespace-only: same parse ValueError path as invalid_format
+    create_gpu_device_ids_model "${INVALID_WHITESPACE}" " " "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
     # Negative GPU ID: triggers negative-ID check
-    create_gpu_device_ids_model "${BAD_NEGATIVE}" "-1" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+    create_gpu_device_ids_model "${INVALID_NEGATIVE}" "-1" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
     # Duplicate GPU IDs: triggers duplicate check
-    create_gpu_device_ids_model "${BAD_DUPLICATE}" "0,0" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+    create_gpu_device_ids_model "${INVALID_DUPLICATE}" "0,0" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
     # Fewer IDs than world_size: triggers count-mismatch check
-    create_gpu_device_ids_model "${BAD_COUNT}" "0" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+    create_gpu_device_ids_model "${INVALID_COUNT}" "0" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
 
-    export INVALID_GPU_DEVICE_IDS_MODELS="${BAD_FORMAT},${BAD_WHITESPACE},${BAD_NEGATIVE},${BAD_DUPLICATE},${BAD_COUNT}"
+    export INVALID_GPU_DEVICE_IDS_MODELS="${INVALID_FORMAT},${INVALID_WHITESPACE},${INVALID_NEGATIVE},${INVALID_DUPLICATE},${INVALID_COUNT}"
 
     echo "Running GPU_DEVICE_IDS validation tests with invalid configs"
     run_test_with_server \

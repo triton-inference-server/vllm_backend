@@ -289,11 +289,11 @@ class VLLMMultiGPUTest(TestResultCollector):
         # Maps a substring of the model name to the error fragment expected from
         # _validate_device_config().
         expected_errors = {
-            "bad_format": "Expected a comma-separated list of integer GPU IDs",
-            "bad_whitespace": "Expected a comma-separated list of integer GPU IDs",
-            "bad_negative": "GPU IDs must be non-negative integers.",
-            "bad_duplicate": "Each GPU ID must be unique.",
-            "bad_count": "must match the total parallelism world size",
+            "invalid_format": "Expected a comma-separated list of integer GPU IDs",
+            "invalid_whitespace": "Expected a comma-separated list of integer GPU IDs",
+            "invalid_negative": "GPU IDs must be non-negative integers.",
+            "invalid_duplicate": "Each GPU ID must be unique.",
+            "invalid_count": "must match the total parallelism world size",
         }
 
         for model in invalid_models:
