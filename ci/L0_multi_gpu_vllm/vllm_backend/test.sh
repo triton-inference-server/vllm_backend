@@ -161,10 +161,19 @@ function run_gpu_device_ids_test() {
     rm -rf models && mkdir -p models
     create_gpu_device_ids_model "${TEST_MODEL}" "${GPU_IDS}" "${TP}" "${DISTRIBUTED_EXECUTOR_BACKEND}"
 
-    echo "Running GPU_DEVICE_IDS happy-path test with gpu_ids=${GPU_IDS}, tp=${TP}"
+    echo "Running valid GPU_DEVICE_IDS test with gpu_ids=${GPU_IDS}, tp=${TP}"
     run_test_with_server \
-        "vllm_gpu_device_ids_test--happy_path" \
+        "vllm_valid_gpu_device_ids_test--${GPU_IDS}_tp${TP}" \
         "VLLMMultiGPUTest.test_gpu_device_ids"
+
+    # Verify that _validate_device_config logged the GPU_DEVICE_IDS specified.
+    local EXPECTED_LOG_MSG="Detected KIND_MODEL instance with GPU_DEVICE_IDS specified"
+    if ! grep -q "${EXPECTED_LOG_MSG}" "${SERVER_LOG}"; then
+        echo -e "\n***\n*** ERROR: Expected log message not found in ${SERVER_LOG}:" \
+                "\n***   '${EXPECTED_LOG_MSG}'\n***"
+        RET=1
+    fi
+
     unset GPU_DEVICE_IDS
 }
 
@@ -222,6 +231,7 @@ done
 
 # Test GPU_DEVICE_IDS parameter for per-model GPU pinning with KIND_MODEL
 run_gpu_device_ids_test "0,1" "2" "${DISTRIBUTED_EXECUTOR_BACKEND}"
+run_gpu_device_ids_test "1" "1" "${DISTRIBUTED_EXECUTOR_BACKEND}"
 run_gpu_device_ids_validation_tests "${DISTRIBUTED_EXECUTOR_BACKEND}"
 
 ### Results
