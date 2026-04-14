@@ -90,8 +90,10 @@ function run_test_with_server() {
     fi
     set -e
 
-    kill $SERVER_PID
-    wait $SERVER_PID
+    if kill -0 "$SERVER_PID" 2>/dev/null; then
+        kill "$SERVER_PID" || true
+    fi
+    wait "$SERVER_PID" 2>/dev/null || true
 }
 
 function run_multi_gpu_test() {
@@ -132,6 +134,7 @@ function create_gpu_device_ids_model() {
     local VLLM_CONFIG="${MODEL_DIR}/1/model.json"
 
     cp -r "${SAMPLE_MODELS_REPO}/vllm_model" "${MODEL_DIR}"
+    validate_file_contains "KIND_MODEL" "${TRITON_CONFIG}"
     sed -i "3s/^/    \"tensor_parallel_size\": ${TP},\n/" "${VLLM_CONFIG}"
     if [ $TP -ne "1" ]; then
         jq --arg backend $DISTRIBUTED_EXECUTOR_BACKEND \

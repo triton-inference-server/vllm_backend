@@ -357,10 +357,16 @@ class TritonPythonModel:
                         f"GPU IDs must be non-negative integers."
                     )
 
-                duplicates = [gpu_id for gpu_id in gpu_ids if gpu_ids.count(gpu_id) > 1]
+                seen_gpu_ids = set()
+                duplicates = set()
+                for gpu_id in gpu_ids:
+                    if gpu_id in seen_gpu_ids:
+                        duplicates.add(gpu_id)
+                    else:
+                        seen_gpu_ids.add(gpu_id)
                 if duplicates:
                     raise ValueError(
-                        f"GPU_DEVICE_IDS contains duplicate GPU ID(s): {sorted(set(duplicates))}. "
+                        f"GPU_DEVICE_IDS contains duplicate GPU ID(s): {sorted(duplicates)}. "
                         f"Each GPU ID must be unique."
                     )
 
