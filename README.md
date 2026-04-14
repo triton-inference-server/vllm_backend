@@ -130,8 +130,24 @@ Specifically,
 and
 [here](https://github.com/vllm-project/vllm/blob/ee8217e5bee5860469204ee57077a91138c9af02/vllm/engine/arg_utils.py#L201).
 
-For multi-GPU support, EngineArgs like tensor_parallel_size can be specified in
-[model.json](samples/model_repository/vllm_model/1/model.json).
+For multi-GPU support, EngineArgs such as `tensor_parallel_size` can be specified in [model.json](samples/model_repository/vllm_model/1/model.json).
+When using multi-GPU models, the instance group `kind` must be set to `KIND_MODEL` in `config.pbtxt`.
+
+By default, vLLM selects from all GPUs visible to the Triton process. To pin a multi-GPU model to a specific subset of GPUs, you can provide the `GPU_DEVICE_IDS` parameter in `config.pbtxt`. This is useful for co-locating multiple models with different GPU requirements on a single Triton server.
+
+```protobuf
+instance_group [
+  {
+    count: 1
+    kind: KIND_MODEL
+  }
+]
+parameters {
+  key: "GPU_DEVICE_IDS"
+  value: { string_value: "1,2" }
+}
+```
+The number of GPU IDs specified in `GPU_DEVICE_IDS` must match the total parallelism world size (`tensor_parallel_size` * `pipeline_parallel_size`).
 
 Note: vLLM greedily consume up to 90% of the GPU's memory under default settings.
 The sample model updates this behavior by setting gpu_memory_utilization to 50%.
