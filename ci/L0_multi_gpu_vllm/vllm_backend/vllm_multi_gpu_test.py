@@ -50,9 +50,6 @@ class VLLMMultiGPUTest(TestResultCollector):
         pynvml.nvmlInit()
         self.triton_client = grpcclient.InferenceServerClient(url="localhost:8001")
 
-        # Minimum memory increase on a GPU indicating that a model was loaded on it.
-        self._GPU_LOAD_THRESHOLD_BYTES = 1024 * 1024 * 1024  # 1 GiB
-
     def get_gpu_memory_utilization(self, gpu_id):
         handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)
         info = pynvml.nvmlDeviceGetMemoryInfo(handle)
@@ -94,7 +91,7 @@ class VLLMMultiGPUTest(TestResultCollector):
             memory_utilization = self.get_gpu_memory_utilization(gpu_id)
             print(f"GPU {gpu_id} Memory Utilization: {memory_utilization} bytes")
             memory_delta = memory_utilization - mem_util_before_loading_model[gpu_id]
-            if memory_delta > self._GPU_LOAD_THRESHOLD_BYTES:
+            if memory_delta > 0:
                 vllm_model_used_gpus += 1
                 gpu_memory_utilizations.append(memory_delta)
 
@@ -237,18 +234,17 @@ class VLLMMultiGPUTest(TestResultCollector):
             if gpu_id in pinned_set:
                 self.assertGreater(
                     delta,
-                    self._GPU_LOAD_THRESHOLD_BYTES,
+                    0,
                     f"GPU {gpu_id} is listed in GPU_DEVICE_IDS={pinned_gpu_ids}, but its "
-                    f"memory usage increased by only {delta:,} bytes (threshold: "
-                    f"{self._GPU_LOAD_THRESHOLD_BYTES:,} bytes).",
+                    f"memory usage did not increase after loading the model.",
                 )
             else:
                 self.assertLessEqual(
                     delta,
-                    self._GPU_LOAD_THRESHOLD_BYTES,
+                    0,
                     f"GPU {gpu_id} is not listed in GPU_DEVICE_IDS={pinned_gpu_ids}, but its "
-                    f"memory usage increased by {delta:,} bytes, which exceeds the allowed threshold of "
-                    f"{self._GPU_LOAD_THRESHOLD_BYTES:,} bytes.",
+                    f"memory usage increased by {delta:,} bytes. "
+                    f"CUDA_VISIBLE_DEVICES should have hidden this GPU from vLLM.",
                 )
 
     def test_gpu_device_ids(self):
