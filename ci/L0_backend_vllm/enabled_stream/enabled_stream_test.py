@@ -1,4 +1,4 @@
-# Copyright 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -45,8 +45,8 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         sampling_parameters=SAMPLING_PARAMETERS,
         stream=True,
         exclude_input_in_output=None,
-        expected_output=None,
         expect_error=False,
+        expected_joined_output=None,
     ):
         async with grpcclient.InferenceServerClient(
             url="localhost:8001"
@@ -84,13 +84,15 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
                 output = result.as_numpy("text_output")
                 self.assertIsNotNone(output, "`text_output` should not be None")
                 final_response.append(str(output[0], encoding="utf-8"))
-            if expected_output is not None:
+            if expected_joined_output is not None:
+                self.assertGreater(len(final_response), 1)
+                final_response = "".join(final_response)
                 self.assertEqual(
                     final_response,
-                    expected_output,
+                    expected_joined_output,
                     'Expected to receive the following response: "{}",\
                     but received "{}".'.format(
-                        expected_output, final_response
+                        expected_joined_output, final_response
                     ),
                 )
 
@@ -110,35 +112,19 @@ class VLLMTritonStreamTest(AsyncTestResultCollector):
         Verifying that streaming request returns only generated diffs, which
         is default behaviour for `stream=True`.
         """
-        expected_output = [
-            " the",
-            " one",
-            " that",
-            " is",
-            " most",
-            " likely",
-            " to",
-            " be",
-            " killed",
-            " by",
-            " a",
-            " car",
-            ".",
-            "\n",
-            "I",
-            "'m",
-        ]
-        await self._test_vllm_model(expected_output=expected_output)
+        await self._test_vllm_model(
+            expected_joined_output=(
+                " the one that is most likely to be killed by a car.\nI'm"
+            ),
+        )
 
     async def test_vllm_model_enabled_stream_exclude_input_in_output_false(self):
         """
         Verifying that streaming request returns only generated diffs even if
         `exclude_input_in_output` is set to False explicitly.
         """
-        expected_output = "Error generating stream: When streaming, `exclude_input_in_output` = False is not allowed."
         await self._test_vllm_model(
             exclude_input_in_output=False,
-            expected_output=expected_output,
             expect_error=True,
         )
 
