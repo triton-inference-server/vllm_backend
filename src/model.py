@@ -31,6 +31,7 @@ import os
 import queue
 import threading
 import traceback
+from collections import Counter
 from typing import Dict, List
 
 import numpy as np
@@ -357,18 +358,11 @@ class TritonPythonModel:
                         f"GPU IDs must be non-negative integers."
                     )
 
-                seen_gpu_ids = set()
-                duplicates = set()
-                for gpu_id in gpu_ids:
-                    if gpu_id in seen_gpu_ids:
-                        duplicates.add(gpu_id)
-                    else:
-                        seen_gpu_ids.add(gpu_id)
+                duplicates = [
+                    gpu_id for gpu_id, count in Counter(gpu_ids).items() if count > 1
+                ]
                 if duplicates:
-                    raise ValueError(
-                        f"GPU_DEVICE_IDS contains duplicate GPU ID(s): {sorted(duplicates)}. "
-                        f"Each GPU ID must be unique."
-                    )
+                    raise ValueError(f"Duplicate GPU_DEVICE_IDS: {sorted(duplicates)}")
 
                 if world_size > 1 and len(gpu_ids) != world_size:
                     raise ValueError(

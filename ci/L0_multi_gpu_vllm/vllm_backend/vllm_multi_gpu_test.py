@@ -288,7 +288,7 @@ class VLLMMultiGPUTest(TestResultCollector):
             "invalid_format": "Expected a comma-separated list of integer GPU IDs",
             "invalid_whitespace": "Expected a comma-separated list of integer GPU IDs",
             "invalid_negative": "GPU IDs must be non-negative integers.",
-            "invalid_duplicate": "Each GPU ID must be unique.",
+            "invalid_duplicate": "Duplicate GPU_DEVICE_IDS:",
             "invalid_count": "must match the total parallelism world size",
         }
 
