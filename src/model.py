@@ -334,7 +334,7 @@ class TritonPythonModel:
                 self.logger.log_info(
                     f"Detected KIND_GPU model instance, explicitly setting GPU device={triton_device_id} for {triton_instance}"
                 )
-                # vLLM doesn't currently (v0.4.2) expose device selection in the APIs
+                # vLLM doesn't currently (v0.20.1) expose device selection in the APIs
                 os.environ["CUDA_VISIBLE_DEVICES"] = str(triton_device_id)
 
         elif triton_kind == "MODEL":
