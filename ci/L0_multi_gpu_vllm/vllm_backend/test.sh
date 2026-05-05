@@ -64,7 +64,7 @@ function run_test_with_server() {
     local TEST_NAME="${1}"
     local TEST_METHOD="${2}"
 
-    SERVER_LOG="./${TEST_NAME}--server.log"
+    SERVER_LOG="./${TEST_NAME}.server.log"
     run_server
     if [ "$SERVER_PID" == "0" ]; then
         cat "$SERVER_LOG"
@@ -73,7 +73,7 @@ function run_test_with_server() {
     fi
 
     set +e
-    CLIENT_LOG="./${TEST_NAME}--client.log"
+    CLIENT_LOG="./${TEST_NAME}.client.log"
     python3 "$CLIENT_PY" "${TEST_METHOD}" -v > "$CLIENT_LOG" 2>&1
 
     if [ $? -ne 0 ]; then
