@@ -199,6 +199,111 @@ class VLLMMultiGPUTest(TestResultCollector):
 
         self._test_vllm_multi_gpu_utilization(model)
 
+    def _assert_model_loaded_on_pinned_gpus(
+        self, model_name: str, pinned_gpu_ids: list[int]
+    ):
+        """
+        Loads the specified model, runs a sanity-check inference, and asserts:
+
+        Every GPU listed in pinned_gpu_ids shows a significant memory increase,
+        confirming the model loaded on the GPUs specified by GPU_DEVICE_IDS.
+        Every GPU not listed in pinned_gpu_ids shows no significant memory increase,
+        confirming that CUDA_VISIBLE_DEVICES correctly restricted GPU visibility for vLLM.
+        """
+
+        all_gpu_ids = self.get_available_gpu_ids()
+        self.assertGreaterEqual(len(all_gpu_ids), 2, "Error: Detected single GPU")
+
+        pinned_set = set(pinned_gpu_ids)
+
+        print(f"\n\n=============== Before Loading {model_name} ===============")
+        mem_before = {}
+        for gpu_id in all_gpu_ids:
+            mem_before[gpu_id] = self.get_gpu_memory_utilization(gpu_id)
+            print(f"  GPU {gpu_id}: {mem_before[gpu_id]:,} bytes")
+
+        self.triton_client.load_model(model_name)
+        self._test_vllm_model(model_name)
+
+        print(f"\n\n=============== After Loading {model_name} ===============")
+        for gpu_id in all_gpu_ids:
+            mem_after = self.get_gpu_memory_utilization(gpu_id)
+            delta = mem_after - mem_before[gpu_id]
+            print(f"  GPU {gpu_id}: {mem_after:,} bytes  (delta: {delta:+,} bytes)")
+
+            if gpu_id in pinned_set:
+                self.assertGreater(
+                    delta,
+                    0,
+                    f"GPU {gpu_id} is listed in GPU_DEVICE_IDS={pinned_gpu_ids}, but its "
+                    f"memory usage did not increase after loading the model.",
+                )
+            else:
+                self.assertLessEqual(
+                    delta,
+                    0,
+                    f"GPU {gpu_id} is not listed in GPU_DEVICE_IDS={pinned_gpu_ids}, but its "
+                    f"memory usage increased by {delta:,} bytes. "
+                    f"CUDA_VISIBLE_DEVICES should have hidden this GPU from vLLM.",
+                )
+
+    def test_gpu_device_ids(self):
+        """
+        Tests that a KIND_MODEL instance with GPU_DEVICE_IDS specified loads on exactly
+        the requested GPUs and serves inference correctly.
+        """
+        model = os.environ.get("TEST_MODEL")
+        gpu_device_ids = os.environ.get("GPU_DEVICE_IDS")
+        if model is None or gpu_device_ids is None:
+            self.fail(
+                "Environment variables TEST_MODEL and GPU_DEVICE_IDS are required"
+            )
+
+        pinned_gpu_ids = [int(x.strip()) for x in gpu_device_ids.split(",")]
+        available_gpu_ids = self.get_available_gpu_ids()
+        for gpu_id in pinned_gpu_ids:
+            self.assertIn(
+                gpu_id,
+                available_gpu_ids,
+                f"GPU {gpu_id} in GPU_DEVICE_IDS is not available on this system",
+            )
+
+        self._assert_model_loaded_on_pinned_gpus(model, pinned_gpu_ids)
+
+    def test_invalid_gpu_device_ids(self):
+        """
+        Tests that models configured with invalid GPU_DEVICE_IDS values
+        are rejected at load time with clear and specific error messages.
+        """
+        invalid_models_str = os.environ.get("INVALID_GPU_DEVICE_IDS_MODELS")
+        if invalid_models_str is None:
+            self.fail("Environment variable INVALID_GPU_DEVICE_IDS_MODELS is not set")
+
+        invalid_models = [m.strip() for m in invalid_models_str.split(",") if m.strip()]
+        self.assertGreater(len(invalid_models), 0, "No invalid models specified")
+
+        # Maps a substring of the model name to the error fragment expected from
+        # _validate_device_config().
+        expected_errors = {
+            "invalid_format": "Expected a comma-separated list of integer GPU IDs",
+            "invalid_whitespace": "Expected a comma-separated list of integer GPU IDs",
+            "invalid_negative": "GPU IDs must be non-negative integers.",
+            "invalid_duplicate": "Duplicate GPU_DEVICE_IDS:",
+            "invalid_count": "must match the total parallelism world size",
+        }
+
+        for model in invalid_models:
+            matched_key = next((key for key in expected_errors if key in model), None)
+            self.assertIsNotNone(
+                matched_key,
+                f"Model name '{model}' does not match any expected error key: "
+                f"{list(expected_errors.keys())}",
+            )
+
+            expected_pattern = expected_errors[matched_key]
+            with self.assertRaisesRegex(InferenceServerException, expected_pattern):
+                self.triton_client.load_model(model)
+
     def tearDown(self):
         pynvml.nvmlShutdown()
         self.triton_client.close()
