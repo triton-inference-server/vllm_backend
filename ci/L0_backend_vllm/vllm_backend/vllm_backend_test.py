@@ -94,6 +94,55 @@ class VLLMTritonBackendTest(TestResultCollector):
         self.triton_client.unload_model(self.vllm_load_test)
         self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
 
+    def test_invalid_sampling_parameters(self):
+        user_data = UserData()
+        self.triton_client.start_stream(callback=partial(callback, user_data))
+        try:
+            invalid_request = create_vllm_request(
+                PROMPTS[0],
+                "invalid-sampling-parameters",
+                False,
+                [],
+                self.vllm_model_name,
+                send_parameters_as_tensor=True,
+            )
+            self.triton_client.async_stream_infer(
+                model_name=self.vllm_model_name,
+                request_id=invalid_request["request_id"],
+                inputs=invalid_request["inputs"],
+                outputs=invalid_request["outputs"],
+                parameters={},
+            )
+
+            result = user_data._completed_requests.get(timeout=30)
+            self.assertIsInstance(result, InferenceServerException)
+            self.assertIn("[StatusCode.INVALID_ARGUMENT]", str(result))
+            self.assertIn(
+                "Invalid sampling_parameters: expected a JSON object.", str(result)
+            )
+
+            valid_request = create_vllm_request(
+                PROMPTS[0],
+                "valid-sampling-parameters",
+                False,
+                SAMPLING_PARAMETERS,
+                self.vllm_model_name,
+                send_parameters_as_tensor=True,
+            )
+            self.triton_client.async_stream_infer(
+                model_name=self.vllm_model_name,
+                request_id=valid_request["request_id"],
+                inputs=valid_request["inputs"],
+                outputs=valid_request["outputs"],
+                parameters=SAMPLING_PARAMETERS,
+            )
+
+            result = user_data._completed_requests.get(timeout=30)
+            self.assertNotIsInstance(result, InferenceServerException, str(result))
+            self.assertIsNotNone(result.as_numpy("text_output"))
+        finally:
+            self.triton_client.stop_stream()
+
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
         with self.assertRaises(InferenceServerException):
