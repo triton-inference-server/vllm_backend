@@ -628,13 +628,33 @@ class TritonPythonModel:
         parameters_input_tensor = pb_utils.get_input_tensor_by_name(
             request, "sampling_parameters"
         )
-        if parameters_input_tensor:
-            parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
+        try:
+            if parameters_input_tensor:
+                parameters = parameters_input_tensor.as_numpy()[0].decode("utf-8")
+            else:
+                parameters = request.parameters()
+            parameters = json.loads(parameters)
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+            lora_error = pb_utils.TritonError(
+                "Invalid sampling_parameters: expected a UTF-8 encoded "
+                "JSON object.",
+                code=pb_utils.TritonError.INVALID_ARG,
+            )
         else:
-            parameters = request.parameters()
+            if not isinstance(parameters, dict):
+                lora_error = pb_utils.TritonError(
+                    "Invalid sampling_parameters: expected a JSON object.",
+                    code=pb_utils.TritonError.INVALID_ARG,
+                )
+            else:
+                lora_name = parameters.get("lora_name")
+                if lora_name is not None and not isinstance(lora_name, str):
+                    lora_error = pb_utils.TritonError(
+                        "Invalid sampling_parameters: 'lora_name' must be a string.",
+                        code=pb_utils.TritonError.INVALID_ARG,
+                    )
 
-        lora_name = json.loads(parameters).pop("lora_name", None)
-        if lora_name is not None:
+        if lora_error is None and lora_name is not None:
             if not self.enable_lora:
                 lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
                 self.logger.log_info(
