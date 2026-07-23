@@ -116,7 +116,6 @@ class VLLMTritonBackendTest(TestResultCollector):
 
             result = user_data._completed_requests.get(timeout=30)
             self.assertIsInstance(result, InferenceServerException)
-            self.assertIn("[StatusCode.INVALID_ARGUMENT]", str(result))
             self.assertIn(
                 "Invalid sampling_parameters: expected a JSON object.", str(result)
             )

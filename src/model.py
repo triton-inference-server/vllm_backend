@@ -636,8 +636,7 @@ class TritonPythonModel:
             parameters = json.loads(parameters)
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
             lora_error = pb_utils.TritonError(
-                "Invalid sampling_parameters: expected a UTF-8 encoded "
-                "JSON object.",
+                "Invalid sampling_parameters: expected a UTF-8 encoded " "JSON object.",
                 code=pb_utils.TritonError.INVALID_ARG,
             )
         else:
