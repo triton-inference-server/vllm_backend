@@ -619,11 +619,9 @@ class TritonPythonModel:
                 self._ongoing_request_count -= 1
 
     def _verify_loras(self, request):
-        # We will check if the requested lora exists here, if not we will send a
-        # response with `LoRA not found` information. In this way we may avoid
-        # further processing.
+        # Validate sampling parameters and any requested LoRA before processing.
         verified_request = None
-        lora_error = None
+        request_error = None
         lora_name = None
         parameters_input_tensor = pb_utils.get_input_tensor_by_name(
             request, "sampling_parameters"
@@ -635,38 +633,38 @@ class TritonPythonModel:
                 parameters = request.parameters()
             parameters = json.loads(parameters)
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
-            lora_error = pb_utils.TritonError(
-                "Invalid sampling_parameters: expected a UTF-8 encoded " "JSON object.",
+            request_error = pb_utils.TritonError(
+                "Invalid sampling_parameters: expected a UTF-8 encoded JSON object.",
                 code=pb_utils.TritonError.INVALID_ARG,
             )
         else:
             if not isinstance(parameters, dict):
-                lora_error = pb_utils.TritonError(
+                request_error = pb_utils.TritonError(
                     "Invalid sampling_parameters: expected a JSON object.",
                     code=pb_utils.TritonError.INVALID_ARG,
                 )
             else:
                 lora_name = parameters.get("lora_name")
                 if lora_name is not None and not isinstance(lora_name, str):
-                    lora_error = pb_utils.TritonError(
+                    request_error = pb_utils.TritonError(
                         "Invalid sampling_parameters: 'lora_name' must be a string.",
                         code=pb_utils.TritonError.INVALID_ARG,
                     )
 
-        if lora_error is None and lora_name is not None:
+        if request_error is None and lora_name is not None:
             if not self.enable_lora:
-                lora_error = pb_utils.TritonError("LoRA feature is not enabled.")
+                request_error = pb_utils.TritonError("LoRA feature is not enabled.")
                 self.logger.log_info(
                     "[vllm] LoRA is not enabled, please restart the backend with LoRA enabled."
                 )
             elif lora_name not in self.supported_loras:
-                lora_error = pb_utils.TritonError(
+                request_error = pb_utils.TritonError(
                     f"LoRA {lora_name} is not supported, we currently support {self.supported_loras}"
                 )
                 self.logger.log_info(f"[vllm] LoRA {lora_name} not found.")
 
-        if lora_error is not None:
-            self.respond_error(request, lora_error.message, lora_error)
+        if request_error is not None:
+            self.respond_error(request, request_error.message, request_error)
         else:
             verified_request = request
         return verified_request
