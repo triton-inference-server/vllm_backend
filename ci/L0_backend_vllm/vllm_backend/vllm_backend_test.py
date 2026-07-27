@@ -106,7 +106,7 @@ class VLLMTritonBackendTest(TestResultCollector):
                 "invalid-utf8",
                 {},
                 b"\xff",
-                "Invalid sampling_parameters: expected a UTF-8 encoded JSON object.",
+                "Invalid sampling_parameters: expected a valid JSON object.",
             ),
             (
                 "non-string-lora-name",
