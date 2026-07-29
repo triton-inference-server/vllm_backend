@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ CLIENT_LOG="./vllm_backend_client.log"
 TEST_RESULT_FILE='test_results.txt'
 CLIENT_PY="./vllm_backend_test.py"
 SAMPLE_MODELS_REPO="../../../samples/model_repository"
-EXPECTED_NUM_TESTS=6
+EXPECTED_NUM_TESTS=7
 
 # Helpers =======================================
 function assert_curl_success {

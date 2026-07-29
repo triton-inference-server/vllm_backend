@@ -1,4 +1,4 @@
-# Copyright 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -93,6 +93,83 @@ class VLLMTritonBackendTest(TestResultCollector):
         )
         self.triton_client.unload_model(self.vllm_load_test)
         self.assertFalse(self.triton_client.is_model_ready(self.vllm_load_test))
+
+    def test_invalid_sampling_parameters(self):
+        invalid_cases = (
+            (
+                "non-object-json",
+                [],
+                None,
+                "Invalid sampling_parameters: expected a JSON object.",
+            ),
+            (
+                "invalid-utf8",
+                {},
+                b"\xff",
+                "Invalid sampling_parameters: expected a valid JSON object.",
+            ),
+            (
+                "non-string-lora-name",
+                {"lora_name": 42},
+                None,
+                "Invalid sampling_parameters: 'lora_name' must be a string.",
+            ),
+        )
+        user_data = UserData()
+        self.triton_client.start_stream(callback=partial(callback, user_data))
+        try:
+            for request_id, parameters, raw_payload, expected_error in invalid_cases:
+                with self.subTest(request_id=request_id):
+                    invalid_request = create_vllm_request(
+                        PROMPTS[0],
+                        request_id,
+                        False,
+                        parameters,
+                        self.vllm_model_name,
+                        send_parameters_as_tensor=True,
+                    )
+                    if raw_payload is not None:
+                        parameters_input = next(
+                            input_tensor
+                            for input_tensor in invalid_request["inputs"]
+                            if input_tensor.name() == "sampling_parameters"
+                        )
+                        parameters_input.set_data_from_numpy(
+                            np.array([raw_payload], dtype=np.object_)
+                        )
+                    self.triton_client.async_stream_infer(
+                        model_name=self.vllm_model_name,
+                        request_id=invalid_request["request_id"],
+                        inputs=invalid_request["inputs"],
+                        outputs=invalid_request["outputs"],
+                        parameters={},
+                    )
+
+                    result = user_data._completed_requests.get(timeout=30)
+                    self.assertIsInstance(result, InferenceServerException)
+                    self.assertIn(expected_error, str(result))
+
+            valid_request = create_vllm_request(
+                PROMPTS[0],
+                "valid-sampling-parameters",
+                False,
+                SAMPLING_PARAMETERS,
+                self.vllm_model_name,
+                send_parameters_as_tensor=True,
+            )
+            self.triton_client.async_stream_infer(
+                model_name=self.vllm_model_name,
+                request_id=valid_request["request_id"],
+                inputs=valid_request["inputs"],
+                outputs=valid_request["outputs"],
+                parameters=SAMPLING_PARAMETERS,
+            )
+
+            result = user_data._completed_requests.get(timeout=30)
+            self.assertNotIsInstance(result, InferenceServerException, str(result))
+            self.assertIsNotNone(result.as_numpy("text_output"))
+        finally:
+            self.triton_client.stop_stream()
 
     def test_model_with_invalid_attributes(self):
         model_name = "vllm_invalid_1"
