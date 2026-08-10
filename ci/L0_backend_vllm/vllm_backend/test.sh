@@ -99,6 +99,11 @@ else
         RET=1
     fi
 fi
+
+if grep -q "Passing raw prompts to InputProcessor is deprecated" "$SERVER_LOG"; then
+    echo -e "\n***\n*** Raw prompt deprecation warning found.\n***"
+    RET=1
+fi
 set -e
 
 kill $SERVER_PID
