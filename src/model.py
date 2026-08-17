@@ -184,7 +184,7 @@ class TritonPythonModel:
         # TODO: Move the check into _setup_metrics().
         self._enable_metrics = (
             self._get_bool_config_param("REPORT_CUSTOM_METRICS")
-            and not self._aync_engine_args.disable_log_stats
+            and not self._async_engine_args.disable_log_stats
         )
 
         # Setup vLLM metrics
@@ -225,7 +225,7 @@ class TritonPythonModel:
         self._setup_lora()
 
         # Create an AsyncEngineArgs from the config from JSON
-        self._aync_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
+        self._async_engine_args = AsyncEngineArgs(**self.vllm_engine_config)
 
     def _init_engine(self):
         # Run the engine in a separate thread running the AsyncIO event loop.
@@ -266,7 +266,7 @@ class TritonPythonModel:
             # statement.
             # TODO: Metrics should work with ZMQ enabled.
             async with build_async_engine_client_from_engine_args(
-                engine_args=self._aync_engine_args,
+                engine_args=self._async_engine_args,
                 logger=self.logger,
                 disable_frontend_multiprocessing=self._enable_metrics,
                 stat_loggers=self._vllm_metrics,
