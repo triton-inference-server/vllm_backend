@@ -253,8 +253,6 @@ histogram_e2e_time_request
 histogram_num_prompt_tokens_request
 # Number of generation tokens processed.
 histogram_num_generation_tokens_request
-# Histogram of the best_of request parameter.
-histogram_best_of_request
 # Histogram of the n request parameter.
 histogram_n_request
 ```
