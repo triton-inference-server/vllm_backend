@@ -515,6 +515,7 @@ class TritonPythonModel:
                     request = GenerateRequest(
                         request,
                         self._llm_engine.generate,
+                        self._llm_engine.renderer.render_cmpl_async,
                         self.output_dtype,
                         self.logger,
                         self.lora_repository,
@@ -524,6 +525,7 @@ class TritonPythonModel:
                     request = GenerateRequest(
                         request,
                         self._llm_engine.generate,
+                        self._llm_engine.renderer.render_cmpl_async,
                         self.output_dtype,
                         self.logger,
                     )
