@@ -77,12 +77,14 @@ class GenerateRequest(RequestBase):
         self,
         request,
         executor_callback: Callable,
+        renderer_callback: Callable,
         output_dtype: np.dtype,
         logger,
         lora_repository: Optional[Dict[str, str]] = None,
         supported_loras: Optional[List[str]] = None,
     ):
         super().__init__(request, executor_callback, output_dtype, logger)
+        self.renderer_callback = renderer_callback
         # Attributes for generate requests
         if lora_repository is not None:
             self.lora_repository = lora_repository
@@ -96,6 +98,7 @@ class GenerateRequest(RequestBase):
         ).as_numpy()[0]
         if isinstance(prompt, bytes):
             prompt = prompt.decode("utf-8")
+        prompt = {"prompt": prompt}
 
         # image
         images = pb_utils.get_input_tensor_by_name(self.triton_request, "image")
@@ -106,10 +109,7 @@ class GenerateRequest(RequestBase):
                 image_rgb = Image.open(BytesIO(image_b)).convert("RGB")
                 images_vllm.append(image_rgb)
             if len(images_vllm) > 0:
-                prompt = {
-                    "prompt": prompt,
-                    "multi_modal_data": {"image": images_vllm},
-                }
+                prompt["multi_modal_data"] = {"image": images_vllm}
 
         # stream
         stream = pb_utils.get_input_tensor_by_name(self.triton_request, "stream")
@@ -182,6 +182,7 @@ class GenerateRequest(RequestBase):
             lora_local_path = self.lora_repository[lora_name]
             lora_request = LoRARequest(lora_id, lora_int_id, lora_local_path)
 
+        (prompt,) = await self.renderer_callback([prompt])
         response_iterator = self.executor_callback(
             prompt, sampling_params, self.id, lora_request=lora_request
         )
@@ -307,9 +308,15 @@ class GenerateRequest(RequestBase):
 
 class EmbedRequest(RequestBase):
     def __init__(
-        self, request, executor_callback: Callable, output_dtype: np.dtype, logger
+        self,
+        request,
+        executor_callback: Callable,
+        renderer_callback: Callable,
+        output_dtype: np.dtype,
+        logger,
     ):
         super().__init__(request, executor_callback, output_dtype, logger)
+        self.renderer_callback = renderer_callback
 
     def _get_input_tensors(self):
         embedding_request = pb_utils.get_input_tensor_by_name(
@@ -319,7 +326,7 @@ class EmbedRequest(RequestBase):
         # prompt
         prompt = embedding_request["input"]
         if isinstance(prompt, str):
-            pass  # do nothing
+            prompt = {"prompt": prompt}
         elif (
             isinstance(prompt, list) and len(prompt) > 0 and isinstance(prompt[0], int)
         ):
@@ -351,7 +358,7 @@ class EmbedRequest(RequestBase):
             self.additional_outputs,
         ) = self._get_input_tensors()
 
-        # Create PoolingParams for embeddings
+        (prompt,) = await self.renderer_callback([prompt])
         response_iterator = self.executor_callback(prompt, pooling_params, self.id)
 
         # Yield each response from the async iterator
