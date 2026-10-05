@@ -63,7 +63,7 @@ for past security bulletins and notices.
 [vLLM](https://github.com/vllm-project/vllm). It is a Python-based Triton
 backend (`src/model.py`, `src/utils/`) that runs inside the Triton Python
 backend stub process and forwards inference requests to a vLLM
-`AsyncLLMEngine`.
+`AsyncLLM` engine.
 
 **Software classification:** Library (a plug-in loaded by Triton Inference
 Server; it exposes no network listener of its own).
@@ -103,8 +103,10 @@ granted to the host Triton process.
 2. **Untrusted `sampling_parameters` JSON:** clients provide a JSON string
    that is parsed and mapped onto vLLM sampling options, including
    `lora_name`. Extreme values (very large token counts, many sequences) can
-   cause resource exhaustion in the shared engine, and unexpected keys can
-   alter engine behavior beyond what the model owner intended.
+   cause resource exhaustion in the shared engine. Parameters that fail to
+   construct (for example, unsupported keys) fail in `src/utils/request.py`
+   before the request is submitted to vLLM, so supported parameters with
+   extreme values are the main concern.
 3. **Malicious or tampered model artifacts:** `model.json` is passed to
    `AsyncEngineArgs`, and model weights or LoRA adapters are loaded by vLLM.
    Weights from an untrusted source, or an engine option that enables remote
