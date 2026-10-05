@@ -30,123 +30,51 @@
 
 ## Reporting a Vulnerability
 
-To report a potential security vulnerability in this project or any other
-NVIDIA product, please use one of the following channels. **Do not open a
-public GitHub issue for a security vulnerability.**
+NVIDIA is dedicated to the security and trust of our software products and services, including all source code repositories managed through our organization.
 
-1. **NVIDIA Vulnerability Disclosure Program** (preferred):
-   <https://www.nvidia.com/en-us/security/>
-2. **Email:** [psirt@nvidia.com](mailto:psirt@nvidia.com). Please encrypt
-   sensitive reports with NVIDIA's public PGP key
-   (<https://www.nvidia.com/en-us/security/pgp-key>).
-3. **GitHub Private Vulnerability Reporting**, if enabled, via the
-   repository's **Security** tab.
+To report a potential security vulnerability, please use one of the following channels:
 
-**OEM partners should contact their NVIDIA Customer Program Manager.**
+1. **NVIDIA Vulnerability Disclosure Program** (preferred): https://www.nvidia.com/en-us/security/
+2. **Web form:** [Security Vulnerability Submission Form](https://www.nvidia.com/object/submit-security-vulnerability.html)
+3. **Email:** [NVIDIA PSIRT](mailto:psirt@nvidia.com). Please encrypt sensitive reports with NVIDIA's [PGP key](https://www.nvidia.com/en-us/security/pgp-key).
+4. **GitHub Private Vulnerability Reporting (where enabled):** use the "Report a vulnerability" button on the Security tab of this repository.
+
+**Do not open a public issue or pull request to report a vulnerability.**
 
 Please include:
 
-1. Product name and version or branch that contains the vulnerability
-2. Type of vulnerability (for example code execution, denial of service,
-   information disclosure)
-3. Instructions to reproduce the vulnerability
-4. Proof-of-concept or exploit code, if available
-5. Potential impact, including how an attacker could exploit it
+* Product or component name and version or branch
+* Type of vulnerability
+* Steps to reproduce
+* Proof of concept, if available
+* Potential impact and how it could be exploited
 
-NVIDIA PSIRT acknowledges reports, triages them, and coordinates fixes and
-disclosure with the reporter. See <https://www.nvidia.com/en-us/security/>
-for past security bulletins and notices.
+See https://www.nvidia.com/en-us/security/ for past NVIDIA Security Bulletins and Notices.
 
 ## Security Architecture and Context
 
-**Project:** the Triton Inference Server backend for
-[vLLM](https://github.com/vllm-project/vllm). It is a Python-based Triton
-backend (`src/model.py`, `src/utils/`) that runs inside the Triton Python
-backend stub process and forwards inference requests to a vLLM
-`AsyncLLM` engine.
+**Project:** vllm_backend is part of the Triton Inference Server project.
 
-**Software classification:** Library (a plug-in loaded by Triton Inference
-Server; it exposes no network listener of its own).
+**Software type:** Software component (library, backend, client or tool) used as part of a Triton Inference Server deployment.
 
-**Repository Exposure Classification:** Public (the repository is publicly
-readable on GitHub).
+**Security boundaries:** The main security boundary is between this component and the data, models and configuration it is given, and between it and the server or application that hosts it.
 
-**Service Exposure Classification:** Internal-Sensitive, medium confidence.
-Basis: a deployment-dependent component whose exposure is determined by the
-Triton Inference Server that hosts it; it processes user-supplied prompts and
-may load third-party model weights. This is an informal descriptor, not an
-official NVIDIA label.
+**Repository Exposure Classification:** Public.
 
-**Primary security responsibility:** safely translate Triton request tensors
-into vLLM engine calls and return the results, without widening the trust
-granted to the host Triton process.
-
-**Key interfaces and boundaries:**
-
-- **Triton request tensors** (`text_input`, `image`, `sampling_parameters`,
-  `stream`, `embedding_request`, and others), supplied by clients through
-  Triton's HTTP/gRPC frontends. This is the untrusted-input boundary.
-- **Model repository files** (`model.json` engine arguments and the optional
-  `multi_lora.json` adapter map), read from the model directory at load time.
-  These are trusted administrator-supplied configuration.
-- **vLLM engine and model weights**, fetched or loaded by vLLM according to
-  `model.json` (local path or a model hub identifier).
-- **Triton metrics and logging APIs**, used to publish vLLM statistics and
-  log messages.
+**Service Exposure Classification:** Deployment-dependent. Exposure depends on how the software is deployed and configured by the operator.
 
 ## Threat Model
 
-1. **Malformed or oversized image input:** the `image` tensor is
-   base64-decoded and opened with Pillow (`src/utils/request.py`). A crafted
-   or very large image can exhaust memory or trigger a parser defect in the
-   image library, affecting the shared backend process.
-2. **Untrusted `sampling_parameters` JSON:** clients provide a JSON string
-   that is parsed and mapped onto vLLM sampling options, including
-   `lora_name`. Extreme values (very large token counts, many sequences) can
-   cause resource exhaustion in the shared engine. Parameters that fail to
-   construct (for example, unsupported keys) fail in `src/utils/request.py`
-   before the request is submitted to vLLM, so supported parameters with
-   extreme values are the main concern.
-3. **Malicious or tampered model artifacts:** `model.json` is passed to
-   `AsyncEngineArgs`, and model weights or LoRA adapters are loaded by vLLM.
-   Weights from an untrusted source, or an engine option that enables remote
-   code execution in model loading, can lead to code execution in the Triton
-   process.
-4. **LoRA adapter selection:** `lora_name` is resolved through
-   `multi_lora.json` to a filesystem path (`src/model.py`,
-   `src/utils/request.py`). A writable or attacker-influenced adapter map or
-   adapter directory lets an attacker load unintended weights.
-5. **Reserved embedding input:** the `embedding_request` tensor is intended
-   only for Triton's OpenAI-compatible frontend, but any client able to send
-   it can supply arbitrary JSON (`input`, `pooling_params`) to the embedding
-   path.
-6. **Information disclosure through logs and errors:** tracebacks and request
-   details are written to the Triton log (`self.logger.log_error`). Prompts,
-   model paths, or stack traces could reach log consumers with weaker access
-   controls than the inference API.
-7. **Denial of service by request flooding or cancellation races:** all
-   requests are placed on the vLLM engine as they arrive, and the engine runs
-   in its own event-loop thread with a separate response thread. Floods or
-   rapid cancellation can starve other tenants of GPU memory and
-   throughput.
+1. **Untrusted input:** Requests, models, configuration or data supplied to this component may be malformed or malicious, and could cause crashes, memory errors or unintended behavior if not validated.
+2. **Supply chain:** Source and build dependencies fetched at build or install time may be compromised, outdated or unpinned.
+3. **Network exposure:** When deployed behind a network-facing server, endpoints may be reachable by untrusted clients. This component does not by itself provide authentication, authorization or encryption.
+4. **Resource exhaustion:** Oversized or numerous requests may consume memory, compute or other resources and degrade availability.
+5. **Information disclosure:** Logs, metrics and error messages may reveal sensitive data such as paths, identifiers or request content.
 
 ## Critical Security Assumptions
 
-- **Authentication and authorization are external.** This backend performs
-  none. It assumes Triton, a gateway, or network controls authenticate and
-  authorize callers.
-- **Transport security is external.** TLS termination and network isolation
-  are provided by the Triton deployment or surrounding infrastructure.
-- **Model repository contents are trusted.** `model.json`, `multi_lora.json`,
-  model weights, and adapter files are assumed to come from a trusted source
-  and to be writable only by administrators.
-- **Input is not fully validated here.** Prompt text, image payloads, and
-  sampling parameters are passed to vLLM and Pillow, which are assumed to
-  handle hostile input safely; callers are expected to enforce size and rate
-  limits upstream.
-- **Resource isolation relies on the host.** Per-tenant quotas, GPU memory
-  limits, and request limits are assumed to be enforced by Triton
-  configuration and the deployment platform.
-- **Dependencies are kept current.** The versions of vLLM and Pillow
-  supplied by the Triton container are assumed to receive security updates
-  through regular Triton releases.
+* The component is deployed in a trusted environment or behind a gateway that provides authentication, authorization, TLS and rate limiting.
+* Models, configuration and other inputs come from trusted sources.
+* Dependencies and the build environment are kept up to date and obtained from trusted sources.
+* Operators protect secrets, certificates and credentials, and restrict access to logs and metrics.
+* Host operating system, driver and hardware security are the operator's responsibility.
