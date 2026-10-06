@@ -30,8 +30,23 @@ from typing import Dict, List, Optional, Union
 
 import triton_python_backend_utils as pb_utils
 from vllm.config import VllmConfig
-from vllm.v1.metrics.loggers import StatLoggerBase, build_1_2_5_buckets
+from vllm.v1.metrics.loggers import StatLoggerBase
 from vllm.v1.metrics.stats import IterationStats, MultiModalCacheStats, SchedulerStats
+
+try:
+    # vllm >= 0.30 moved the bucket helpers into vllm.v1.metrics.buckets and
+    # reaches them through histogram_buckets(); the "request_tokens" family
+    # still delegates to the 1-2-5 series, so the boundaries are unchanged.
+    from vllm.v1.metrics.buckets import histogram_buckets
+
+    def _request_token_buckets(max_model_len: int) -> List[float]:
+        return histogram_buckets("request_tokens", max_model_len)
+
+except ImportError:
+    from vllm.v1.metrics.loggers import build_1_2_5_buckets
+
+    def _request_token_buckets(max_model_len: int) -> List[float]:
+        return build_1_2_5_buckets(max_model_len)
 
 
 class TritonMetrics:
@@ -145,13 +160,13 @@ class TritonMetrics:
         self.histogram_num_prompt_tokens_request = (
             self.histogram_num_prompt_tokens_request_family.Metric(
                 labels=labels,
-                buckets=build_1_2_5_buckets(max_model_len),
+                buckets=_request_token_buckets(max_model_len),
             )
         )
         self.histogram_num_generation_tokens_request = (
             self.histogram_num_generation_tokens_request_family.Metric(
                 labels=labels,
-                buckets=build_1_2_5_buckets(max_model_len),
+                buckets=_request_token_buckets(max_model_len),
             )
         )
         self.histogram_n_request = self.histogram_n_request_family.Metric(
